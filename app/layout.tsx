@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Playfair_Display, Nunito } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -7,9 +7,18 @@ import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-sans",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
+  display: "swap",
+});
+
+const nunito = Nunito({
+  variable: "--font-nunito",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -39,7 +48,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} antialiased min-h-screen flex flex-col`}>
+      <body className={`${playfair.variable} ${nunito.variable} antialiased min-h-screen flex flex-col`}>
         <Header profile={profile} />
         <main className="flex-1">{children}</main>
         <Footer />
