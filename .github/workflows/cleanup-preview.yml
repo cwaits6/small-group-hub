@@ -1,4 +1,4 @@
-name: Cleanup Vercel Preview
+name: Cleanup Deployments
 
 on:
   pull_request:
@@ -8,11 +8,36 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete Vercel preview deployments
+      - name: Delete Vercel preview deployments for PR branch
         run: |
           deployments=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&meta-githubCommitRef=${{ github.head_ref }}" \
             -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | jq -r '.deployments[].uid')
           for uid in $deployments; do
             curl -s -X DELETE "https://api.vercel.com/v13/deployments/$uid" \
               -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+          done
+
+      - name: Prune old Vercel production deployments (keep last 2)
+        run: |
+          all=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&target=production&limit=100" \
+            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | jq -r '.deployments[].uid')
+          count=0
+          for uid in $all; do
+            count=$((count + 1))
+            if [ $count -gt 2 ]; then
+              curl -s -X DELETE "https://api.vercel.com/v13/deployments/$uid" \
+                -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+            fi
+          done
+
+      - name: Deactivate and delete GitHub deployments for PR branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          deployments=$(gh api repos/${{ github.repository }}/deployments \
+            --jq '.[] | select(.ref == "${{ github.head_ref }}") | .id')
+          for id in $deployments; do
+            gh api repos/${{ github.repository }}/deployments/$id/statuses \
+              -f state=inactive -X POST
+            gh api repos/${{ github.repository }}/deployments/$id -X DELETE
           done
