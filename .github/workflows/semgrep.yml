@@ -51,15 +51,12 @@ jobs:
       - name: Comment on PR for manual findings
         if: github.event_name == 'pull_request'
         run: |
-          BODY=$(uv run python3 - <<'EOF'
+          SCRIPT='
 import json, sys
-
 data = json.load(open("semgrep-results.json"))
 results = [r for r in data.get("results", []) if "fix" not in r.get("extra", {})]
-
 if not results:
     sys.exit(0)
-
 lines = ["## Semgrep findings requiring manual fixes\n"]
 lines.append("Run `/semgrep-fix` locally with Claude Code to fix these.\n")
 for r in results:
@@ -68,10 +65,9 @@ for r in results:
     rule = r["check_id"]
     msg = r["extra"].get("message", "").strip().splitlines()[0]
     lines.append(f"- **{rule}** — `{path}:{line}`  \n  {msg}")
-
 print("\n".join(lines))
-EOF
-          )
+'
+          BODY=$(echo "$SCRIPT" | uv run python3 -)
 
           if [ -z "$BODY" ]; then
             echo "No manual findings to comment."
@@ -98,17 +94,14 @@ EOF
       - name: Open issue for findings on main
         if: github.event_name == 'push'
         run: |
-          BODY=$(uv run python3 - <<'EOF'
+          SCRIPT='
 import json, sys, os
-
 data = json.load(open("semgrep-results.json"))
 results = data.get("results", [])
-
 if not results:
     sys.exit(0)
-
 trigger = os.environ.get("COMMIT_MESSAGE", "unknown commit").splitlines()[0]
-lines = [f"## Semgrep findings introduced on main\n"]
+lines = ["## Semgrep findings introduced on main\n"]
 lines.append(f"**Triggered by:** {trigger}\n")
 lines.append("This likely came in via a dependency update or direct push. Run `/semgrep-fix` locally to address.\n")
 for r in results:
@@ -119,10 +112,9 @@ for r in results:
     has_fix = "fix" in r.get("extra", {})
     tag = " _(autofix available)_" if has_fix else ""
     lines.append(f"- **{rule}** — `{path}:{line}`{tag}  \n  {msg}")
-
 print("\n".join(lines))
-EOF
-          )
+'
+          BODY=$(echo "$SCRIPT" | uv run python3 -)
 
           if [ -z "$BODY" ]; then
             echo "No findings on main."
