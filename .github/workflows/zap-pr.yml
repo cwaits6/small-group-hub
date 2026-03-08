@@ -70,18 +70,20 @@ jobs:
               resolve_url "$URL"
             elif [ "$STATE" = "CANCELED" ]; then
               # Vercel skipped this commit (only non-app files changed).
-              # Fall back to the most recent READY deployment for the branch.
-              # The commit state will always be CANCELED, so fail fast if no fallback
-              # exists rather than spinning for 12 minutes.
-              echo "Vercel skipped this commit — falling back to latest branch deployment..."
-              FB=$(curl -sf \
-                "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
-                -H "Authorization: Bearer $VERCEL_TOKEN")
-              FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
-              if [ -n "$FB_URL" ]; then
-                resolve_url "$FB_URL"
-              fi
-              echo "No READY fallback deployment found for branch '$HEAD_REF'" && exit 1
+              # Try: 1) latest READY on this branch, 2) latest READY on main.
+              # Main is valid when the PR has no app changes (same code, different CI).
+              echo "Vercel skipped this commit — looking for fallback deployment..."
+              for REF in "$HEAD_REF" "main"; do
+                FB=$(curl -sf \
+                  "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$REF&limit=10" \
+                  -H "Authorization: Bearer $VERCEL_TOKEN")
+                FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
+                if [ -n "$FB_URL" ]; then
+                  echo "Using deployment from '$REF' branch"
+                  resolve_url "$FB_URL"
+                fi
+              done
+              echo "No READY deployment found for branch or main" && exit 1
             elif [ "$STATE" = "ERROR" ]; then
               echo "Vercel deployment errored" && exit 1
             fi
