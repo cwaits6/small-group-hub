@@ -20,7 +20,7 @@ It's open source and fully configurable, so any small group or church class can 
 
 The Incouragers class at First Redeemer Church needed a simple, welcoming space to replace their Facebook group. Members ranged widely in age and tech comfort — so everything had to be large, readable, and dead-simple to use. No cluttered feeds. No distracting algorithms. Just the group, their events, and their faith.
 
-Small Group Hub was built to solve exactly that. It launched as [incouragers.org](https://incouragers.org) and has since been open-sourced so other groups can benefit from the same foundation.
+Small Group Hub was built to solve exactly that. It has since been open-sourced so other groups can benefit from the same foundation.
 
 ---
 
