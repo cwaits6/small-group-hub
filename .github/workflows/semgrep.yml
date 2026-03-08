@@ -34,6 +34,8 @@ jobs:
 
       - name: Commit autofixes to branch
         if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           if git diff --quiet; then
             echo "No autofixes to commit."
@@ -43,7 +45,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "fix: apply semgrep autofixes"
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin "HEAD:$HEAD_REF"
 
       - name: Comment on PR for manual findings
         if: github.event_name == 'pull_request'
