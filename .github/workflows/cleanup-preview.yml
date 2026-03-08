@@ -9,12 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete Vercel preview deployments for PR branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          deployments=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${{ secrets.VERCEL_PROJECT_ID }}&meta-githubCommitRef=${{ github.head_ref }}" \
-            -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" | jq -r '.deployments[].uid')
+          deployments=$(curl -s "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF" \
+            -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.deployments[].uid')
           for uid in $deployments; do
             curl -s -X DELETE "https://api.vercel.com/v13/deployments/$uid" \
-              -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}"
+              -H "Authorization: Bearer $VERCEL_TOKEN"
           done
 
       - name: Prune old Vercel production deployments (keep last 2)
@@ -33,11 +37,13 @@ jobs:
       - name: Deactivate and delete GitHub deployments for PR branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPOSITORY: ${{ github.repository }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          deployments=$(gh api repos/${{ github.repository }}/deployments \
-            --jq '.[] | select(.ref == "${{ github.head_ref }}") | .id')
+          deployments=$(gh api "repos/$GH_REPOSITORY/deployments" \
+            --jq ".[] | select(.ref == \"$HEAD_REF\") | .id")
           for id in $deployments; do
-            gh api repos/${{ github.repository }}/deployments/$id/statuses \
+            gh api "repos/$GH_REPOSITORY/deployments/$id/statuses" \
               -f state=inactive -X POST
-            gh api repos/${{ github.repository }}/deployments/$id -X DELETE
+            gh api "repos/$GH_REPOSITORY/deployments/$id" -X DELETE
           done

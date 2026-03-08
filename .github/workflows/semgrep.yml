@@ -1,0 +1,84 @@
+name: Semgrep
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  semgrep:
+    name: Semgrep Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run Semgrep
+        run: uvx semgrep scan --config=auto --autofix --json --output=semgrep-results.json
+        continue-on-error: true
+
+      # ── PR branch flow ────────────────────────────────────────────────────
+
+      - name: Commit autofixes to branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if git diff --quiet; then
+            echo "No autofixes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: apply semgrep autofixes"
+          git push origin "HEAD:$HEAD_REF"
+
+      - name: Comment on PR for manual findings
+        if: github.event_name == 'pull_request'
+        run: |
+          BODY=$(uv run python3 .github/scripts/semgrep_pr_comment.py)
+          if [ -z "$BODY" ]; then
+            echo "No manual findings."
+            exit 0
+          fi
+          gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fail on findings
+        if: github.event_name == 'pull_request'
+        run: |
+          COUNT=$(jq '.results | length' semgrep-results.json 2>/dev/null || echo 0)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::Semgrep found $COUNT issue(s). See the PR comment for details."
+            exit 1
+          fi
+
+      # ── Push to main flow (dependency updates, direct commits) ────────────
+
+      - name: Open issue for findings on main
+        if: github.event_name == 'push'
+        run: |
+          BODY=$(uv run python3 .github/scripts/semgrep_main_issue.py)
+          if [ -z "$BODY" ]; then
+            echo "No findings on main."
+            exit 0
+          fi
+          gh issue create --title "Semgrep findings on main ($(date +%Y-%m-%d))" --body "$BODY" --label "security"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
