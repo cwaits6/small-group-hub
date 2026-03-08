@@ -69,21 +69,23 @@ jobs:
             if [ "$STATE" = "READY" ] && [ -n "$URL" ]; then
               resolve_url "$URL"
             elif [ "$STATE" = "CANCELED" ]; then
-              # Vercel skipped this commit (only non-app files changed).
-              # Try: 1) latest READY on this branch, 2) latest READY on main.
-              # Main is valid when the PR has no app changes (same code, different CI).
-              echo "Vercel skipped this commit — looking for fallback deployment..."
-              for REF in "$HEAD_REF" "main"; do
-                FB=$(curl -sf \
-                  "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$REF&limit=10" \
-                  -H "Authorization: Bearer $VERCEL_TOKEN")
-                FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
-                if [ -n "$FB_URL" ]; then
-                  echo "Using deployment from '$REF' branch"
-                  resolve_url "$FB_URL"
-                fi
-              done
-              echo "No READY deployment found for branch or main" && exit 1
+              # Vercel skipped this commit — only non-app files changed.
+              # Check if this branch has ever had a READY deployment (i.e. app code
+              # was changed in an earlier commit on this PR).
+              FB=$(curl -sf \
+                "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
+                -H "Authorization: Bearer $VERCEL_TOKEN")
+              FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
+              if [ -n "$FB_URL" ]; then
+                echo "Using most recent READY deployment for this branch"
+                resolve_url "$FB_URL"
+              fi
+              # No app code has ever been deployed on this branch — CI/config-only PR.
+              # Scanning main would be misleading (we'd pass on code we didn't review).
+              # Skip the scan and exit cleanly instead.
+              echo "No app deployment exists for this branch — CI-only PR, skipping scan."
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              exit 0
             elif [ "$STATE" = "ERROR" ]; then
               echo "Vercel deployment errored" && exit 1
             fi
@@ -108,8 +110,9 @@ jobs:
           fi
 
       # Baseline scan: spider + passive scan only. Fast (~3-5 min), no active attack.
-      # Posts results as a PR comment. fail_action: false = report only, don't block merge.
+      # Posts results as a PR comment. Skipped for CI-only PRs with no app deployment.
       - name: ZAP Baseline Scan
+        if: steps.deployment.outputs.skipped != 'true'
         uses: zaproxy/action-baseline@v0.14.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
