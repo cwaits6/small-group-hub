@@ -20,7 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          # Check out the actual branch so we can push autofixes back to it
           ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
 
@@ -33,7 +32,6 @@ jobs:
 
       # ── PR branch flow ────────────────────────────────────────────────────
 
-      # Commit any rule-based autofixes directly back to the PR branch
       - name: Commit autofixes to branch
         if: github.event_name == 'pull_request'
         run: |
@@ -47,84 +45,38 @@ jobs:
           git commit -m "fix: apply semgrep autofixes"
           git push origin HEAD:${{ github.head_ref }}
 
-      # Comment on the PR listing findings that need manual fixes (no autofix rule exists)
       - name: Comment on PR for manual findings
         if: github.event_name == 'pull_request'
         run: |
-          SCRIPT='
-import json, sys
-data = json.load(open("semgrep-results.json"))
-results = [r for r in data.get("results", []) if "fix" not in r.get("extra", {})]
-if not results:
-    sys.exit(0)
-lines = ["## Semgrep findings requiring manual fixes\n"]
-lines.append("Run `/semgrep-fix` locally with Claude Code to fix these.\n")
-for r in results:
-    path = r["path"]
-    line = r["start"]["line"]
-    rule = r["check_id"]
-    msg = r["extra"].get("message", "").strip().splitlines()[0]
-    lines.append(f"- **{rule}** — `{path}:{line}`  \n  {msg}")
-print("\n".join(lines))
-'
-          BODY=$(echo "$SCRIPT" | uv run python3 -)
-
+          BODY=$(uv run python3 .github/scripts/semgrep_pr_comment.py)
           if [ -z "$BODY" ]; then
-            echo "No manual findings to comment."
+            echo "No manual findings."
             exit 0
           fi
-
           gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Fail the check so the PR cannot merge until all findings are resolved
       - name: Fail on findings
         if: github.event_name == 'pull_request'
         run: |
-          COUNT=$(uv run python3 -c "import json; print(len(json.load(open('semgrep-results.json')).get('results', [])))" 2>/dev/null || echo 0)
+          COUNT=$(jq '.results | length' semgrep-results.json 2>/dev/null || echo 0)
           if [ "$COUNT" -gt 0 ]; then
-            echo "::error::Semgrep found $COUNT issue(s). See the PR comment for details, then run /semgrep-fix locally."
+            echo "::error::Semgrep found $COUNT issue(s). See the PR comment for details."
             exit 1
           fi
 
       # ── Push to main flow (dependency updates, direct commits) ────────────
 
-      # If findings reach main (e.g. via auto-merged dependency update), open an issue
       - name: Open issue for findings on main
         if: github.event_name == 'push'
         run: |
-          SCRIPT='
-import json, sys, os
-data = json.load(open("semgrep-results.json"))
-results = data.get("results", [])
-if not results:
-    sys.exit(0)
-trigger = os.environ.get("COMMIT_MESSAGE", "unknown commit").splitlines()[0]
-lines = ["## Semgrep findings introduced on main\n"]
-lines.append(f"**Triggered by:** {trigger}\n")
-lines.append("This likely came in via a dependency update or direct push. Run `/semgrep-fix` locally to address.\n")
-for r in results:
-    path = r["path"]
-    line = r["start"]["line"]
-    rule = r["check_id"]
-    msg = r["extra"].get("message", "").strip().splitlines()[0]
-    has_fix = "fix" in r.get("extra", {})
-    tag = " _(autofix available)_" if has_fix else ""
-    lines.append(f"- **{rule}** — `{path}:{line}`{tag}  \n  {msg}")
-print("\n".join(lines))
-'
-          BODY=$(echo "$SCRIPT" | uv run python3 -)
-
+          BODY=$(uv run python3 .github/scripts/semgrep_main_issue.py)
           if [ -z "$BODY" ]; then
             echo "No findings on main."
             exit 0
           fi
-
-          gh issue create \
-            --title "Semgrep findings on main ($(date +%Y-%m-%d))" \
-            --body "$BODY" \
-            --label "security"
+          gh issue create --title "Semgrep findings on main ($(date +%Y-%m-%d))" --body "$BODY" --label "security"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
