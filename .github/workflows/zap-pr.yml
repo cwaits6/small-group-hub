@@ -15,8 +15,9 @@ on:
         type: string
 
 # If a new push triggers this while a scan is already running, cancel the old one.
+# For workflow_dispatch (no PR number), use the run ID so manual runs don't cancel each other.
 concurrency:
-  group: zap-pr-${{ github.event.pull_request.number }}
+  group: zap-pr-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -73,6 +74,8 @@ jobs:
             elif [ "$STATE" = "CANCELED" ]; then
               # Vercel skipped this commit (only non-app files changed).
               # Fall back to the most recent READY deployment for the branch.
+              # The commit state will always be CANCELED, so fail fast if no fallback
+              # exists rather than spinning for 12 minutes.
               echo "Vercel skipped this commit — falling back to latest branch deployment..."
               FB=$(curl -sf \
                 "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
@@ -81,13 +84,29 @@ jobs:
               if [ -n "$FB_URL" ]; then
                 resolve_url "$FB_URL"
               fi
-              echo "No READY fallback deployment found yet, retrying..."
+              echo "No READY fallback deployment found for branch '$HEAD_REF'" && exit 1
             elif [ "$STATE" = "ERROR" ]; then
               echo "Vercel deployment errored" && exit 1
             fi
             sleep 30
           done
           echo "Timed out waiting for Vercel deployment (12 min)" && exit 1
+
+      # Build ZAP cmd_options conditionally.
+      # When VERCEL_AUTOMATION_BYPASS_SECRET is unset, omit the replacer config entirely.
+      # Sending an empty x-vercel-protection-bypass header causes Vercel to reject
+      # every ZAP request with 401, breaking the scan.
+      - name: Build ZAP cmd options
+        id: zap-opts
+        env:
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -n "$BYPASS_SECRET" ]; then
+            printf 'opts=-config replacer.full_list(0).description=VercelBypass -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=x-vercel-protection-bypass -config replacer.full_list(0).replacement=%s\n' \
+              "$BYPASS_SECRET" >> "$GITHUB_OUTPUT"
+          else
+            echo "opts=" >> "$GITHUB_OUTPUT"
+          fi
 
       # Baseline scan: spider + passive scan only. Fast (~3-5 min), no active attack.
       # Posts results as a PR comment. fail_action: false = report only, don't block merge.
@@ -98,12 +117,4 @@ jobs:
           target: ${{ steps.deployment.outputs.target }}
           rules_file_name: .zap/rules.tsv
           fail_action: true
-          # Optional: sends x-vercel-protection-bypass header on all ZAP requests.
-          # Only needed if Vercel Deployment Protection is enabled on your project.
-          # Set VERCEL_AUTOMATION_BYPASS_SECRET in repo secrets to activate.
-          cmd_options: >-
-            -config replacer.full_list(0).description=VercelBypass
-            -config replacer.full_list(0).enabled=true
-            -config replacer.full_list(0).matchtype=REQ_HEADER
-            -config replacer.full_list(0).matchstr=x-vercel-protection-bypass
-            -config replacer.full_list(0).replacement=${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          cmd_options: ${{ steps.zap-opts.outputs.opts }}
