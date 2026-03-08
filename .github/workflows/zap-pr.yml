@@ -3,10 +3,7 @@ name: ZAP Baseline Scan (PR)
 on:
   pull_request:
     branches: [main]
-    # Only scan when the PR is opened or marked ready for review — not on every push.
-    # This avoids running 10 scans for 10 commits during active development.
-    # Devs can work in draft, then mark ready when they want a security check.
-    types: [opened, ready_for_review]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       target_url:
