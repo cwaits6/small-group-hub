@@ -1,0 +1,28 @@
+# ZAP scan rule overrides
+# Format: ID	ACTION	# Comment
+# Actions: IGNORE (suppress), WARN (report only), FAIL (break build)
+# Docs: https://www.zaproxy.org/docs/desktop/addons/alert-filters/
+
+# --- Next.js / Vercel false positives ---
+
+# Cache-control headers: Next.js and Vercel manage caching via their own
+# mechanisms (CDN, ISR, stale-while-revalidate). ZAP flags these as missing
+# but they are set correctly at the edge.
+10015	IGNORE	# Incomplete or No Cache-control Header
+
+# Timestamp disclosure: Next.js build IDs embed timestamps. Not exploitable.
+10096	IGNORE	# Timestamp Disclosure - Source Code
+
+# Next.js embeds __NEXT_DATA__ JSON in pages which ZAP flags as information
+# disclosure. This is by design and contains no sensitive server-side data.
+10027	IGNORE	# Information Disclosure - Suspicious Comments (Next.js build metadata)
+
+# --- Adjust severity (demote to WARN rather than FAIL) ---
+
+# CSP: worth knowing about but Next.js apps often use nonce-based CSP
+# which ZAP doesn't fully evaluate correctly.
+10038	WARN	# Content Security Policy (CSP) Header Not Set
+
+# Anti-CSRF tokens: Next.js server actions use built-in CSRF protection.
+# ZAP may flag forms that don't use traditional token fields.
+90001	WARN	# Insecure JSF ViewState

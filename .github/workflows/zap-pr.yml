@@ -1,0 +1,65 @@
+name: ZAP Baseline Scan (PR)
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Poll the Vercel API until the preview deployment for this commit is ready.
+      # Uses commit SHA (not branch name) to precisely match the right deployment.
+      - name: Wait for Vercel preview deployment
+        id: deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "Polling for Vercel deployment (commit: $COMMIT_SHA)..."
+          for i in $(seq 1 24); do
+            RESPONSE=$(curl -sf \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitSha=$COMMIT_SHA&limit=1" \
+              -H "Authorization: Bearer $VERCEL_TOKEN")
+            STATE=$(echo "$RESPONSE" | jq -r '.deployments[0].state // "NONE"')
+            URL=$(echo "$RESPONSE"   | jq -r '.deployments[0].url   // ""')
+            echo "Attempt $i/24: state=$STATE"
+            if [ "$STATE" = "READY" ] && [ -n "$URL" ]; then
+              echo "target=https://$URL" >> "$GITHUB_OUTPUT"
+              echo "Preview ready: https://$URL"
+              exit 0
+            elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "CANCELED" ]; then
+              echo "Vercel deployment failed: $STATE" && exit 1
+            fi
+            sleep 30
+          done
+          echo "Timed out waiting for Vercel deployment (12 min)" && exit 1
+
+      # Baseline scan: spider + passive scan only. Fast (~3-5 min), no active attack.
+      # Results are posted as a PR comment and optionally as a GitHub issue.
+      # fail_action: false — findings block the run but NOT the merge (review-only for now).
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ steps.deployment.outputs.target }}
+          rules_file_name: .zap/rules.tsv
+          fail_action: false
+          # Optional: add x-vercel-protection-bypass header to all ZAP requests.
+          # Only needed if Vercel Deployment Protection is enabled on your project.
+          # Set VERCEL_AUTOMATION_BYPASS_SECRET in repo secrets to activate.
+          cmd_options: >-
+            -config replacer.full_list(0).description=VercelBypass
+            -config replacer.full_list(0).enabled=true
+            -config replacer.full_list(0).matchtype=REQ_HEADER
+            -config replacer.full_list(0).matchstr=x-vercel-protection-bypass
+            -config replacer.full_list(0).replacement=${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
