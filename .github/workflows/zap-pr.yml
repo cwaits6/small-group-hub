@@ -3,11 +3,22 @@ name: ZAP Baseline Scan (PR)
 on:
   pull_request:
     branches: [main]
+    # Only scan when the PR is opened or marked ready for review — not on every push.
+    # This avoids running 10 scans for 10 commits during active development.
+    # Devs can work in draft, then mark ready when they want a security check.
+    types: [opened, ready_for_review]
+
+# If a new push triggers this while a scan is already running, cancel the old one.
+concurrency:
+  group: zap-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   zap-baseline:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
+    # Skip draft PRs entirely (redundant with trigger types above, but explicit).
+    if: github.event.pull_request.draft == false
     permissions:
       contents: read
       issues: write
@@ -16,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Poll the Vercel API until the preview deployment for this commit is ready.
+      # Poll the Vercel API until the preview for this commit is ready.
       # Uses commit SHA (not branch name) to precisely match the right deployment.
       - name: Wait for Vercel preview deployment
         id: deployment
@@ -45,16 +56,15 @@ jobs:
           echo "Timed out waiting for Vercel deployment (12 min)" && exit 1
 
       # Baseline scan: spider + passive scan only. Fast (~3-5 min), no active attack.
-      # Results are posted as a PR comment and optionally as a GitHub issue.
-      # fail_action: false — findings block the run but NOT the merge (review-only for now).
+      # Posts results as a PR comment. fail_action: false = report only, don't block merge.
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
           rules_file_name: .zap/rules.tsv
-          fail_action: false
-          # Optional: add x-vercel-protection-bypass header to all ZAP requests.
+          fail_action: true
+          # Optional: sends x-vercel-protection-bypass header on all ZAP requests.
           # Only needed if Vercel Deployment Protection is enabled on your project.
           # Set VERCEL_AUTOMATION_BYPASS_SECRET in repo secrets to activate.
           cmd_options: >-
