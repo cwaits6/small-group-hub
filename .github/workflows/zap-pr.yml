@@ -7,6 +7,12 @@ on:
     # This avoids running 10 scans for 10 commits during active development.
     # Devs can work in draft, then mark ready when they want a security check.
     types: [opened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL to scan (skips Vercel lookup — useful when testing workflow changes)'
+        required: true
+        type: string
 
 # If a new push triggers this while a scan is already running, cancel the old one.
 concurrency:
@@ -32,6 +38,7 @@ jobs:
       # Fallback: if Vercel canceled the build (e.g. only CI/config files changed),
       # use the most recent READY deployment for the branch — the app hasn't changed
       # so the previous deployment is still valid to scan.
+      # Manual dispatch: skip Vercel lookup entirely and use the provided URL.
       - name: Wait for Vercel preview deployment
         id: deployment
         env:
@@ -39,7 +46,14 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.head_ref }}
+          MANUAL_URL: ${{ inputs.target_url }}
         run: |
+          if [ -n "$MANUAL_URL" ]; then
+            echo "Using manually provided URL: $MANUAL_URL"
+            echo "target=$MANUAL_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           resolve_url() {
             echo "target=https://$1" >> "$GITHUB_OUTPUT"
             echo "Preview ready: https://$1"
