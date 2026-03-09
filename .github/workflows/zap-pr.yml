@@ -112,21 +112,21 @@ jobs:
 
       # Baseline scan: passive + spider only, no active attack (~3-5 min).
       # allow_issue_writing: false — findings go to the PR comment below, not a GitHub issue.
-      # continue-on-error: true so the comment step always runs even when alerts are found.
+      # fail_action: false — we handle suppression and hard-fail ourselves so we can post
+      # the PR comment before failing. Passing rules_file_name conflicts with -config flags
+      # (argparse treats "-config" as "-c onfig"), so suppression is done in the script.
       - name: ZAP Baseline Scan
-        id: zap
-        continue-on-error: true
         uses: zaproxy/action-baseline@v0.14.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
-          rules_file_name: .zap/rules.tsv
-          fail_action: true
+          fail_action: false
           allow_issue_writing: false
           cmd_options: ${{ steps.zap-opts.outputs.opts }}
 
       # Post findings directly on the PR. If a ZAP comment already exists from a previous
       # scan on this PR, update it in place rather than posting a new one each time.
+      # The script exits 1 if there are active (non-suppressed) findings — hard-fail the job.
       - name: Post findings as PR comment
         if: github.event_name == 'pull_request'
         env:
@@ -145,6 +145,7 @@ jobs:
           BODY=$(python3 .github/scripts/zap_pr_comment.py \
             --prev-comment /tmp/zap_prev_comment.txt \
             --commit "$GITHUB_SHA")
+          SCRIPT_EXIT=$?
 
           if [ -z "$BODY" ]; then
             BODY="## ZAP Baseline Scan — No findings :white_check_mark:"
@@ -156,9 +157,7 @@ jobs:
             gh pr comment "$PR_NUMBER" --body "$BODY"
           fi
 
-      # Fail the job after the comment has been posted.
-      - name: Fail if ZAP found alerts
-        if: steps.zap.outcome != 'success'
-        run: |
-          echo "::error::ZAP found security alerts. See the PR comment for details."
-          exit 1
+          if [ $SCRIPT_EXIT -ne 0 ]; then
+            echo "::error::ZAP found security alerts. See the PR comment for details."
+            exit 1
+          fi

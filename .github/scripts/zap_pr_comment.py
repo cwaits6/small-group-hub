@@ -131,3 +131,7 @@ lines.append(
 )
 
 print("\n".join(lines))
+
+# Exit 1 if there are active (non-suppressed) findings so the workflow can hard-fail.
+if active_alerts:
+    sys.exit(1)
