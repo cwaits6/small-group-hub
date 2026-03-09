@@ -11,8 +11,8 @@ on:
         required: true
         type: string
 
-# If a new push triggers this while a scan is already running, cancel the old one.
-# For workflow_dispatch (no PR number), use the run ID so manual runs don't cancel each other.
+# Cancel in-progress scans when a new commit is pushed.
+# For workflow_dispatch (no PR number), use run ID so manual runs don't cancel each other.
 concurrency:
   group: zap-pr-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -21,8 +21,7 @@ jobs:
   zap-baseline:
     name: ZAP Baseline Scan
     runs-on: ubuntu-latest
-    # Skip draft PRs entirely (redundant with trigger types above, but explicit).
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       issues: write
@@ -31,13 +30,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Poll the Vercel API until a ready preview exists for this PR.
-      # Primary: look up by commit SHA for precision.
-      # Fallback: if Vercel canceled the build (e.g. only CI/config files changed),
-      # use the most recent READY deployment for the branch — the app hasn't changed
-      # so the previous deployment is still valid to scan.
-      # Manual dispatch: skip Vercel lookup entirely and use the provided URL.
-      - name: Wait for Vercel preview deployment
+      # Resolve the URL to scan.
+      # 1. Manual dispatch: use the provided URL directly.
+      # 2. PR: poll Vercel API by commit SHA until READY.
+      #    - If Vercel cancels (CI-only commit), fall back to the last READY deployment
+      #      on this branch (valid — the app code hasn't changed).
+      #    - If no branch deployment has ever existed, fail. Don't scan main (misleading).
+      - name: Resolve deployment URL
         id: deployment
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -54,50 +53,52 @@ jobs:
 
           resolve_url() {
             echo "target=https://$1" >> "$GITHUB_OUTPUT"
-            echo "Preview ready: https://$1"
+            echo "Deployment ready: https://$1"
             exit 0
           }
 
+          # Give Vercel a moment to register the deployment before first poll.
+          echo "Waiting 20s for Vercel to register deployment..."
+          sleep 20
+
           echo "Polling for Vercel deployment (commit: $COMMIT_SHA)..."
-          for i in $(seq 1 24); do
+          for i in $(seq 1 30); do
             RESPONSE=$(curl -sf \
               "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitSha=$COMMIT_SHA&limit=1" \
               -H "Authorization: Bearer $VERCEL_TOKEN")
             STATE=$(echo "$RESPONSE" | jq -r '.deployments[0].state // "NONE"')
             URL=$(echo "$RESPONSE"   | jq -r '.deployments[0].url   // ""')
-            echo "Attempt $i/24: state=$STATE"
+            echo "Attempt $i/30: state=$STATE"
+
             if [ "$STATE" = "READY" ] && [ -n "$URL" ]; then
               resolve_url "$URL"
             elif [ "$STATE" = "CANCELED" ]; then
-              # Vercel skipped this commit — only non-app files changed.
-              # Check if this branch has ever had a READY deployment (i.e. app code
-              # was changed in an earlier commit on this PR).
+              # Vercel skipped this commit (only non-app files changed).
+              # Use the last READY deployment on this branch if one exists.
+              echo "Vercel skipped this commit — checking for prior branch deployment..."
               FB=$(curl -sf \
                 "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
                 -H "Authorization: Bearer $VERCEL_TOKEN")
               FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
               if [ -n "$FB_URL" ]; then
-                echo "Using most recent READY deployment for this branch"
+                echo "Using most recent READY deployment for branch '$HEAD_REF'"
                 resolve_url "$FB_URL"
               fi
-              # No app code has ever been deployed on this branch — CI/config-only PR.
-              # Scanning main would be misleading (we'd pass on code we didn't review).
-              # Skip the scan and exit cleanly instead.
-              echo "No app deployment exists for this branch — CI-only PR, skipping scan."
-              echo "skipped=true" >> "$GITHUB_OUTPUT"
-              exit 0
+              echo "::error::No deployment found for this PR branch. If this is a CI-only PR, use workflow_dispatch with a target_url to test manually."
+              exit 1
             elif [ "$STATE" = "ERROR" ]; then
-              echo "Vercel deployment errored" && exit 1
+              echo "::error::Vercel deployment errored out."
+              exit 1
             fi
-            sleep 30
+            sleep 20
           done
-          echo "Timed out waiting for Vercel deployment (12 min)" && exit 1
+          echo "::error::Timed out waiting for Vercel deployment (10 min)."
+          exit 1
 
       # Build ZAP cmd_options conditionally.
-      # When VERCEL_AUTOMATION_BYPASS_SECRET is unset, omit the replacer config entirely.
-      # Sending an empty x-vercel-protection-bypass header causes Vercel to reject
-      # every ZAP request with 401, breaking the scan.
-      - name: Build ZAP cmd options
+      # Only include the Vercel bypass header if the secret is set —
+      # sending an empty header causes Vercel to reject all ZAP requests with 401.
+      - name: Build ZAP options
         id: zap-opts
         env:
           BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -109,14 +110,42 @@ jobs:
             echo "opts=" >> "$GITHUB_OUTPUT"
           fi
 
-      # Baseline scan: spider + passive scan only. Fast (~3-5 min), no active attack.
-      # Posts results as a PR comment. Skipped for CI-only PRs with no app deployment.
+      # Baseline scan: passive + spider only, no active attack (~3-5 min).
+      # fail_action: false so ZAP always completes and posts its issue/comment
+      # before we manually fail the job below based on the exit code.
       - name: ZAP Baseline Scan
-        if: steps.deployment.outputs.skipped != 'true'
+        id: zap
+        continue-on-error: true
         uses: zaproxy/action-baseline@v0.14.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
           rules_file_name: .zap/rules.tsv
-          fail_action: true
+          fail_action: false
           cmd_options: ${{ steps.zap-opts.outputs.opts }}
+
+      # Post a PR comment pointing to the ZAP issue if alerts were found.
+      # The ZAP action creates a GitHub issue with full details — we link to it here
+      # so findings are visible inline on the PR without leaving the page.
+      - name: Comment on PR with findings link
+        if: github.event_name == 'pull_request' && steps.zap.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          ISSUE_URL=$(gh issue list --label "" --state open --json number,title,url \
+            --jq '.[] | select(.title | startswith("ZAP")) | .url' | head -1)
+          if [ -n "$ISSUE_URL" ]; then
+            gh pr comment "$PR_NUMBER" --body "## ZAP Baseline Scan complete
+          Findings have been logged → $ISSUE_URL
+
+          If any are false positives, add the rule ID to \`.zap/rules.tsv\` and push."
+          fi
+
+      # Fail the job if ZAP found any alerts, AFTER it has had a chance to
+      # create the issue and post any comments.
+      - name: Fail if ZAP found alerts
+        if: steps.zap.outcome != 'success'
+        run: |
+          echo "::error::ZAP found security alerts. See the issue linked in the PR comment."
+          exit 1
