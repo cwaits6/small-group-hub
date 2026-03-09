@@ -52,6 +52,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
           rules_file_name: .zap/rules.tsv
+          allow_issue_writing: true
           fail_action: false
           issue_title: "ZAP Full Scan (${{ steps.date.outputs.date }})"
 
