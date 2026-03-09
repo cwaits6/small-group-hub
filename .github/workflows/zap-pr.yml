@@ -134,14 +134,21 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          BODY=$(python3 .github/scripts/zap_pr_comment.py)
+          # Fetch existing ZAP comment (if any) so the script can show resolved findings as strikethrough.
+          EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last')
+          EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
+          PREV_BODY=$(echo "$EXISTING" | jq -r '.body // empty')
+
+          echo "$PREV_BODY" > /tmp/zap_prev_comment.txt
+
+          BODY=$(python3 .github/scripts/zap_pr_comment.py \
+            --prev-comment /tmp/zap_prev_comment.txt \
+            --commit "$GITHUB_SHA")
+
           if [ -z "$BODY" ]; then
             BODY="## ZAP Baseline Scan — No findings :white_check_mark:"
           fi
-
-          # Look for an existing ZAP comment on this PR to update instead of creating a new one.
-          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last | .id // empty')
 
           if [ -n "$EXISTING_ID" ]; then
             gh api "repos/$REPO/issues/comments/$EXISTING_ID" -X PATCH -f body="$BODY"
