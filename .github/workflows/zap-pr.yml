@@ -123,7 +123,7 @@ jobs:
           rules_file_name: .zap/rules.tsv
           fail_action: false
           allow_issue_writing: false
-          cmd_options: ${{ steps.zap-opts.outputs.opts }} -J zap-report.json
+          cmd_options: ${{ steps.zap-opts.outputs.opts }}
 
       # Post findings directly on the PR so reviewers see them without leaving the page.
       - name: Post findings as PR comment
@@ -132,7 +132,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          BODY=$(uv run python3 .github/scripts/zap_pr_comment.py)
+          BODY=$(python3 .github/scripts/zap_pr_comment.py)
           if [ -z "$BODY" ]; then
             gh pr comment "$PR_NUMBER" --body "## ZAP Baseline Scan — No findings :white_check_mark:"
           else

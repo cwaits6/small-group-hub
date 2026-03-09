@@ -6,7 +6,7 @@ import sys
 RISK_LABEL = {"3": "🔴 High", "2": "🟠 Medium", "1": "🟡 Low", "0": "🔵 Info"}
 
 try:
-    data = json.load(open("zap-report.json"))
+    data = json.load(open("report_json.json"))
 except FileNotFoundError:
     print("No ZAP report found.", file=sys.stderr)
     sys.exit(1)
