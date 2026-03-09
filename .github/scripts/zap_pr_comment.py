@@ -5,6 +5,7 @@ import re
 import sys
 
 RISK_LABEL = {"3": "🔴 High", "2": "🟠 Medium", "1": "🟡 Low", "0": "🔵 Info"}
+CONFIDENCE_LABEL = {"4": "Confirmed", "3": "High", "2": "Medium", "1": "Low", "0": "False Positive"}
 
 
 def strip_html(text: str) -> str:
@@ -32,19 +33,33 @@ alerts.sort(key=lambda a: int(a.get("riskcode", "0")), reverse=True)
 lines = ["## ZAP Baseline Scan — Security Findings\n"]
 for alert in alerts:
     risk = RISK_LABEL.get(str(alert.get("riskcode", "0")), "Info")
+    confidence = CONFIDENCE_LABEL.get(str(alert.get("confidence", "2")), "Medium")
     name = alert["name"]
     plugin_id = alert.get("pluginid", "")
+    cwe_id = alert.get("cweid", "")
     count = alert.get("count", "?")
     desc = strip_html(alert.get("desc", ""))
     solution = strip_html(alert.get("solution", ""))
     instances = alert.get("instances", [])
-    urls = list(dict.fromkeys(i["uri"] for i in instances))
 
-    lines.append(f"### {risk} — {name} `[{plugin_id}]` ({count} instance(s))")
+    cwe_link = f" · [CWE-{cwe_id}](https://cwe.mitre.org/data/definitions/{cwe_id}.html)" if cwe_id and cwe_id != "-1" else ""
+    lines.append(f"### {risk} — {name} `[{plugin_id}]`{cwe_link}")
+    lines.append(f"**Confidence:** {confidence} · **Instances:** {count}\n")
     if desc:
         lines.append(f"{desc}\n")
-    for url in urls:
-        lines.append(f"- {url}")
+
+    for instance in instances:
+        url = instance.get("uri", "")
+        method = instance.get("method", "")
+        param = instance.get("param", "")
+        evidence = strip_html(instance.get("evidence", ""))
+        detail = f"`{method}` {url}"
+        if param:
+            detail += f" · param: `{param}`"
+        if evidence:
+            detail += f" · evidence: `{evidence}`"
+        lines.append(f"- {detail}")
+
     if solution:
         lines.append(f"\n**Remediation:** {solution}")
     lines.append("")
