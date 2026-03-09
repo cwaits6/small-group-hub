@@ -1,0 +1,54 @@
+# ZAP scan rule overrides
+# Format: ID	ACTION	# Comment
+# Actions: IGNORE (suppress), WARN (report only), FAIL (break build)
+# Docs: https://www.zaproxy.org/docs/desktop/addons/alert-filters/
+
+# --- Next.js / Vercel false positives ---
+
+# Cache-control headers: Next.js and Vercel manage caching via their own
+# mechanisms (CDN, ISR, stale-while-revalidate). ZAP flags these as missing
+# but they are set correctly at the edge.
+10015	IGNORE	# Incomplete or No Cache-control Header
+
+# Timestamp disclosure: Next.js build IDs embed timestamps. Not exploitable.
+10096	IGNORE	# Timestamp Disclosure - Source Code
+
+# Next.js embeds __NEXT_DATA__ JSON in pages which ZAP flags as information
+# disclosure. This is by design and contains no sensitive server-side data.
+10027	IGNORE	# Information Disclosure - Suspicious Comments (Next.js build metadata)
+
+# CSP unsafe-inline in style-src: Next.js requires this without nonce-based CSP
+# middleware (CSS-in-JS and Tailwind inject inline styles at runtime). Removing it
+# would break the UI. The risk is limited compared to unsafe-inline in script-src.
+10055	IGNORE	# CSP: style-src unsafe-inline
+
+# ZAP identifying the app as a Next.js SPA. Informational only, not a vulnerability.
+10109	IGNORE	# Modern Web Application
+
+# Next.js sets no-store on dynamic routes by default. Vercel handles edge caching.
+# This is expected behaviour, not a misconfiguration.
+10049	IGNORE	# Non-Storable Content
+
+# _vercel_sso_nonce is Vercel's own deployment protection cookie, not our session.
+10112	IGNORE	# Session Management Response Identified
+
+# Anti-CSRF tokens: Next.js server actions use built-in CSRF protection.
+# ZAP may flag forms that don't use traditional token fields.
+90001	WARN	# Insecure JSF ViewState
+
+# --- ZAP probe / infrastructure false positives ---
+
+# ZAP flags its own spider-injected test emails (e.g. zaproxy@example.com) appearing
+# in URLs it constructed. Our forms submit via JS (onSubmit), not GET.
+10024	IGNORE	# Information Disclosure - Sensitive Information in URL
+
+# Retrieved from Cache: informational only — Vercel CDN caching is intentional.
+10050	IGNORE	# Retrieved from Cache
+
+# Cross-Domain Misconfiguration: Vercel CDN serves static assets with CORS *,
+# which is expected and correct behaviour for public assets.
+10098	IGNORE	# Cross-Domain Misconfiguration
+
+# Cross-Origin-Embedder-Policy: COEP requires all sub-resources to opt in via CORP/CORS.
+# This would break Supabase and Vercel Analytics requests. Not applicable here.
+90004	IGNORE	# Cross-Origin-Embedder-Policy Header Missing or Invalid

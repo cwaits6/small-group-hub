@@ -1,0 +1,150 @@
+name: ZAP Baseline Scan (PR)
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'URL to scan (skips Vercel lookup — useful when testing workflow changes)'
+        required: true
+        type: string
+
+# Cancel in-progress scans when a new commit is pushed.
+# For workflow_dispatch (no PR number), use run ID so manual runs don't cancel each other.
+concurrency:
+  group: zap-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  zap-baseline:
+    name: ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Resolve the URL to scan.
+      # 1. Manual dispatch: use the provided URL directly.
+      # 2. PR: poll Vercel API by commit SHA until READY.
+      #    - If Vercel cancels (CI-only commit), fall back to the last READY deployment
+      #      on this branch (valid — the app code hasn't changed).
+      #    - If no branch deployment has ever existed, fail. Don't scan main (misleading).
+      - name: Resolve deployment URL
+        id: deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+          MANUAL_URL: ${{ inputs.target_url }}
+        run: |
+          if [ -n "$MANUAL_URL" ]; then
+            echo "Using manually provided URL: $MANUAL_URL"
+            echo "target=$MANUAL_URL" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          resolve_url() {
+            echo "target=https://$1" >> "$GITHUB_OUTPUT"
+            echo "Deployment ready: https://$1"
+            exit 0
+          }
+
+          # Give Vercel a moment to register the deployment before first poll.
+          echo "Waiting 20s for Vercel to register deployment..."
+          sleep 20
+
+          echo "Polling for Vercel deployment (commit: $COMMIT_SHA)..."
+          for i in $(seq 1 30); do
+            RESPONSE=$(curl -sf \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitSha=$COMMIT_SHA&limit=1" \
+              -H "Authorization: Bearer $VERCEL_TOKEN")
+            STATE=$(echo "$RESPONSE" | jq -r '.deployments[0].state // "NONE"')
+            URL=$(echo "$RESPONSE"   | jq -r '.deployments[0].url   // ""')
+            echo "Attempt $i/30: state=$STATE"
+
+            if [ "$STATE" = "READY" ] && [ -n "$URL" ]; then
+              resolve_url "$URL"
+            elif [ "$STATE" = "CANCELED" ]; then
+              # Vercel skipped this commit (only non-app files changed).
+              # Use the last READY deployment on this branch if one exists.
+              echo "Vercel skipped this commit — checking for prior branch deployment..."
+              FB=$(curl -sf \
+                "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
+                -H "Authorization: Bearer $VERCEL_TOKEN")
+              FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
+              if [ -n "$FB_URL" ]; then
+                echo "Using most recent READY deployment for branch '$HEAD_REF'"
+                resolve_url "$FB_URL"
+              fi
+              echo "::error::No deployment found for this PR branch. If this is a CI-only PR, use workflow_dispatch with a target_url to test manually."
+              exit 1
+            elif [ "$STATE" = "ERROR" ]; then
+              echo "::error::Vercel deployment errored out."
+              exit 1
+            fi
+            sleep 20
+          done
+          echo "::error::Timed out waiting for Vercel deployment (10 min)."
+          exit 1
+
+      # Baseline scan: passive + spider only, no active attack (~3-5 min).
+      # allow_issue_writing: false — findings go to the PR comment below, not a GitHub issue.
+      # fail_action: false — we handle suppression and hard-fail ourselves so we can post
+      # the PR comment before failing.
+      # ZAP_AUTH_HEADER/VALUE: tells ZAP to inject the Vercel bypass header on every request.
+      # Using env vars avoids -config flags which clash with argparse's -c (config file) flag.
+      # If the secret is unset, ZAP_AUTH_HEADER is empty and ZAP skips the header entirely.
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        env:
+          ZAP_AUTH_HEADER: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'x-vercel-protection-bypass' || '' }}
+          ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ steps.deployment.outputs.target }}
+          fail_action: false
+          allow_issue_writing: false
+
+      # Post findings directly on the PR. If a ZAP comment already exists from a previous
+      # scan on this PR, update it in place rather than posting a new one each time.
+      # The script exits 1 if there are active (non-suppressed) findings — hard-fail the job.
+      - name: Post findings as PR comment
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Disable bash exit-on-error so the script's exit 1 (active findings)
+          # doesn't kill the step before the comment is posted.
+          set +eo pipefail
+
+          BODY=$(python3 .github/scripts/zap_pr_comment.py)
+          SCRIPT_EXIT=$?
+
+          if [ -z "$BODY" ]; then
+            BODY="## ZAP Baseline Scan — No findings :white_check_mark:"
+          fi
+
+          # Update existing comment in-place, or post a new one.
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null | \
+            jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last // null | .id // empty' -r)
+
+          if [ -n "$EXISTING_ID" ]; then
+            gh api "repos/$REPO/issues/comments/$EXISTING_ID" -X PATCH -f body="$BODY"
+          else
+            gh pr comment "$PR_NUMBER" --body "$BODY"
+          fi
+
+          if [ "$SCRIPT_EXIT" -ne 0 ]; then
+            echo "::error::ZAP found security alerts. See the PR comment for details."
+            exit 1
+          fi
