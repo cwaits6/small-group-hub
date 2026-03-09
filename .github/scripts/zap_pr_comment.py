@@ -35,6 +35,21 @@ def parse_prev_rule_ids(prev_comment: str) -> set[str]:
     return set(re.findall(r"`\[(\d+)\]`", prev_comment))
 
 
+def extract_prev_blocks(prev_comment: str) -> dict[str, str]:
+    """Parse the previous comment into a dict of plugin_id -> full markdown block."""
+    blocks: dict[str, str] = {}
+    # Split on finding headers (### lines); keep the delimiter with each block.
+    parts = re.split(r"(?=^### )", prev_comment, flags=re.MULTILINE)
+    for part in parts:
+        if not part.startswith("###"):
+            continue
+        header = part.splitlines()[0]
+        m = re.search(r"`\[(\d+)\]`", header)
+        if m:
+            blocks[m.group(1)] = part.rstrip()
+    return blocks
+
+
 def format_alert(alert: dict) -> list[str]:
     risk = RISK_LABEL.get(str(alert.get("riskcode", "0")), "Info")
     confidence = CONFIDENCE_LABEL.get(str(alert.get("confidence", "2")), "Medium")
@@ -95,14 +110,16 @@ for site in data.get("site", []):
         if pid not in ignored_rules:
             active_alerts[pid] = alert
 
-# Previously reported rule IDs
+# Previously reported rule IDs and their full formatted blocks
 prev_ids: set[str] = set()
+prev_blocks: dict[str, str] = {}
 if args.prev_comment:
     prev_path = Path(args.prev_comment)
     if prev_path.exists():
-        prev_ids = parse_prev_rule_ids(prev_path.read_text())
-        # Remove IDs that were already shown as resolved (marked ~~) in the previous comment
         prev_text = prev_path.read_text()
+        prev_ids = parse_prev_rule_ids(prev_text)
+        prev_blocks = extract_prev_blocks(prev_text)
+        # Remove IDs that were already shown as resolved (marked ~~) in the previous comment
         already_resolved = set(re.findall(r"~~.*?`\[(\d+)\]`.*?~~", prev_text, re.DOTALL))
         prev_ids -= already_resolved
 
@@ -115,13 +132,16 @@ lines = ["## ZAP Baseline Scan — Security Findings\n"]
 for alert in sorted(active_alerts.values(), key=lambda a: int(a.get("riskcode", "0")), reverse=True):
     lines.extend(format_alert(alert))
 
-# Resolved findings shown as strikethrough
+# Resolved findings shown as strikethrough with full block preserved
 if resolved_ids:
     lines.append("---")
     lines.append(f"**✅ Resolved in `{short_sha}`** _(findings no longer detected)_\n")
-    # We only have the IDs, not the full alert data — show minimal resolved entry
     for pid in sorted(resolved_ids):
-        lines.append(f"~~### `[{pid}]`~~\n")
+        if pid in prev_blocks:
+            lines.append(strikethrough(prev_blocks[pid]))
+        else:
+            lines.append(f"~~### `[{pid}]`~~")
+        lines.append("")
 
 if not active_alerts and not resolved_ids:
     sys.exit(0)

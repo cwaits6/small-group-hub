@@ -17,6 +17,11 @@
 # disclosure. This is by design and contains no sensitive server-side data.
 10027	IGNORE	# Information Disclosure - Suspicious Comments (Next.js build metadata)
 
+# CSP unsafe-inline in style-src: Next.js requires this without nonce-based CSP
+# middleware (CSS-in-JS and Tailwind inject inline styles at runtime). Removing it
+# would break the UI. The risk is limited compared to unsafe-inline in script-src.
+10055	IGNORE	# CSP: style-src unsafe-inline
+
 # ZAP identifying the app as a Next.js SPA. Informational only, not a vulnerability.
 10109	IGNORE	# Modern Web Application
 
