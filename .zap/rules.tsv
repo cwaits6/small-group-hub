@@ -30,3 +30,20 @@
 # Anti-CSRF tokens: Next.js server actions use built-in CSRF protection.
 # ZAP may flag forms that don't use traditional token fields.
 90001	WARN	# Insecure JSF ViewState
+
+# --- ZAP probe / infrastructure false positives ---
+
+# ZAP flags its own spider-injected test emails (e.g. zaproxy@example.com) appearing
+# in URLs it constructed. Our forms submit via JS (onSubmit), not GET.
+10024	IGNORE	# Information Disclosure - Sensitive Information in URL
+
+# Retrieved from Cache: informational only — Vercel CDN caching is intentional.
+10050	IGNORE	# Retrieved from Cache
+
+# Cross-Domain Misconfiguration: Vercel CDN serves static assets with CORS *,
+# which is expected and correct behaviour for public assets.
+10098	IGNORE	# Cross-Domain Misconfiguration
+
+# Cross-Origin-Embedder-Policy: COEP requires all sub-resources to opt in via CORP/CORS.
+# This would break Supabase and Vercel Analytics requests. Not applicable here.
+90004	IGNORE	# Cross-Origin-Embedder-Policy Header Missing or Invalid

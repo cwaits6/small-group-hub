@@ -124,8 +124,11 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           # Fetch existing ZAP comment (if any) so the script can show resolved findings as strikethrough.
-          EXISTING=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last')
+          # Fetch all comments then filter with jq. Using `last // null` instead of
+          # `| last` alone avoids a jq error (and bash set-e exit) when the array is empty.
+          ALL_COMMENTS=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments")
+          EXISTING=$(echo "$ALL_COMMENTS" | \
+            jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last // null')
           EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
           PREV_BODY=$(echo "$EXISTING" | jq -r '.body // empty')
 

@@ -18,6 +18,10 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",
+      // Restrict form submissions and worker scripts.
+      "form-action 'self'",
+      "worker-src 'none'",
+      "manifest-src 'self'",
     ].join("; "),
   },
   {
@@ -39,6 +43,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   async headers() {
     return [
       {
