@@ -121,20 +121,30 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
           rules_file_name: .zap/rules.tsv
-          fail_action: false
+          fail_action: true
           allow_issue_writing: false
           cmd_options: ${{ steps.zap-opts.outputs.opts }}
 
-      # Post findings directly on the PR so reviewers see them without leaving the page.
+      # Post findings directly on the PR. If a ZAP comment already exists from a previous
+      # scan on this PR, update it in place rather than posting a new one each time.
       - name: Post findings as PR comment
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
           BODY=$(python3 .github/scripts/zap_pr_comment.py)
           if [ -z "$BODY" ]; then
-            gh pr comment "$PR_NUMBER" --body "## ZAP Baseline Scan — No findings :white_check_mark:"
+            BODY="## ZAP Baseline Scan — No findings :white_check_mark:"
+          fi
+
+          # Look for an existing ZAP comment on this PR to update instead of creating a new one.
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last | .id // empty')
+
+          if [ -n "$EXISTING_ID" ]; then
+            gh api "repos/$REPO/issues/comments/$EXISTING_ID" -X PATCH -f body="$BODY"
           else
             gh pr comment "$PR_NUMBER" --body "$BODY"
           fi

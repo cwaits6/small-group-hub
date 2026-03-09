@@ -28,13 +28,11 @@ for alert in alerts:
     plugin_id = alert.get("pluginid", "")
     count = alert.get("count", "?")
     instances = alert.get("instances", [])
-    urls = list(dict.fromkeys(i["uri"] for i in instances))[:3]
+    urls = list(dict.fromkeys(i["uri"] for i in instances))
 
     lines.append(f"### {risk} — {name} `[{plugin_id}]` ({count} instance(s))")
     for url in urls:
         lines.append(f"- {url}")
-    if len(instances) > 3:
-        lines.append(f"- _…and {len(instances) - 3} more_")
     lines.append("")
 
 lines.append(
