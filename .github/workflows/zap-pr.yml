@@ -123,10 +123,18 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          # Fetch existing ZAP comment (if any) so the script can show resolved findings as strikethrough.
-          # Fetch all comments then filter with jq. Using `last // null` instead of
-          # `| last` alone avoids a jq error (and bash set-e exit) when the array is empty.
-          ALL_COMMENTS=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments")
+          # GitHub Actions defaults to `bash -eo pipefail`. Disable exit-on-error here
+          # so that a non-zero exit from the python script (active findings) or a jq
+          # pipeline doesn't kill the step before the PR comment is posted.
+          set +eo pipefail
+
+          # Fetch existing ZAP comment (if any) so the script can show resolved findings.
+          ALL_COMMENTS=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null)
+          if [ $? -ne 0 ]; then
+            echo "Warning: could not fetch existing comments; will post a new comment."
+            ALL_COMMENTS="[]"
+          fi
+
           EXISTING=$(echo "$ALL_COMMENTS" | \
             jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last // null')
           EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
@@ -149,7 +157,7 @@ jobs:
             gh pr comment "$PR_NUMBER" --body "$BODY"
           fi
 
-          if [ $SCRIPT_EXIT -ne 0 ]; then
+          if [ "$SCRIPT_EXIT" -ne 0 ]; then
             echo "::error::ZAP found security alerts. See the PR comment for details."
             exit 1
           fi
