@@ -5,9 +5,11 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js requires unsafe-inline for its runtime scripts and Tailwind for styles.
-      // Tighten with a nonce-based policy if you add a CSP middleware later.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+      // Next.js requires unsafe-inline without nonce-based CSP middleware.
+      // Do NOT add unsafe-eval — production builds don't need it, and it
+      // opens the door to eval-based XSS. If something breaks, investigate
+      // what's calling eval() rather than blanket-allowing it.
+      "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",
