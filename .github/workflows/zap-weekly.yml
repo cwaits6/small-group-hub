@@ -2,8 +2,8 @@ name: ZAP Full Scan (Weekly)
 
 on:
   schedule:
-    - cron: '0 3 * * 1'  # Every Monday at 3am UTC
-  workflow_dispatch:      # Allow manual trigger for testing
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
 
 jobs:
   zap-full:
@@ -24,9 +24,6 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
-      # Deploy a throwaway preview from main specifically for this scan.
-      # This is NOT the production deployment — it gets a unique preview URL
-      # and is deleted immediately after the scan completes.
       - name: Deploy ephemeral preview
         id: deployment
         env:
@@ -36,18 +33,16 @@ jobs:
         run: |
           DEPLOY_URL=$(vercel deploy --token="$VERCEL_TOKEN" --yes 2>/dev/null)
           echo "target=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
-          # Extract deployment ID for cleanup
           DEPLOY_ID=$(curl -sf \
             "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&url=${DEPLOY_URL#https://}&limit=1" \
             -H "Authorization: Bearer $VERCEL_TOKEN" | jq -r '.deployments[0].uid // ""')
           echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
-          echo "Ephemeral preview: $DEPLOY_URL (id: $DEPLOY_ID)"
 
-      # Full scan: spider + active attack. Thorough but slow (~30-60 min).
-      # Safe to run because the target is the throwaway preview, not production.
-      # Opens a GitHub issue with findings on completion.
       - name: ZAP Full Scan
         uses: zaproxy/action-full-scan@v0.12.0
+        env:
+          ZAP_AUTH_HEADER: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'x-vercel-protection-bypass' || '' }}
+          ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
@@ -56,7 +51,6 @@ jobs:
           fail_action: false
           issue_title: "ZAP Full Scan (${{ steps.date.outputs.date }})"
 
-      # Always delete the ephemeral deployment, even if the scan failed.
       - name: Delete ephemeral preview
         if: always() && steps.deployment.outputs.deploy_id != ''
         env:
@@ -65,4 +59,3 @@ jobs:
         run: |
           curl -sf -X DELETE "https://api.vercel.com/v13/deployments/$DEPLOY_ID" \
             -H "Authorization: Bearer $VERCEL_TOKEN"
-          echo "Deleted ephemeral deployment: $DEPLOY_ID"
