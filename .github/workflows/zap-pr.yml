@@ -95,34 +95,23 @@ jobs:
           echo "::error::Timed out waiting for Vercel deployment (10 min)."
           exit 1
 
-      # Build ZAP cmd_options conditionally.
-      # Only include the Vercel bypass header if the secret is set —
-      # sending an empty header causes Vercel to reject all ZAP requests with 401.
-      - name: Build ZAP options
-        id: zap-opts
-        env:
-          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: |
-          if [ -n "$BYPASS_SECRET" ]; then
-            printf 'opts=-config replacer.full_list(0).description=VercelBypass -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=x-vercel-protection-bypass -config replacer.full_list(0).replacement=%s\n' \
-              "$BYPASS_SECRET" >> "$GITHUB_OUTPUT"
-          else
-            echo "opts=" >> "$GITHUB_OUTPUT"
-          fi
-
       # Baseline scan: passive + spider only, no active attack (~3-5 min).
       # allow_issue_writing: false — findings go to the PR comment below, not a GitHub issue.
       # fail_action: false — we handle suppression and hard-fail ourselves so we can post
-      # the PR comment before failing. Passing rules_file_name conflicts with -config flags
-      # (argparse treats "-config" as "-c onfig"), so suppression is done in the script.
+      # the PR comment before failing.
+      # ZAP_AUTH_HEADER/VALUE: tells ZAP to inject the Vercel bypass header on every request.
+      # Using env vars avoids -config flags which clash with argparse's -c (config file) flag.
+      # If the secret is unset, ZAP_AUTH_HEADER is empty and ZAP skips the header entirely.
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
+        env:
+          ZAP_AUTH_HEADER: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'x-vercel-protection-bypass' || '' }}
+          ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ steps.deployment.outputs.target }}
           fail_action: false
           allow_issue_writing: false
-          cmd_options: ${{ steps.zap-opts.outputs.opts }}
 
       # Post findings directly on the PR. If a ZAP comment already exists from a previous
       # scan on this PR, update it in place rather than posting a new one each time.
