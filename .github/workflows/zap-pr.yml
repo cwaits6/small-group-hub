@@ -123,33 +123,20 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          # GitHub Actions defaults to `bash -eo pipefail`. Disable exit-on-error here
-          # so that a non-zero exit from the python script (active findings) or a jq
-          # pipeline doesn't kill the step before the PR comment is posted.
+          # Disable bash exit-on-error so the script's exit 1 (active findings)
+          # doesn't kill the step before the comment is posted.
           set +eo pipefail
 
-          # Fetch existing ZAP comment (if any) so the script can show resolved findings.
-          ALL_COMMENTS=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null)
-          if [ $? -ne 0 ]; then
-            echo "Warning: could not fetch existing comments; will post a new comment."
-            ALL_COMMENTS="[]"
-          fi
-
-          EXISTING=$(echo "$ALL_COMMENTS" | \
-            jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last // null')
-          EXISTING_ID=$(echo "$EXISTING" | jq -r '.id // empty')
-          PREV_BODY=$(echo "$EXISTING" | jq -r '.body // empty')
-
-          echo "$PREV_BODY" > /tmp/zap_prev_comment.txt
-
-          BODY=$(python3 .github/scripts/zap_pr_comment.py \
-            --prev-comment /tmp/zap_prev_comment.txt \
-            --commit "$GITHUB_SHA")
+          BODY=$(python3 .github/scripts/zap_pr_comment.py)
           SCRIPT_EXIT=$?
 
           if [ -z "$BODY" ]; then
             BODY="## ZAP Baseline Scan — No findings :white_check_mark:"
           fi
+
+          # Update existing comment in-place, or post a new one.
+          EXISTING_ID=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" 2>/dev/null | \
+            jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("## ZAP Baseline Scan")))] | last // null | .id // empty' -r)
 
           if [ -n "$EXISTING_ID" ]; then
             gh api "repos/$REPO/issues/comments/$EXISTING_ID" -X PATCH -f body="$BODY"
