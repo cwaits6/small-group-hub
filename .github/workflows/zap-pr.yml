@@ -28,7 +28,7 @@ jobs:
       pull-requests: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # Resolve the URL to scan.
       # 1. Manual dispatch: use the provided URL directly.
