@@ -3,6 +3,7 @@
 import json
 import re
 import sys
+from pathlib import Path
 
 RISK_LABEL = {"3": "🔴 High", "2": "🟠 Medium", "1": "🟡 Low", "0": "🔵 Info"}
 CONFIDENCE_LABEL = {"4": "Confirmed", "3": "High", "2": "Medium", "1": "Low", "0": "False Positive"}
@@ -14,16 +15,35 @@ def strip_html(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def load_ignored_rules() -> set[str]:
+    """Read .zap/rules.tsv and return plugin IDs marked IGNORE."""
+    ignored = set()
+    rules_path = Path(".zap/rules.tsv")
+    if not rules_path.exists():
+        return ignored
+    for line in rules_path.read_text().splitlines():
+        line = line.split("#")[0].strip()  # strip comments
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) >= 2 and parts[1].strip() == "IGNORE":
+            ignored.add(parts[0].strip())
+    return ignored
+
+
 try:
     data = json.load(open("report_json.json"))
 except FileNotFoundError:
     print("No ZAP report found.", file=sys.stderr)
     sys.exit(1)
 
+ignored_rules = load_ignored_rules()
+
 alerts = []
 for site in data.get("site", []):
     for alert in site.get("alerts", []):
-        alerts.append(alert)
+        if alert.get("pluginid", "") not in ignored_rules:
+            alerts.append(alert)
 
 if not alerts:
     sys.exit(0)
