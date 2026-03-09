@@ -17,11 +17,15 @@
 # disclosure. This is by design and contains no sensitive server-side data.
 10027	IGNORE	# Information Disclosure - Suspicious Comments (Next.js build metadata)
 
-# --- Adjust severity (demote to WARN rather than FAIL) ---
+# ZAP identifying the app as a Next.js SPA. Informational only, not a vulnerability.
+10109	IGNORE	# Modern Web Application
 
-# CSP: worth knowing about but Next.js apps often use nonce-based CSP
-# which ZAP doesn't fully evaluate correctly.
-10038	WARN	# Content Security Policy (CSP) Header Not Set
+# Next.js sets no-store on dynamic routes by default. Vercel handles edge caching.
+# This is expected behaviour, not a misconfiguration.
+10049	IGNORE	# Non-Storable Content
+
+# _vercel_sso_nonce is Vercel's own deployment protection cookie, not our session.
+10112	IGNORE	# Session Management Response Identified
 
 # Anti-CSRF tokens: Next.js server actions use built-in CSRF protection.
 # ZAP may flag forms that don't use traditional token fields.
