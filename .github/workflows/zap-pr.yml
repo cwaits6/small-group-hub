@@ -103,7 +103,7 @@ jobs:
       # Using env vars avoids -config flags which clash with argparse's -c (config file) flag.
       # If the secret is unset, ZAP_AUTH_HEADER is empty and ZAP skips the header entirely.
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@v0.15.0
         env:
           ZAP_AUTH_HEADER: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'x-vercel-protection-bypass' || '' }}
           ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
