@@ -1,3 +1,10 @@
+## [0.1.3](https://github.com/cwaits6/small-group-hub/compare/v0.1.2...v0.1.3) (2026-03-12)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @vercel/analytics to v2 ([#20](https://github.com/cwaits6/small-group-hub/issues/20)) ([d4d5d43](https://github.com/cwaits6/small-group-hub/commit/d4d5d435a3f1006fe6529d314b1db17ab842ce60))
+
 ## [0.1.2](https://github.com/cwaits6/small-group-hub/compare/v0.1.1...v0.1.2) (2026-03-08)
 
 
