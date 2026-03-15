@@ -23,6 +23,20 @@ jobs:
         with:
           node-version: 24
 
+      - name: Generate SBOM (CycloneDX for release asset)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: sbom.cdx.json
+
+      - name: Submit SBOM to dependency graph
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          dependency-snapshot: true
+
       - name: Install dependencies
         run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/git @semantic-release/github
 
