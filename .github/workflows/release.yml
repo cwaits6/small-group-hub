@@ -24,7 +24,7 @@ jobs:
           node-version: 24
 
       - name: Generate SBOM (CycloneDX for release asset)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
           scan-ref: .
