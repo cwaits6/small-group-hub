@@ -52,3 +52,20 @@
 # Cross-Origin-Embedder-Policy: COEP requires all sub-resources to opt in via CORP/CORS.
 # This would break Supabase and Vercel Analytics requests. Not applicable here.
 90004	IGNORE	# Cross-Origin-Embedder-Policy Header Missing or Invalid
+
+# --- Weekly full-scan active-probe false positives ---
+
+# CORS Misconfiguration (active probe): ZAP sends crafted Origin headers and flags
+# permissive CORS responses. All instances hit _next/static/chunks — public, immutable,
+# content-hashed assets served by Vercel CDN. API routes have no CORS headers set
+# (same-origin policy applies). Verified: no Access-Control config in next.config.ts,
+# middleware, API routes, or vercel.json.
+40040	IGNORE	# CORS Misconfiguration (Vercel CDN static assets)
+
+# Proxy Disclosure (active probe): ZAP sends TRACE/OPTIONS to fingerprint proxies and
+# detects Vercel's edge network. Inherent to any CDN-fronted deployment — not actionable.
+40025	IGNORE	# Proxy Disclosure (Vercel edge infrastructure)
+
+# User Agent Fuzzer: informational active-scan check that confirms the app responds
+# consistently to unusual User-Agent strings. Not a vulnerability.
+10104	IGNORE	# User Agent Fuzzer
