@@ -23,6 +23,14 @@ jobs:
         with:
           node-version: 24
 
+      - name: Generate SBOM and submit to dependency graph
+        uses: anchore/sbom-action@v0.22.0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          dependency-snapshot: true
+
       - name: Install dependencies
         run: npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator @semantic-release/changelog @semantic-release/git @semantic-release/github
 
