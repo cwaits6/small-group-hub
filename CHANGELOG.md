@@ -1,3 +1,10 @@
+## [0.1.5](https://github.com/cwaits6/small-group-hub/compare/v0.1.4...v0.1.5) (2026-03-19)
+
+
+### Bug Fixes
+
+* **deps:** update nextjs monorepo to v16.2.0 ([#33](https://github.com/cwaits6/small-group-hub/issues/33)) ([97861ee](https://github.com/cwaits6/small-group-hub/commit/97861eeb2cff51ba89fc011f694e181d803b8a77))
+
 ## [0.1.4](https://github.com/cwaits6/small-group-hub/compare/v0.1.3...v0.1.4) (2026-03-17)
 
 
