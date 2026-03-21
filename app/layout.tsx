@@ -54,12 +54,12 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               :root {
-                --brand-primary: ${siteConfig.colors.primary};
-                --brand-primary-light: ${siteConfig.colors.primaryLight};
-                --brand-accent: ${siteConfig.colors.accent};
-                --brand-warm: ${siteConfig.colors.warm};
-                --brand-bg-light: ${siteConfig.colors.backgroundLight};
-                --brand-bg-muted: ${siteConfig.colors.backgroundMuted};
+                --color-brand-primary: ${siteConfig.colors.primary};
+                --color-brand-primary-light: ${siteConfig.colors.primaryLight};
+                --color-brand-accent: ${siteConfig.colors.accent};
+                --color-brand-warm: ${siteConfig.colors.warm};
+                --color-brand-bg-light: ${siteConfig.colors.backgroundLight};
+                --color-brand-bg-muted: ${siteConfig.colors.backgroundMuted};
               }
             `,
           }}

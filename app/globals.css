@@ -40,12 +40,12 @@
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
-  --color-brand-primary: var(--brand-primary);
-  --color-brand-primary-light: var(--brand-primary-light);
-  --color-brand-accent: var(--brand-accent);
-  --color-brand-warm: var(--brand-warm);
-  --color-brand-bg-light: var(--brand-bg-light);
-  --color-brand-bg-muted: var(--brand-bg-muted);
+  --color-brand-primary: #0d4f3c;
+  --color-brand-primary-light: #059669;
+  --color-brand-accent: #f43f5e;
+  --color-brand-warm: #f59e0b;
+  --color-brand-bg-light: #ecfdf5;
+  --color-brand-bg-muted: #d1fae5;
 }
 
 :root {
@@ -77,14 +77,6 @@
   --sidebar-border: oklch(0.88 0.02 163);
   --sidebar-ring: oklch(0.55 0.14 163);
 
-  /* Brand custom colors — injected from siteConfig via layout.tsx */
-  /* These are fallbacks; the layout <style> tag overrides them from env vars */
-  --brand-primary: #0d4f3c;
-  --brand-primary-light: #059669;
-  --brand-accent: #f43f5e;
-  --brand-warm: #f59e0b;
-  --brand-bg-light: #ecfdf5;
-  --brand-bg-muted: #d1fae5;
 }
 
 @keyframes float {

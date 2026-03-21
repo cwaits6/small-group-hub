@@ -4,7 +4,7 @@ import { Heart } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer style={{ background: siteConfig.colors.primary }}>
+    <footer className="bg-brand-primary">
       <div className="container mx-auto px-4 py-12">
         <div className="grid md:grid-cols-3 gap-10 mb-10">
           {/* Brand */}
