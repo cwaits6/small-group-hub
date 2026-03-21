@@ -48,7 +48,7 @@ export default function NewEventPage() {
     <div className="container mx-auto px-4 py-12 max-w-2xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl text-amber-900">Create Event</CardTitle>
+          <CardTitle className="text-3xl text-brand-primary">Create Event</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -97,7 +97,7 @@ export default function NewEventPage() {
             <Button
               type="submit"
               size="lg"
-              className="w-full text-lg py-6 bg-amber-700 hover:bg-amber-800"
+              className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
               disabled={loading}
             >
               {loading ? "Creating..." : "Create Event"}

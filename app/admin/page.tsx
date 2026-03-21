@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, Calendar, Megaphone, BookOpen, Settings, Clock } from "lucide-react";
+import { siteConfig } from "@/lib/config";
 
-export const metadata = { title: "Admin | Incouragers" };
+export const metadata = { title: `Admin | ${siteConfig.name}` };
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -81,7 +82,7 @@ export default async function AdminPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-10">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
         Admin Dashboard
       </h1>
 
@@ -92,9 +93,9 @@ export default async function AdminPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-base text-muted-foreground">Pending Requests</p>
-                <p className="text-3xl font-bold text-amber-900">{pendingRequests || 0}</p>
+                <p className="text-3xl font-bold text-brand-primary">{pendingRequests || 0}</p>
               </div>
-              <Clock className="h-8 w-8 text-amber-600" />
+              <Clock className="h-8 w-8 text-brand-primary" />
             </div>
           </CardContent>
         </Card>
@@ -103,9 +104,9 @@ export default async function AdminPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-base text-muted-foreground">Total Members</p>
-                <p className="text-3xl font-bold text-amber-900">{totalMembers || 0}</p>
+                <p className="text-3xl font-bold text-brand-primary">{totalMembers || 0}</p>
               </div>
-              <Users className="h-8 w-8 text-amber-600" />
+              <Users className="h-8 w-8 text-brand-primary" />
             </div>
           </CardContent>
         </Card>
@@ -114,9 +115,9 @@ export default async function AdminPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-base text-muted-foreground">Upcoming Events</p>
-                <p className="text-3xl font-bold text-amber-900">{upcomingEvents || 0}</p>
+                <p className="text-3xl font-bold text-brand-primary">{upcomingEvents || 0}</p>
               </div>
-              <Calendar className="h-8 w-8 text-amber-600" />
+              <Calendar className="h-8 w-8 text-brand-primary" />
             </div>
           </CardContent>
         </Card>
@@ -125,23 +126,23 @@ export default async function AdminPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-base text-muted-foreground">Announcements</p>
-                <p className="text-3xl font-bold text-amber-900">{publishedAnnouncements || 0}</p>
+                <p className="text-3xl font-bold text-brand-primary">{publishedAnnouncements || 0}</p>
               </div>
-              <Megaphone className="h-8 w-8 text-amber-600" />
+              <Megaphone className="h-8 w-8 text-brand-primary" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Quick actions */}
-      <h2 className="text-2xl font-bold text-amber-900 mb-4">Quick Actions</h2>
+      <h2 className="text-2xl font-bold text-brand-primary mb-4">Quick Actions</h2>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {adminLinks.map((link) => (
           <Link key={link.href} href={link.href}>
             <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <link.icon className="h-6 w-6 text-amber-700" />
+                  <link.icon className="h-6 w-6 text-brand-primary" />
                   {link.badge && (
                     <Badge variant="destructive" className="text-sm">
                       {link.badge}

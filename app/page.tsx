@@ -71,7 +71,7 @@ export default async function HomePage() {
             {/* Pill badge */}
             <div className="animate-fade-in inline-flex items-center gap-2 bg-white/10 border border-white/20 text-emerald-200 px-4 py-1.5 rounded-full text-base font-semibold mb-8 backdrop-blur-sm">
               <Sparkles className="h-4 w-4 text-amber-400" />
-              First Redeemer Church
+              {siteConfig.churchName}
             </div>
 
             <h1 className="animate-fade-up font-display text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
@@ -127,7 +127,7 @@ export default async function HomePage() {
       <section className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="font-display text-4xl font-bold text-[#0d4f3c] mb-3">
+            <h2 className="font-display text-4xl font-bold text-brand-primary mb-3">
               What We&apos;re About
             </h2>
             <p className="text-lg text-slate-500 max-w-lg mx-auto">
@@ -188,17 +188,17 @@ export default async function HomePage() {
           <div className="container mx-auto px-4">
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
               <div>
-                <p className="text-emerald-600 font-bold text-base uppercase tracking-widest mb-2">
+                <p className="text-brand-primary-light font-bold text-base uppercase tracking-widest mb-2">
                   On the Calendar
                 </p>
-                <h2 className="font-display text-4xl font-bold text-[#0d4f3c]">
+                <h2 className="font-display text-4xl font-bold text-brand-primary">
                   Upcoming Events
                 </h2>
               </div>
               <Button
                 variant="outline"
                 size="lg"
-                className="text-base font-semibold border-2 border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-all"
+                className="text-base font-semibold border-2 border-emerald-300 text-brand-primary hover:bg-brand-primary-light hover:text-white hover:border-emerald-600 transition-all"
                 nativeButton={false}
                 render={<Link href="/events" />}
               >
@@ -220,10 +220,10 @@ export default async function HomePage() {
         <section className="py-20">
           <div className="container mx-auto px-4 max-w-3xl">
             <div className="text-center mb-10">
-              <p className="text-rose-500 font-bold text-base uppercase tracking-widest mb-2">
+              <p className="text-brand-accent font-bold text-base uppercase tracking-widest mb-2">
                 From the Group
               </p>
-              <h2 className="font-display text-4xl font-bold text-[#0d4f3c]">
+              <h2 className="font-display text-4xl font-bold text-brand-primary">
                 Latest Announcement
               </h2>
             </div>

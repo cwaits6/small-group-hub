@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { EventCard } from "@/components/events/EventCard";
 import { RsvpButton } from "@/components/events/RsvpButton";
+import { siteConfig } from "@/lib/config";
 import type { Rsvp } from "@/lib/types";
 
-export const metadata = { title: "Events | Incouragers" };
+export const metadata = { title: `Events | ${siteConfig.name}` };
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -50,7 +51,7 @@ export default async function EventsPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-2">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
         Upcoming Events
       </h1>
       <p className="text-lg text-muted-foreground mb-10">

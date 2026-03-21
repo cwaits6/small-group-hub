@@ -58,17 +58,17 @@ export function Header({ profile }: HeaderProps) {
       }`}
     >
       {/* Top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-emerald-600 via-teal-500 to-rose-500" />
+      <div className="h-1 w-full bg-gradient-to-r from-brand-primary-light via-brand-primary to-brand-accent" />
 
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link
           href={isMember ? "/dashboard" : "/"}
           className="flex items-center gap-2 group"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-            <span className="text-white font-bold text-sm font-display">I</span>
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+            <span className="text-white font-bold text-sm font-display">{siteConfig.logoMonogram}</span>
           </div>
-          <span className="text-xl font-bold font-display text-[#0d4f3c] tracking-tight">
+          <span className="text-xl font-bold font-display text-brand-primary tracking-tight">
             {siteConfig.name}
           </span>
         </Link>
@@ -79,7 +79,7 @@ export function Header({ profile }: HeaderProps) {
             <Link
               key={link.href}
               href={link.href}
-              className="px-4 py-2 text-base font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all duration-150"
+              className="px-4 py-2 text-base font-semibold text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light rounded-lg transition-all duration-150"
             >
               {link.label}
             </Link>
@@ -87,7 +87,7 @@ export function Header({ profile }: HeaderProps) {
           {isAdmin && (
             <Link
               href="/admin"
-              className="px-4 py-2 text-base font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all duration-150"
+              className="px-4 py-2 text-base font-semibold text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light rounded-lg transition-all duration-150"
             >
               Admin
             </Link>
@@ -108,7 +108,7 @@ export function Header({ profile }: HeaderProps) {
                 <Button
                   variant="ghost"
                   size="lg"
-                  className="text-base text-slate-600 hover:text-emerald-700"
+                  className="text-base text-slate-600 hover:text-brand-primary"
                   nativeButton={false}
                   render={<Link href="/login" />}
                 >
@@ -116,7 +116,7 @@ export function Header({ profile }: HeaderProps) {
                 </Button>
                 <Button
                   size="lg"
-                  className="text-base bg-[#f43f5e] hover:bg-rose-600 text-white shadow-sm hover:shadow-md transition-all px-6"
+                  className="text-base bg-brand-accent hover:bg-brand-accent/90 text-white shadow-sm hover:shadow-md transition-all px-6"
                   nativeButton={false}
                   render={<Link href="/join" />}
                 >
@@ -135,10 +135,10 @@ export function Header({ profile }: HeaderProps) {
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] border-l border-emerald-100">
             <div className="flex items-center gap-2 mb-8 mt-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center">
-                <span className="text-white font-bold text-sm font-display">I</span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center">
+                <span className="text-white font-bold text-sm font-display">{siteConfig.logoMonogram}</span>
               </div>
-              <span className="text-xl font-bold font-display text-[#0d4f3c]">{siteConfig.name}</span>
+              <span className="text-xl font-bold font-display text-brand-primary">{siteConfig.name}</span>
             </div>
             <nav className="flex flex-col gap-1">
               {links.map((link) => (
@@ -146,7 +146,7 @@ export function Header({ profile }: HeaderProps) {
                   key={link.href}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="text-lg font-semibold px-4 py-3 rounded-xl text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+                  className="text-lg font-semibold px-4 py-3 rounded-xl text-slate-700 hover:text-brand-primary hover:bg-brand-bg-light transition-all"
                 >
                   {link.label}
                 </Link>
@@ -155,7 +155,7 @@ export function Header({ profile }: HeaderProps) {
                 <Link
                   href="/admin"
                   onClick={() => setOpen(false)}
-                  className="text-lg font-semibold px-4 py-3 rounded-xl text-slate-700 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+                  className="text-lg font-semibold px-4 py-3 rounded-xl text-slate-700 hover:text-brand-primary hover:bg-brand-bg-light transition-all"
                 >
                   Admin
                 </Link>
@@ -176,7 +176,7 @@ export function Header({ profile }: HeaderProps) {
                     <Button
                       variant="outline"
                       size="lg"
-                      className="w-full text-lg border-emerald-200 text-emerald-700"
+                      className="w-full text-lg border-emerald-200 text-brand-primary"
                       nativeButton={false}
                       render={<Link href="/login" onClick={() => setOpen(false)} />}
                     >
@@ -184,7 +184,7 @@ export function Header({ profile }: HeaderProps) {
                     </Button>
                     <Button
                       size="lg"
-                      className="w-full text-lg bg-[#f43f5e] hover:bg-rose-600 text-white"
+                      className="w-full text-lg bg-brand-accent hover:bg-brand-accent/90 text-white"
                       nativeButton={false}
                       render={<Link href="/join" onClick={() => setOpen(false)} />}
                     >

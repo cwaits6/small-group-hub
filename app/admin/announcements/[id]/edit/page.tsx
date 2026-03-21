@@ -87,7 +87,7 @@ export default function EditAnnouncementPage() {
     <div className="container mx-auto px-4 py-12 max-w-2xl">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl text-amber-900">Edit Announcement</CardTitle>
+          <CardTitle className="text-3xl text-brand-primary">Edit Announcement</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -110,7 +110,7 @@ export default function EditAnnouncementPage() {
               <Button
                 type="submit"
                 size="lg"
-                className="flex-1 text-lg py-6 bg-amber-700 hover:bg-amber-800"
+                className="flex-1 text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
                 disabled={loading}
               >
                 {loading ? "Saving..." : "Save Changes"}

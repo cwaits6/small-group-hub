@@ -1,5 +1,5 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendWelcomeEmail } from "@/lib/email/resend";
+import { sendInviteEmail } from "@/lib/email/resend";
 import { NextResponse } from "next/server";
 import { siteConfig } from "@/lib/config";
 
@@ -32,20 +32,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Use service role to invite user via Supabase Auth
     const serviceClient = await createServiceClient();
-    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: { full_name: name },
-        redirectTo: `${siteConfig.url}/api/auth/callback?next=/dashboard`,
-      }
-    );
 
-    if (inviteError) {
+    // Generate an invite link without sending Supabase's default email
+    const { data: linkData, error: linkError } =
+      await serviceClient.auth.admin.generateLink({
+        type: "invite",
+        email,
+        options: {
+          data: { full_name: name },
+          redirectTo: `${siteConfig.url}/api/auth/callback?next=/setup-password`,
+        },
+      });
+
+    if (linkError) {
       // If user already exists in auth, just update their profile role
-      if (inviteError.message.includes("already")) {
-        // Find user by email and update profile
+      if (linkError.message.includes("already")) {
         const { data: users } = await serviceClient.auth.admin.listUsers();
         const existingUser = users?.users?.find((u) => u.email === email);
         if (existingUser) {
@@ -59,12 +61,16 @@ export async function POST(request: Request) {
             .eq("id", existingUser.id);
         }
       } else {
-        throw inviteError;
+        throw linkError;
       }
+    } else {
+      // Send branded invite email via Resend
+      await sendInviteEmail(
+        email,
+        name,
+        linkData.properties.action_link
+      );
     }
-
-    // Send welcome email
-    await sendWelcomeEmail(email, name);
 
     return NextResponse.json({ success: true });
   } catch (error) {

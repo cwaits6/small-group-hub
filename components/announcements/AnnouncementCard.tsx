@@ -22,7 +22,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "#fff1f2" }}
           >
-            <Megaphone className="h-5 w-5 text-rose-500" />
+            <Megaphone className="h-5 w-5 text-brand-accent" />
           </div>
           <div>
             <h3 className="font-display text-xl font-bold text-slate-800 leading-tight">
@@ -39,7 +39,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
         </div>
 
         <div
-          className="text-base text-slate-600 leading-relaxed [&_a]:text-rose-600 [&_a]:underline [&_a:hover]:text-rose-800 [&_strong]:font-semibold [&_strong]:text-slate-800"
+          className="text-base text-slate-600 leading-relaxed [&_a]:text-brand-accent [&_a]:underline [&_a:hover]:text-brand-accent/90 [&_strong]:font-semibold [&_strong]:text-slate-800"
           dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(announcement.content) }}
         />
       </div>

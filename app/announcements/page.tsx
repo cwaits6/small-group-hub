@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
+import { siteConfig } from "@/lib/config";
 
-export const metadata = { title: "Announcements | Incouragers" };
+export const metadata = { title: `Announcements | ${siteConfig.name}` };
 
 export default async function AnnouncementsPage() {
   const supabase = await createClient();
@@ -20,7 +21,7 @@ export default async function AnnouncementsPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-2">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
         Announcements
       </h1>
       <p className="text-lg text-muted-foreground mb-10">

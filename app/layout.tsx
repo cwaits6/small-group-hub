@@ -49,6 +49,22 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              :root {
+                --brand-primary: ${siteConfig.colors.primary};
+                --brand-primary-light: ${siteConfig.colors.primaryLight};
+                --brand-accent: ${siteConfig.colors.accent};
+                --brand-warm: ${siteConfig.colors.warm};
+                --brand-bg-light: ${siteConfig.colors.backgroundLight};
+                --brand-bg-muted: ${siteConfig.colors.backgroundMuted};
+              }
+            `,
+          }}
+        />
+      </head>
       <body className={`${playfair.variable} ${nunito.variable} antialiased min-h-screen flex flex-col`}>
         <Header profile={profile} />
         <main className="flex-1">{children}</main>
