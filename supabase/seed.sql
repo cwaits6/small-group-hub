@@ -26,7 +26,8 @@ INSERT INTO auth.users (
   '',
   '{"provider": "email", "providers": ["email"]}',
   '{"full_name": "Local Admin"}'
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- The handle_new_user trigger auto-creates the profile with role 'pending',
 -- so we just update it to admin
