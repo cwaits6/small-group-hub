@@ -38,6 +38,7 @@ export default function LoginPage() {
     }
 
     router.replace(redirect);
+    router.refresh();
   };
 
   return (
