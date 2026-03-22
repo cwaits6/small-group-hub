@@ -24,7 +24,7 @@ jobs:
           node-version: 24
 
       - name: Generate SBOM and submit to dependency graph
-        uses: anchore/sbom-action@v0.23.1
+        uses: anchore/sbom-action@v0.24.0
         with:
           path: .
           format: cyclonedx-json
