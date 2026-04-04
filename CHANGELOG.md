@@ -1,3 +1,10 @@
+# [0.2.0](https://github.com/cwaits6/small-group-hub/compare/v0.1.8...v0.2.0) (2026-04-04)
+
+
+### Features
+
+* email+password auth flow and env-driven theming ([#39](https://github.com/cwaits6/small-group-hub/issues/39)) ([d7c081e](https://github.com/cwaits6/small-group-hub/commit/d7c081efed304edec417916446f036dc9bc792e5))
+
 ## [0.1.8](https://github.com/cwaits6/small-group-hub/compare/v0.1.7...v0.1.8) (2026-04-04)
 
 
