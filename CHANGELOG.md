@@ -1,3 +1,10 @@
+## [0.1.7](https://github.com/cwaits6/small-group-hub/compare/v0.1.6...v0.1.7) (2026-04-04)
+
+
+### Bug Fixes
+
+* **deps:** update dependency lucide-react to v1 ([#44](https://github.com/cwaits6/small-group-hub/issues/44)) ([b27dc2d](https://github.com/cwaits6/small-group-hub/commit/b27dc2dfcea780cda5e36a9ad8ffd50850e40c67))
+
 ## [0.1.6](https://github.com/cwaits6/small-group-hub/compare/v0.1.5...v0.1.6) (2026-03-21)
 
 
