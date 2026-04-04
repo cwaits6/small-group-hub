@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
-export default function SetupPasswordPage() {
+export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const supabase = createClient();
@@ -52,12 +52,13 @@ export default function SetupPasswordPage() {
     setLoading(false);
 
     if (error) {
-      toast.error("Failed to set password. Please try again.");
+      toast.error("Failed to update password. Please try again.");
       return;
     }
 
-    toast.success("Password set successfully!");
+    toast.success("Password updated successfully!");
     router.replace("/dashboard");
+    router.refresh();
   };
 
   if (checkingSession) {
@@ -68,15 +69,15 @@ export default function SetupPasswordPage() {
     <div className="container mx-auto px-4 py-12 max-w-lg">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl text-brand-primary">Set Your Password</CardTitle>
+          <CardTitle className="text-3xl text-brand-primary">Update Password</CardTitle>
           <CardDescription className="text-lg">
-            Choose a password so you can sign in anytime.
+            Choose a new password for your account.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-lg">Password</Label>
+              <Label htmlFor="password" className="text-lg">New Password</Label>
               <Input
                 id="password"
                 name="password"
@@ -105,7 +106,7 @@ export default function SetupPasswordPage() {
               className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
               disabled={loading}
             >
-              {loading ? "Setting up..." : "Set Password"}
+              {loading ? "Updating..." : "Update Password"}
             </Button>
           </form>
         </CardContent>

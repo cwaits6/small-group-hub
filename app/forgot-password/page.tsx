@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -19,19 +20,14 @@ export default function ForgotPasswordPage() {
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
 
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+    // This is a public Supabase endpoint — no admin API needed.
+    // Supabase sends the reset email via its built-in email system.
+    // Always show success to prevent email enumeration.
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/api/auth/callback?next=/update-password`,
     });
 
     setLoading(false);
-
-    if (!res.ok) {
-      toast.error("Something went wrong. Please try again.");
-      return;
-    }
-
     setSubmitted(true);
   };
 

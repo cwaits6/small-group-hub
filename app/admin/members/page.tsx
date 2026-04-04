@@ -45,31 +45,33 @@ export default function MembersPage() {
   }
 
   async function handleRequest(id: string, action: "approved" | "denied") {
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase
-      .from("access_requests")
-      .update({
-        status: action,
-        reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Failed to update request.");
-      return;
-    }
-
     if (action === "approved") {
       const request = requests.find((r) => r.id === id);
       if (request) {
-        // Trigger welcome email via API
-        await fetch("/api/admin/approve", {
+        const res = await fetch("/api/admin/approve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: request.email, name: request.name }),
         });
+        if (!res.ok) {
+          toast.error("Failed to approve request.");
+          return;
+        }
+      }
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from("access_requests")
+        .update({
+          status: action,
+          reviewed_by: user?.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to update request.");
+        return;
       }
     }
 
