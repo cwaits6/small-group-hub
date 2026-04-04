@@ -26,9 +26,21 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
+declare
+  _role text := 'pending';
 begin
+  -- If there's an approved access request for this email, make them a member
+  if exists (
+    select 1 from public.access_requests
+    where email = new.email
+      and status = 'approved'
+  ) then
+    _role := 'member';
+  end if;
+
   insert into public.profiles (id, full_name, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', 'pending');
+  values (new.id, new.raw_user_meta_data->>'full_name', _role);
+
   return new;
 end;
 $$;
@@ -108,6 +120,8 @@ CREATE TABLE IF NOT EXISTS "public"."access_requests" (
     "reviewed_by" "uuid",
     "reviewed_at" timestamp with time zone,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "signup_token" "text",
+    "token_expires_at" timestamp with time zone,
     CONSTRAINT "access_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'denied'::"text"])))
 );
 
@@ -202,6 +216,11 @@ ALTER TABLE "public"."site_settings" OWNER TO "postgres";
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."access_requests"
+    ADD CONSTRAINT "access_requests_signup_token_key" UNIQUE ("signup_token");
 
 
 
