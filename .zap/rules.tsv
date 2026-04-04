@@ -32,6 +32,10 @@
 # _vercel_sso_nonce is Vercel's own deployment protection cookie, not our session.
 10112	IGNORE	# Session Management Response Identified
 
+# Authentication Request Identified: ZAP detected our login form. Informational
+# only — confirms the form exists, not a vulnerability.
+10111	IGNORE	# Authentication Request Identified
+
 # Anti-CSRF tokens: Next.js server actions use built-in CSRF protection.
 # ZAP may flag forms that don't use traditional token fields.
 90001	WARN	# Insecure JSF ViewState
