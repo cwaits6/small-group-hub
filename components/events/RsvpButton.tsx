@@ -54,7 +54,7 @@ export function RsvpButton({ eventId, userId, currentStatus }: RsvpButtonProps) 
           key={option.value}
           variant={status === option.value ? "default" : "outline"}
           size="lg"
-          className={`text-base ${status === option.value ? "bg-amber-700 hover:bg-amber-800" : ""}`}
+          className={`text-base ${status === option.value ? "bg-brand-primary hover:bg-brand-primary/90 text-white" : ""}`}
           onClick={() => handleRsvp(option.value)}
           disabled={loading}
         >

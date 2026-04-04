@@ -1,7 +1,8 @@
-import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { sendWelcomeEmail } from "@/lib/email/resend";
+import { createClient } from "@/lib/supabase/server";
+import { sendInviteEmail } from "@/lib/email/resend";
 import { NextResponse } from "next/server";
 import { siteConfig } from "@/lib/config";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -32,39 +33,38 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Use service role to invite user via Supabase Auth
-    const serviceClient = await createServiceClient();
-    const { error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      email,
-      {
-        data: { full_name: name },
-        redirectTo: `${siteConfig.url}/api/auth/callback?next=/dashboard`,
-      }
-    );
+    // Generate a secure signup token (expires in 7 days)
+    const signupToken = crypto.randomBytes(32).toString("hex");
+    const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (inviteError) {
-      // If user already exists in auth, just update their profile role
-      if (inviteError.message.includes("already")) {
-        // Find user by email and update profile
-        const { data: users } = await serviceClient.auth.admin.listUsers();
-        const existingUser = users?.users?.find((u) => u.email === email);
-        if (existingUser) {
-          await serviceClient
-            .from("profiles")
-            .update({
-              role: "member",
-              approved_at: new Date().toISOString(),
-              approved_by: user.id,
-            })
-            .eq("id", existingUser.id);
-        }
-      } else {
-        throw inviteError;
-      }
+    // Update the access request with approval status and signup token
+    const { data: updated, error: updateError } = await supabase
+      .from("access_requests")
+      .update({
+        status: "approved",
+        reviewed_by: user.id,
+        reviewed_at: new Date().toISOString(),
+        signup_token: signupToken,
+        token_expires_at: tokenExpiresAt,
+      })
+      .eq("email", email)
+      .eq("status", "pending")
+      .select();
+
+    if (updateError) {
+      throw updateError;
     }
 
-    // Send welcome email
-    await sendWelcomeEmail(email, name);
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: "No pending request found for this email" },
+        { status: 404 }
+      );
+    }
+
+    // Send branded invite email via Resend with signup link
+    const signupLink = `${siteConfig.url}/setup-account?token=${signupToken}`;
+    await sendInviteEmail(email, name, signupLink);
 
     return NextResponse.json({ success: true });
   } catch (error) {

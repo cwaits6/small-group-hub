@@ -44,20 +44,20 @@ export function EventCard({ event, children }: EventCardProps) {
               {event.is_private && (
                 <Badge
                   variant="secondary"
-                  className="shrink-0 bg-amber-100 text-amber-700 border-amber-200 text-xs"
+                  className="shrink-0 bg-amber-100 text-brand-primary border-amber-200 text-xs"
                 >
                   <Lock className="h-3 w-3 mr-1" />
                   Members
                 </Badge>
               )}
             </div>
-            <p className="text-sm text-emerald-600 font-semibold">{weekday}</p>
+            <p className="text-sm text-brand-primary-light font-semibold">{weekday}</p>
           </div>
         </div>
 
         <div className="mt-4 space-y-2">
           <div className="flex items-center gap-2 text-base text-slate-500">
-            <Clock className="h-4 w-4 shrink-0 text-emerald-500" />
+            <Clock className="h-4 w-4 shrink-0 text-brand-primary-light" />
             <span>
               {formatTime(startDate)}
               {endDate && <span className="text-slate-400"> – {formatTime(endDate)}</span>}
@@ -65,7 +65,7 @@ export function EventCard({ event, children }: EventCardProps) {
           </div>
           {event.location && (
             <div className="flex items-center gap-2 text-base text-slate-500">
-              <MapPin className="h-4 w-4 shrink-0 text-emerald-500" />
+              <MapPin className="h-4 w-4 shrink-0 text-brand-primary-light" />
               <span>{event.location}</span>
             </div>
           )}

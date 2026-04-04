@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { siteConfig } from "@/lib/config";
 import { PlayCircle } from "lucide-react";
 
-export const metadata = { title: "Lectures | Incouragers" };
+export const metadata = { title: `Lectures | ${siteConfig.name}` };
 
 function getYouTubeId(url: string): string | null {
   const match = url.match(
@@ -21,7 +22,7 @@ export default async function LecturesPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-2">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
         Lectures & Lessons
       </h1>
       <p className="text-lg text-muted-foreground mb-10">
@@ -71,9 +72,9 @@ export default async function LecturesPage() {
                     href={lecture.video_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block aspect-video bg-amber-100 flex items-center justify-center"
+                    className="block aspect-video bg-brand-bg-muted flex items-center justify-center"
                   >
-                    <PlayCircle className="h-16 w-16 text-amber-700" />
+                    <PlayCircle className="h-16 w-16 text-brand-primary" />
                   </a>
                 )}
                 <CardHeader className="pb-2">

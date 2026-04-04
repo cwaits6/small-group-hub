@@ -3,13 +3,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { toast } from "sonner";
+import Link from "next/link";
 
-export default function JoinPage() {
+export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const supabase = createClient();
@@ -19,23 +18,16 @@ export default function JoinPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const name = formData.get("name") as string;
     const email = formData.get("email") as string;
-    const message = formData.get("message") as string;
 
-    const { error } = await supabase.from("access_requests").insert({
-      name,
-      email,
-      message: message || null,
+    // This is a public Supabase endpoint — no admin API needed.
+    // Supabase sends the reset email via its built-in email system.
+    // Always show success to prevent email enumeration.
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/api/auth/callback?next=/update-password`,
     });
 
     setLoading(false);
-
-    if (error) {
-      toast.error("Something went wrong. Please try again.");
-      return;
-    }
-
     setSubmitted(true);
   };
 
@@ -44,10 +36,15 @@ export default function JoinPage() {
       <div className="container mx-auto px-4 py-20 max-w-lg text-center">
         <Card className="p-8">
           <CardContent className="pt-6">
-            <h1 className="text-3xl font-bold text-brand-primary mb-4">Request Submitted!</h1>
+            <h1 className="text-3xl font-bold text-brand-primary mb-4">Check Your Email</h1>
             <p className="text-lg text-muted-foreground">
-              Thank you for your interest in joining us. An admin will review your
-              request and you&apos;ll receive an email once approved.
+              If an account exists with that email, we&apos;ve sent a password reset link.
+              It may take a minute to arrive.
+            </p>
+            <p className="text-base text-muted-foreground mt-6">
+              <Link href="/login" className="text-brand-primary hover:underline font-medium">
+                Back to sign in
+              </Link>
             </p>
           </CardContent>
         </Card>
@@ -59,23 +56,13 @@ export default function JoinPage() {
     <div className="container mx-auto px-4 py-12 max-w-lg">
       <Card>
         <CardHeader>
-          <CardTitle className="text-3xl text-brand-primary">Join Our Group</CardTitle>
+          <CardTitle className="text-3xl text-brand-primary">Forgot Password</CardTitle>
           <CardDescription className="text-lg">
-            Fill out the form below and an admin will review your request.
+            Enter your email and we&apos;ll send you a link to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-lg">Full Name</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                placeholder="Your full name"
-                className="text-lg py-6"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="email" className="text-lg">Email</Label>
               <Input
@@ -87,27 +74,20 @@ export default function JoinPage() {
                 className="text-lg py-6"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="message" className="text-lg">
-                Message <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <Textarea
-                id="message"
-                name="message"
-                placeholder="Tell us a little about yourself..."
-                rows={4}
-                className="text-lg"
-              />
-            </div>
             <Button
               type="submit"
               size="lg"
               className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
               disabled={loading}
             >
-              {loading ? "Submitting..." : "Submit Request"}
+              {loading ? "Sending..." : "Send Reset Link"}
             </Button>
           </form>
+          <p className="text-center text-base text-muted-foreground mt-6">
+            <Link href="/login" className="text-brand-primary hover:underline font-medium">
+              Back to sign in
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>

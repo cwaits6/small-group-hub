@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
@@ -14,7 +16,7 @@ const securityHeaders = [
       "img-src 'self' data: blob:",
       "font-src 'self'",
       // Supabase realtime + API, Vercel Analytics
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com",
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com${isDev ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""}`,
       "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",

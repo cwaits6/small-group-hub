@@ -8,6 +8,9 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!;
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
+const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "Incouragers <noreply@incouragers.org>";
+const APP_NAME = Deno.env.get("APP_NAME") || "Incouragers";
+const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#0d4f3c";
 
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
@@ -69,12 +72,12 @@ Deno.serve(async () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "Incouragers <noreply@incouragers.org>",
+          from: EMAIL_FROM,
           to: userData.user.email,
           subject: `Reminder: ${event.title} is tomorrow!`,
           html: `
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h1 style="color: #92400e; font-size: 28px;">Event Reminder</h1>
+              <h1 style="color: ${BRAND_COLOR}; font-size: 28px;">Event Reminder</h1>
               <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
                 Hi ${profile?.full_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
               </p>
@@ -85,7 +88,7 @@ Deno.serve(async () => {
                 ${event.location ? `<p style="font-size: 18px; margin: 8px 0 0; color: #44403c;"><strong>Where:</strong> ${event.location}</p>` : ""}
               </div>
               <a href="${SITE_URL}/events"
-                 style="display: inline-block; background-color: #92400e; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+                 style="display: inline-block; background-color: ${BRAND_COLOR}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
                 View Event
               </a>
             </div>

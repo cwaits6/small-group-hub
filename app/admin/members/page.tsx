@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Check, X, UserCog } from "lucide-react";
+import { Check, X, UserCog, Clock } from "lucide-react";
 import type { AccessRequest, Profile, UserRole } from "@/lib/types";
 
 export default function MembersPage() {
@@ -45,31 +45,37 @@ export default function MembersPage() {
   }
 
   async function handleRequest(id: string, action: "approved" | "denied") {
-    const { data: { user } } = await supabase.auth.getUser();
-
-    const { error } = await supabase
-      .from("access_requests")
-      .update({
-        status: action,
-        reviewed_by: user?.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (error) {
-      toast.error("Failed to update request.");
-      return;
-    }
-
     if (action === "approved") {
       const request = requests.find((r) => r.id === id);
       if (request) {
-        // Trigger welcome email via API
-        await fetch("/api/admin/approve", {
+        const res = await fetch("/api/admin/approve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: request.email, name: request.name }),
         });
+        if (!res.ok) {
+          toast.error("Failed to approve request.");
+          return;
+        }
+      }
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Session expired. Please log in again.");
+        return;
+      }
+      const { error } = await supabase
+        .from("access_requests")
+        .update({
+          status: action,
+          reviewed_by: user.id,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq("id", id);
+
+      if (error) {
+        toast.error("Failed to update request.");
+        return;
       }
     }
 
@@ -93,6 +99,11 @@ export default function MembersPage() {
   }
 
   const pendingRequests = requests.filter((r) => r.status === "pending");
+  const approvedNotSignedUp = requests.filter(
+    (r) =>
+      r.status === "approved" &&
+      !members.some((m) => m.full_name === r.name)
+  );
 
   if (loading) {
     return (
@@ -104,7 +115,7 @@ export default function MembersPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-10">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
         Manage Members
       </h1>
 
@@ -119,7 +130,7 @@ export default function MembersPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="members" className="text-base px-6">
-            Members ({members.length})
+            Members ({members.length + approvedNotSignedUp.length})
           </TabsTrigger>
         </TabsList>
 
@@ -171,6 +182,24 @@ export default function MembersPage() {
 
         <TabsContent value="members">
           <div className="space-y-3">
+            {approvedNotSignedUp.map((req) => (
+              <Card key={req.id} className="border-dashed">
+                <CardContent className="pt-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xl font-semibold text-muted-foreground">
+                        {req.name}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{req.email}</p>
+                      <Badge variant="outline" className="mt-1">
+                        <Clock className="mr-1 h-3 w-3" />
+                        Invited — awaiting signup
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
             {members.map((member) => (
               <Card key={member.id}>
                 <CardContent className="pt-6">

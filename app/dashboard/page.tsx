@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
 import Link from "next/link";
+import { siteConfig } from "@/lib/config";
 import type { Rsvp } from "@/lib/types";
 
-export const metadata = { title: "Dashboard | Incouragers" };
+export const metadata = { title: `Dashboard | ${siteConfig.name}` };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -30,7 +31,7 @@ export default async function DashboardPage() {
       <div className="container mx-auto px-4 py-20 max-w-lg text-center">
         <Card className="p-8">
           <CardContent className="pt-6">
-            <h1 className="text-3xl font-bold text-amber-900 mb-4">Pending Approval</h1>
+            <h1 className="text-3xl font-bold text-brand-primary mb-4">Pending Approval</h1>
             <p className="text-lg text-muted-foreground">
               Your account is waiting for admin approval. You&apos;ll receive an
               email once your access has been granted.
@@ -78,7 +79,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-amber-900 mb-2">
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
         Welcome, {profile.full_name || "Friend"}!
       </h1>
       <p className="text-lg text-muted-foreground mb-10">
@@ -89,7 +90,7 @@ export default async function DashboardPage() {
         {/* Events column */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-amber-900">Upcoming Events</h2>
+            <h2 className="text-2xl font-bold text-brand-primary">Upcoming Events</h2>
             <Button variant="outline" nativeButton={false} render={<Link href="/events" />}>
               View All
             </Button>
@@ -112,11 +113,11 @@ export default async function DashboardPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {donationUrl && (
-            <Card className="bg-gradient-to-br from-amber-50 to-orange-50">
+            <Card className="bg-gradient-to-br from-brand-bg-light to-orange-50">
               <CardContent className="pt-6 text-center">
-                <Heart className="h-10 w-10 text-amber-700 mx-auto mb-3" />
+                <Heart className="h-10 w-10 text-brand-primary mx-auto mb-3" />
                 <h3 className="text-xl font-semibold mb-2">Give</h3>
-                <Button size="lg" className="w-full text-lg bg-amber-700 hover:bg-amber-800" nativeButton={false} render={<a href={donationUrl} target="_blank" rel="noopener noreferrer" />}>
+                <Button size="lg" className="w-full text-lg bg-brand-primary hover:bg-brand-primary/90 text-white" nativeButton={false} render={<a href={donationUrl} target="_blank" rel="noopener noreferrer" />}>
                   Donate Now
                 </Button>
               </CardContent>
@@ -124,7 +125,7 @@ export default async function DashboardPage() {
           )}
 
           <div>
-            <h2 className="text-2xl font-bold text-amber-900 mb-4">Announcements</h2>
+            <h2 className="text-2xl font-bold text-brand-primary mb-4">Announcements</h2>
             {announcements && announcements.length > 0 ? (
               <div className="space-y-4">
                 {announcements.map((a) => (

@@ -23,6 +23,8 @@ export interface AccessRequest {
   status: AccessRequestStatus;
   reviewed_by: string | null;
   reviewed_at: string | null;
+  signup_token: string | null;
+  token_expires_at: string | null;
   created_at: string;
 }
 
