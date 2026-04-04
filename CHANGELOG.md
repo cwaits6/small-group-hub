@@ -1,3 +1,11 @@
+## [0.1.8](https://github.com/cwaits6/small-group-hub/compare/v0.1.7...v0.1.8) (2026-04-04)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @supabase/ssr to ^0.10.0 ([#51](https://github.com/cwaits6/small-group-hub/issues/51)) ([8195d1d](https://github.com/cwaits6/small-group-hub/commit/8195d1d16b74aef7b4ec3129709845f1751e0086))
+* **deps:** update nextjs monorepo to v16.2.2 ([#50](https://github.com/cwaits6/small-group-hub/issues/50)) ([aa822bb](https://github.com/cwaits6/small-group-hub/commit/aa822bbcf133804200860611c7761437b5b6ca17))
+
 ## [0.1.7](https://github.com/cwaits6/small-group-hub/compare/v0.1.6...v0.1.7) (2026-04-04)
 
 
