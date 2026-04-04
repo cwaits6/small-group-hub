@@ -60,11 +60,15 @@ export default function MembersPage() {
       }
     } else {
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Session expired. Please log in again.");
+        return;
+      }
       const { error } = await supabase
         .from("access_requests")
         .update({
           status: action,
-          reviewed_by: user?.id,
+          reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
         })
         .eq("id", id);

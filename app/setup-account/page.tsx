@@ -83,6 +83,13 @@ export default function SetupAccountPage() {
       return;
     }
 
+    // Invalidate the signup token so it cannot be reused
+    await fetch("/api/auth/consume-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
     toast.success("Account created! Welcome aboard.");
     router.replace("/dashboard");
     router.refresh();

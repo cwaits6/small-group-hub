@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Update the access request with approval status and signup token
-    const { error: updateError } = await supabase
+    const { data: updated, error: updateError } = await supabase
       .from("access_requests")
       .update({
         status: "approved",
@@ -48,10 +48,18 @@ export async function POST(request: Request) {
         token_expires_at: tokenExpiresAt,
       })
       .eq("email", email)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .select();
 
     if (updateError) {
       throw updateError;
+    }
+
+    if (!updated || updated.length === 0) {
+      return NextResponse.json(
+        { error: "No pending request found for this email" },
+        { status: 404 }
+      );
     }
 
     // Send branded invite email via Resend with signup link
