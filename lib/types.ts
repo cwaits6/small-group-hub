@@ -1,4 +1,4 @@
-export type UserRole = "pending" | "member" | "admin";
+export type UserRole = "pending" | "member" | "content_editor" | "admin";
 
 export type AccessRequestStatus = "pending" | "approved" | "denied";
 
@@ -74,4 +74,12 @@ export interface SiteSetting {
   value: string | null;
   updated_by: string | null;
   updated_at: string | null;
+}
+
+export interface PageContent {
+  slug: string;
+  title: string;
+  body: string;
+  updated_by: string | null;
+  updated_at: string;
 }

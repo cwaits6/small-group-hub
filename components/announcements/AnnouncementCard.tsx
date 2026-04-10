@@ -1,13 +1,39 @@
+"use client";
+
 import DOMPurify from "dompurify";
 import { Megaphone } from "lucide-react";
+import { BlockEditor } from "@/components/editor";
 import type { Announcement } from "@/lib/types";
+import type { PartialBlock } from "@blocknote/core";
 
 interface AnnouncementCardProps {
   announcement: Announcement;
 }
 
+function parseBlocks(content: string): PartialBlock[] | null {
+  try {
+    const parsed = JSON.parse(content);
+    if (!Array.isArray(parsed)) return null;
+
+    // Validate each element is a block-like object with a "type" property
+    const isValidBlock = (item: unknown): item is PartialBlock =>
+      typeof item === "object" &&
+      item !== null &&
+      "type" in item &&
+      typeof (item as Record<string, unknown>).type === "string";
+
+    if (parsed.every(isValidBlock)) {
+      return parsed;
+    }
+  } catch {
+    // not JSON — legacy HTML content
+  }
+  return null;
+}
+
 export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const date = new Date(announcement.published_at || announcement.created_at);
+  const blocks = parseBlocks(announcement.content);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-rose-100 overflow-hidden hover:border-rose-300 hover:shadow-lg transition-all duration-200">
@@ -19,7 +45,8 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
 
       <div className="p-6 md:p-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{ background: "#fff1f2" }}
           >
             <Megaphone className="h-5 w-5 text-brand-accent" />
@@ -38,10 +65,16 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
           </div>
         </div>
 
-        <div
-          className="text-base text-slate-600 leading-relaxed [&_a]:text-brand-accent [&_a]:underline [&_a:hover]:text-brand-accent/90 [&_strong]:font-semibold [&_strong]:text-slate-800"
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(announcement.content) }}
-        />
+        {blocks ? (
+          <div className="text-base text-slate-600 leading-relaxed">
+            <BlockEditor initialContent={blocks} editable={false} />
+          </div>
+        ) : (
+          <div
+            className="text-base text-slate-600 leading-relaxed [&_a]:text-brand-accent [&_a]:underline [&_a:hover]:text-brand-accent/90 [&_strong]:font-semibold [&_strong]:text-slate-800"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(announcement.content) }}
+          />
+        )}
       </div>
     </div>
   );

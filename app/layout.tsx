@@ -4,6 +4,7 @@ import { Playfair_Display, Nunito } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { AppShell } from "@/components/layout/AppShell";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
@@ -72,7 +73,7 @@ export default async function RootLayout({
       </head>
       <body className={`${playfair.variable} ${nunito.variable} antialiased min-h-screen flex flex-col`}>
         <Header profile={profile} />
-        <main className="flex-1">{children}</main>
+        <AppShell profile={profile}>{children}</AppShell>
         <Footer />
         <Toaster />
         <Analytics />

@@ -11,7 +11,7 @@ const securityHeaders = [
       // Do NOT add unsafe-eval — production builds don't need it, and it
       // opens the door to eval-based XSS. If something breaks, investigate
       // what's calling eval() rather than blanket-allowing it.
-      "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",
@@ -45,6 +45,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  reactStrictMode: false,
   poweredByHeader: false,
   async headers() {
     return [

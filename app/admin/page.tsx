@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, Megaphone, BookOpen, Settings, Clock } from "lucide-react";
+import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
 export const metadata = { title: `Admin | ${siteConfig.name}` };
@@ -34,7 +34,7 @@ export default async function AdminPage() {
   const { count: totalMembers } = await supabase
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .in("role", ["member", "admin"]);
+    .in("role", ["member", "content_editor", "admin"]);
 
   const { count: upcomingEvents } = await supabase
     .from("events")
@@ -73,9 +73,15 @@ export default async function AdminPage() {
       icon: BookOpen,
     },
     {
+      href: "/admin/pages",
+      label: "Pages",
+      description: "Edit content pages",
+      icon: FileText,
+    },
+    {
       href: "/admin/settings",
       label: "Settings",
-      description: "Donation URL and other settings",
+      description: "Zoom links, giving, and other settings",
       icon: Settings,
     },
   ];

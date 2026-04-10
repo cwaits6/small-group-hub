@@ -17,6 +17,7 @@ export default async function AnnouncementsPage() {
     .from("announcements")
     .select("*")
     .eq("is_published", true)
+    .lte("published_at", new Date().toISOString())
     .order("published_at", { ascending: false });
 
   return (

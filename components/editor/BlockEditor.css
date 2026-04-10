@@ -1,0 +1,63 @@
+/* BlockNote editor styling */
+
+.bn-container {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 1rem !important;
+}
+
+.bn-editor {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* Text colors and styling */
+.bn-editor p,
+.bn-block-content {
+  color: var(--foreground) !important;
+  font-family: inherit !important;
+  line-height: 1.75 !important;
+}
+
+/* Heading styling */
+.bn-editor h1,
+.bn-editor h2,
+.bn-editor h3 {
+  color: var(--foreground) !important;
+  font-family: var(--font-display, Georgia, serif) !important;
+  font-weight: 700 !important;
+}
+
+/* List styling */
+.bn-editor ul,
+.bn-editor ol {
+  margin-left: 1.5rem !important;
+}
+
+/* Code blocks */
+.bn-editor pre {
+  background: var(--background, oklch(0.985 0.004 150)) !important;
+  border: 1px solid var(--border, oklch(0.88 0.02 163)) !important;
+  border-radius: 0.5rem !important;
+  padding: 1rem !important;
+}
+
+/* Link styling */
+.bn-editor a {
+  color: var(--color-brand-accent, #f43f5e) !important;
+  text-decoration: underline !important;
+}
+
+.bn-editor a:hover {
+  color: var(--color-brand-accent, #f43f5e) !important;
+  opacity: 0.8;
+}
+
+/* Focus state */
+.bn-container:focus-within {
+  border-color: var(--color-brand-primary, #0d4f3c) !important;
+  box-shadow: 0 0 0 3px rgba(13, 79, 60, 0.1) !important;
+}
+
