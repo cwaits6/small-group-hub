@@ -101,7 +101,7 @@ export default function NewAnnouncementPage() {
 
           <div className="space-y-2">
             <Label className="text-lg">Content</Label>
-            <div className="min-h-[300px]">
+            <div className="rounded-lg overflow-hidden border border-border">
               <BlockEditor
                 onChange={(blocks) => {
                   blocksRef.current = blocks;

@@ -1,34 +1,19 @@
-/* BlockNote editor styling for seamless integration */
+/* BlockNote editor styling */
 
 .bn-container {
   background: transparent !important;
   border: none !important;
-  padding: 0 !important;
+  border-radius: 0 !important;
+  padding: 1rem !important;
 }
 
 .bn-editor {
   background: transparent !important;
   border: none !important;
-  padding: 1rem 0 !important;
+  padding: 0 !important;
 }
 
-.bn-block-wrapper {
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
-
-/* Focus state: subtle top border in brand color */
-.bn-container:focus-within {
-  border-top: 2px solid var(--color-brand-primary, #0d4f3c) !important;
-  padding-top: calc(1rem - 2px) !important;
-}
-
-/* Subtle separator between blocks */
-.bn-block-group-wrapper {
-  border-color: transparent !important;
-}
-
-/* Text should match site font and colors */
+/* Text colors and styling */
 .bn-editor p,
 .bn-block-content {
   color: var(--foreground) !important;
@@ -51,9 +36,9 @@
   margin-left: 1.5rem !important;
 }
 
-/* Code blocks with subtle background */
+/* Code blocks */
 .bn-editor pre {
-  background: var(--muted, oklch(0.95 0.01 150)) !important;
+  background: var(--background, oklch(0.985 0.004 150)) !important;
   border: 1px solid var(--border, oklch(0.88 0.02 163)) !important;
   border-radius: 0.5rem !important;
   padding: 1rem !important;
@@ -70,9 +55,9 @@
   opacity: 0.8;
 }
 
-/* Placeholder text */
-.bn-editor [contenteditable]:empty:before,
-.bn-block-content:empty:before {
-  color: var(--muted-foreground, oklch(0.52 0.02 163)) !important;
-  font-style: italic !important;
+/* Focus state */
+.bn-container:focus-within {
+  border-color: var(--color-brand-primary, #0d4f3c) !important;
+  box-shadow: 0 0 0 3px rgba(13, 79, 60, 0.1) !important;
 }
+
