@@ -9,16 +9,19 @@ interface UploadConfig {
   maxSizeMB: number;
 }
 
+// maxSizeMB is a safety ceiling, not a target. The real size control comes
+// from maxWidthOrHeight + initialQuality — setting maxSizeMB too low makes
+// the library iteratively crush quality to hit the byte target.
 const CONFIG: Record<ImageUploadType, UploadConfig> = {
   avatar: {
     bucket: "avatars",
     maxWidthOrHeight: 400,
-    maxSizeMB: 0.1, // ~100KB target
+    maxSizeMB: 1,
   },
   event: {
     bucket: "event-images",
     maxWidthOrHeight: 1200,
-    maxSizeMB: 0.4, // ~400KB target
+    maxSizeMB: 2,
   },
 };
 
@@ -42,7 +45,7 @@ export async function uploadImage(
     maxWidthOrHeight: config.maxWidthOrHeight,
     useWebWorker: true,
     fileType: "image/jpeg",
-    initialQuality: 0.85,
+    initialQuality: 0.9,
   });
 
   const supabase = createClient();
