@@ -1,5 +1,6 @@
 "use client";
 
+import DOMPurify from "dompurify";
 import { Megaphone } from "lucide-react";
 import { BlockEditor } from "@/components/editor";
 import type { Announcement } from "@/lib/types";
@@ -60,7 +61,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
         ) : (
           <div
             className="text-base text-slate-600 leading-relaxed [&_a]:text-brand-accent [&_a]:underline [&_a:hover]:text-brand-accent/90 [&_strong]:font-semibold [&_strong]:text-slate-800"
-            dangerouslySetInnerHTML={{ __html: announcement.content }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(announcement.content) }}
           />
         )}
       </div>

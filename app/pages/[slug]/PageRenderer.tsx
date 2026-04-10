@@ -10,7 +10,8 @@ interface PageRendererProps {
 export function PageRenderer({ body }: PageRendererProps) {
   let blocks: PartialBlock[] | undefined;
   try {
-    blocks = JSON.parse(body) as PartialBlock[];
+    const parsed = JSON.parse(body);
+    blocks = Array.isArray(parsed) ? parsed : undefined;
   } catch {
     blocks = undefined;
   }

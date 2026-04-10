@@ -73,11 +73,16 @@ export default function EditAnnouncementPage() {
         ? new Date(scheduledDate).toISOString()
         : null;
 
+    // If the editor was never touched, preserve original content to avoid overwriting with []
+    const content = blocksRef.current.length > 0
+      ? JSON.stringify(blocksRef.current)
+      : announcement!.content;
+
     const { error } = await supabase
       .from("announcements")
       .update({
         title: formData.get("title") as string,
-        content: JSON.stringify(blocksRef.current),
+        content,
         is_published: isPublished,
         published_at: publishedAt,
       })
@@ -170,7 +175,7 @@ export default function EditAnnouncementPage() {
 
           <div className="space-y-2">
             <Label className="text-lg">Content</Label>
-            <div className="min-h-[300px]">
+            <div className="rounded-lg overflow-hidden border border-border">
               <BlockEditor
                 initialContent={parsedContent()}
                 onChange={(blocks) => {
