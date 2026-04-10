@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/cwaits6/small-group-hub/compare/v0.2.0...v0.3.0) (2026-04-10)
+
+
+### Features
+
+* configurable pages and expanded site settings ([#61](https://github.com/cwaits6/small-group-hub/issues/61)) ([d70188b](https://github.com/cwaits6/small-group-hub/commit/d70188bc01d7483f3cbfe15c16379457e21ad2a9))
+
 # [0.2.0](https://github.com/cwaits6/small-group-hub/compare/v0.1.8...v0.2.0) (2026-04-04)
 
 
