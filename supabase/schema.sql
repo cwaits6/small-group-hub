@@ -62,12 +62,25 @@ $$;
 ALTER FUNCTION "public"."is_admin"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_content_editor"() RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and role in ('content_editor', 'admin')
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_content_editor"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_member"() RETURNS boolean
     LANGUAGE "sql" SECURITY DEFINER
     AS $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and role in ('member', 'admin')
+    where id = auth.uid() and role in ('member', 'content_editor', 'admin')
   );
 $$;
 
@@ -174,6 +187,18 @@ CREATE TABLE IF NOT EXISTS "public"."lectures" (
 ALTER TABLE "public"."lectures" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."page_content" (
+    "slug" "text" NOT NULL,
+    "title" "text" NOT NULL,
+    "body" "text" DEFAULT ''::"text" NOT NULL,
+    "updated_by" "uuid",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."page_content" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL,
     "full_name" "text",
@@ -183,7 +208,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "approved_at" timestamp with time zone,
     "approved_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['pending'::"text", 'member'::"text", 'admin'::"text"])))
+    CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['pending'::"text", 'member'::"text", 'content_editor'::"text", 'admin'::"text"])))
 );
 
 
@@ -239,6 +264,11 @@ ALTER TABLE ONLY "public"."lectures"
 
 
 
+ALTER TABLE ONLY "public"."page_content"
+    ADD CONSTRAINT "page_content_pkey" PRIMARY KEY ("slug");
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
 
@@ -279,6 +309,11 @@ ALTER TABLE ONLY "public"."lectures"
 
 
 
+ALTER TABLE ONLY "public"."page_content"
+    ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+
+
+
 ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "auth"."users"("id");
 
@@ -313,6 +348,10 @@ CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING (
 
 
 CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DELETE USING ("public"."is_admin"());
 
 
 
@@ -364,11 +403,23 @@ CREATE POLICY "Admins full access rsvps" ON "public"."rsvps" USING ("public"."is
 
 
 
+CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELECT USING (true);
+
+
+
 CREATE POLICY "Anyone can read settings" ON "public"."site_settings" FOR SELECT USING (true);
 
 
 
 CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT WITH CHECK (true);
+
+
+
+CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+
+
+
+CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR UPDATE USING ("public"."is_content_editor"());
 
 
 
@@ -428,6 +479,9 @@ ALTER TABLE "public"."events" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."lectures" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."page_content" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 
 
@@ -453,6 +507,12 @@ GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."is_admin"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_admin"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_admin"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "anon";
+GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "service_role";
 
 
 
@@ -489,6 +549,12 @@ GRANT ALL ON TABLE "public"."events" TO "service_role";
 GRANT ALL ON TABLE "public"."lectures" TO "anon";
 GRANT ALL ON TABLE "public"."lectures" TO "authenticated";
 GRANT ALL ON TABLE "public"."lectures" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."page_content" TO "anon";
+GRANT ALL ON TABLE "public"."page_content" TO "authenticated";
+GRANT ALL ON TABLE "public"."page_content" TO "service_role";
 
 
 
