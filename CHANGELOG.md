@@ -1,3 +1,10 @@
+## [0.3.2](https://github.com/cwaits6/small-group-hub/compare/v0.3.1...v0.3.2) (2026-04-10)
+
+
+### Bug Fixes
+
+* **deps:** update react monorepo to v19.2.5 ([#58](https://github.com/cwaits6/small-group-hub/issues/58)) ([0ecce67](https://github.com/cwaits6/small-group-hub/commit/0ecce67e3790b93ce442a347b8eff2fc4d6078bf))
+
 ## [0.3.1](https://github.com/cwaits6/small-group-hub/compare/v0.3.0...v0.3.1) (2026-04-10)
 
 
