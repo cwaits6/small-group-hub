@@ -13,7 +13,7 @@ const securityHeaders = [
       // what's calling eval() rather than blanket-allowing it.
       `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob:",
+      "img-src 'self' data: blob: https://*.supabase.co",
       "font-src 'self'",
       // Supabase realtime + API, Vercel Analytics
       `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com${isDev ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""}`,
