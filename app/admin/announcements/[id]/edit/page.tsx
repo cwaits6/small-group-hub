@@ -170,7 +170,7 @@ export default function EditAnnouncementPage() {
 
           <div className="space-y-2">
             <Label className="text-lg">Content</Label>
-            <div className="min-h-[300px] rounded-lg border border-input">
+            <div className="min-h-[300px]">
               <BlockEditor
                 initialContent={parsedContent()}
                 onChange={(blocks) => {

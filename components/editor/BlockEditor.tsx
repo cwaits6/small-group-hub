@@ -2,6 +2,7 @@
 
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/shadcn/style.css";
+import "./BlockEditor.css";
 import { BlockNoteEditor, type Block, type PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/shadcn";
 import { useMemo } from "react";

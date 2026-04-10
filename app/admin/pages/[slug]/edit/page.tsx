@@ -182,7 +182,7 @@ export default function EditPageContentPage() {
 
           <div className="space-y-2">
             <Label className="text-lg">Content</Label>
-            <div className="min-h-[400px] rounded-lg border border-input">
+            <div className="min-h-[400px]">
               <BlockEditor
                 initialContent={parsedInitialContent()}
                 onChange={(blocks) => {
