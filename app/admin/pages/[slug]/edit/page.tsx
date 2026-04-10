@@ -59,7 +59,7 @@ export default function EditPageContentPage() {
     const title = formData.get("title") as string;
     const body = JSON.stringify(blocksRef.current);
     const newSlug = isNew
-      ? (formData.get("slug") as string)
+      ? title
           .toLowerCase()
           .replace(/[^a-z0-9-]/g, "-")
           .replace(/-+/g, "-")
@@ -84,7 +84,7 @@ export default function EditPageContentPage() {
       if (error) {
         toast.error(
           error.code === "23505"
-            ? "A page with that slug already exists."
+            ? "A page with that title already exists. Please choose a different name."
             : "Failed to create page."
         );
         return;
@@ -156,26 +156,8 @@ export default function EditPageContentPage() {
             {isNew ? "New Page" : "Edit Page"}
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {isNew && (
-              <div className="space-y-2">
-                <Label htmlFor="slug" className="text-lg">
-                  Slug{" "}
-                  <span className="text-muted-foreground">
-                    (URL path, e.g. &quot;welcome&quot;)
-                  </span>
-                </Label>
-                <Input
-                  id="slug"
-                  name="slug"
-                  required
-                  placeholder="welcome"
-                  className="text-lg py-6"
-                />
-              </div>
-            )}
-
+        <CardContent className="space-y-6">
+          <form id="page-form" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="title" className="text-lg">
                 Title
@@ -188,47 +170,48 @@ export default function EditPageContentPage() {
                 className="text-lg py-6"
               />
             </div>
-
-            <div className="space-y-2">
-              <Label className="text-lg">Content</Label>
-              <div className="min-h-[400px] rounded-lg border border-input">
-                <BlockEditor
-                  initialContent={parsedInitialContent()}
-                  onChange={(blocks) => {
-                    blocksRef.current = blocks;
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                type="submit"
-                size="lg"
-                className="flex-1 text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
-                disabled={loading}
-              >
-                {loading
-                  ? isNew
-                    ? "Creating..."
-                    : "Saving..."
-                  : isNew
-                    ? "Create Page"
-                    : "Save Changes"}
-              </Button>
-              {!isNew && (
-                <Button
-                  type="button"
-                  size="lg"
-                  variant="destructive"
-                  className="text-lg py-6"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </Button>
-              )}
-            </div>
           </form>
+
+          <div className="space-y-2">
+            <Label className="text-lg">Content</Label>
+            <div className="min-h-[400px] rounded-lg border border-input">
+              <BlockEditor
+                initialContent={parsedInitialContent()}
+                onChange={(blocks) => {
+                  blocksRef.current = blocks;
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              form="page-form"
+              size="lg"
+              className="flex-1 text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
+              disabled={loading}
+            >
+              {loading
+                ? isNew
+                  ? "Creating..."
+                  : "Saving..."
+                : isNew
+                  ? "Create Page"
+                  : "Save Changes"}
+            </Button>
+            {!isNew && (
+              <Button
+                type="button"
+                size="lg"
+                variant="destructive"
+                className="text-lg py-6"
+                onClick={handleDelete}
+              >
+                Delete
+              </Button>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -51,7 +51,7 @@ export function Sidebar({ profile }: SidebarProps) {
       .then(({ data }) => {
         if (data) setPages(data as PageContent[]);
       });
-  }, []);
+  }, [pathname]);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
