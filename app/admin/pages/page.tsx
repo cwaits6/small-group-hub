@@ -49,7 +49,7 @@ export default async function AdminPagesPage() {
       {pages && pages.length > 0 ? (
         <div className="space-y-3">
           {(pages as PageContent[]).map((page) => (
-            <Link key={page.slug} href={`/admin/pages/${page.slug}/edit`}>
+            <Link key={page.slug} href={`/admin/pages/${encodeURIComponent(page.slug)}/edit`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="py-4 flex items-center gap-4">
                   <FileText className="h-5 w-5 text-brand-primary shrink-0" />

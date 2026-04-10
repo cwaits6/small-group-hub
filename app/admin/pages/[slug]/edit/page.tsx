@@ -58,13 +58,21 @@ export default function EditPageContentPage() {
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
     const body = JSON.stringify(blocksRef.current);
-    const newSlug = isNew
+
+    let newSlug = isNew
       ? title
           .toLowerCase()
           .replace(/[^a-z0-9-]/g, "-")
           .replace(/-+/g, "-")
           .replace(/^-|-$/g, "")
       : slug;
+
+    // Validate slug is non-empty and not a reserved word
+    if (isNew && (!newSlug || newSlug === "new")) {
+      toast.error("Please enter a valid title with at least one alphanumeric character.");
+      setLoading(false);
+      return;
+    }
 
     const {
       data: { user },

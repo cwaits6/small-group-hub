@@ -34,7 +34,7 @@ export default async function AdminPage() {
   const { count: totalMembers } = await supabase
     .from("profiles")
     .select("*", { count: "exact", head: true })
-    .in("role", ["member", "admin"]);
+    .in("role", ["member", "content_editor", "admin"]);
 
   const { count: upcomingEvents } = await supabase
     .from("events")
