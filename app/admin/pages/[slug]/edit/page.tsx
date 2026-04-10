@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BlockEditor } from "@/components/editor";
 import { toast } from "sonner";
+import type { Block, PartialBlock } from "@blocknote/core";
 import type { PageContent } from "@/lib/types";
 
 export default function EditPageContentPage() {
   const [page, setPage] = useState<PageContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const blocksRef = useRef<Block[]>([]);
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -40,15 +42,28 @@ export default function EditPageContentPage() {
     load();
   }, [slug, isNew]);
 
+  const parsedInitialContent = (): PartialBlock[] | undefined => {
+    if (!page?.body) return undefined;
+    try {
+      return JSON.parse(page.body) as PartialBlock[];
+    } catch {
+      return undefined;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
-    const body = formData.get("body") as string;
+    const body = JSON.stringify(blocksRef.current);
     const newSlug = isNew
-      ? (formData.get("slug") as string).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "")
+      ? (formData.get("slug") as string)
+          .toLowerCase()
+          .replace(/[^a-z0-9-]/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "")
       : slug;
 
     const {
@@ -134,7 +149,7 @@ export default function EditPageContentPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-2xl">
+    <div className="container mx-auto px-4 py-12 max-w-4xl">
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl text-brand-primary">
@@ -146,7 +161,10 @@ export default function EditPageContentPage() {
             {isNew && (
               <div className="space-y-2">
                 <Label htmlFor="slug" className="text-lg">
-                  Slug <span className="text-muted-foreground">(URL path, e.g. &quot;welcome&quot;)</span>
+                  Slug{" "}
+                  <span className="text-muted-foreground">
+                    (URL path, e.g. &quot;welcome&quot;)
+                  </span>
                 </Label>
                 <Input
                   id="slug"
@@ -159,7 +177,9 @@ export default function EditPageContentPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="title" className="text-lg">Title</Label>
+              <Label htmlFor="title" className="text-lg">
+                Title
+              </Label>
               <Input
                 id="title"
                 name="title"
@@ -170,16 +190,15 @@ export default function EditPageContentPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="body" className="text-lg">
-                Content <span className="text-muted-foreground">(Markdown supported)</span>
-              </Label>
-              <Textarea
-                id="body"
-                name="body"
-                rows={16}
-                defaultValue={page.body}
-                className="text-lg font-mono"
-              />
+              <Label className="text-lg">Content</Label>
+              <div className="min-h-[400px] rounded-lg border border-input">
+                <BlockEditor
+                  initialContent={parsedInitialContent()}
+                  onChange={(blocks) => {
+                    blocksRef.current = blocks;
+                  }}
+                />
+              </div>
             </div>
 
             <div className="flex gap-3">
