@@ -13,7 +13,18 @@ interface AnnouncementCardProps {
 function parseBlocks(content: string): PartialBlock[] | null {
   try {
     const parsed = JSON.parse(content);
-    if (Array.isArray(parsed)) return parsed;
+    if (!Array.isArray(parsed)) return null;
+
+    // Validate each element is a block-like object with a "type" property
+    const isValidBlock = (item: unknown): item is PartialBlock =>
+      typeof item === "object" &&
+      item !== null &&
+      "type" in item &&
+      typeof (item as Record<string, unknown>).type === "string";
+
+    if (parsed.every(isValidBlock)) {
+      return parsed;
+    }
   } catch {
     // not JSON — legacy HTML content
   }

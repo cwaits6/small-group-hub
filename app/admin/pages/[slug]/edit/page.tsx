@@ -18,6 +18,7 @@ export default function EditPageContentPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const blocksRef = useRef<Block[]>([]);
+  const isDirtyRef = useRef(false);
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
@@ -39,6 +40,7 @@ export default function EditPageContentPage() {
 
       if (isNew) {
         setPage({ slug: "", title: "", body: "", updated_by: null, updated_at: "" });
+        isDirtyRef.current = false;
         setInitialLoading(false);
         return;
       }
@@ -49,6 +51,7 @@ export default function EditPageContentPage() {
         .eq("slug", slug)
         .single();
       setPage(data);
+      isDirtyRef.current = false;
       setInitialLoading(false);
     }
     load();
@@ -57,7 +60,8 @@ export default function EditPageContentPage() {
   const parsedInitialContent = (): PartialBlock[] | undefined => {
     if (!page?.body) return undefined;
     try {
-      return JSON.parse(page.body) as PartialBlock[];
+      const parsed = JSON.parse(page.body);
+      return Array.isArray(parsed) ? parsed : undefined;
     } catch {
       return undefined;
     }
@@ -70,7 +74,7 @@ export default function EditPageContentPage() {
     const formData = new FormData(e.currentTarget);
     const title = formData.get("title") as string;
     // If editor was never touched, preserve existing body to avoid overwriting with []
-    const body = blocksRef.current.length > 0
+    const body = isDirtyRef.current
       ? JSON.stringify(blocksRef.current)
       : (page?.body ?? "[]");
 
@@ -114,6 +118,7 @@ export default function EditPageContentPage() {
       }
 
       toast.success("Page created!");
+      isDirtyRef.current = false;
     } else {
       const { error } = await supabase
         .from("page_content")
@@ -133,6 +138,7 @@ export default function EditPageContentPage() {
       }
 
       toast.success("Page saved!");
+      isDirtyRef.current = false;
     }
 
     router.push("/admin/pages");
@@ -206,6 +212,7 @@ export default function EditPageContentPage() {
                 initialContent={parsedInitialContent()}
                 onChange={(blocks) => {
                   blocksRef.current = blocks;
+                  isDirtyRef.current = true;
                 }}
               />
             </div>
