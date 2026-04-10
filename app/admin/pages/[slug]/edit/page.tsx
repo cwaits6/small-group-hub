@@ -1,0 +1,217 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import type { PageContent } from "@/lib/types";
+
+export default function EditPageContentPage() {
+  const [page, setPage] = useState<PageContent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const router = useRouter();
+  const params = useParams();
+  const supabase = createClient();
+  const slug = params.slug as string;
+  const isNew = slug === "new";
+
+  useEffect(() => {
+    if (isNew) {
+      setPage({ slug: "", title: "", body: "", updated_by: null, updated_at: "" });
+      setInitialLoading(false);
+      return;
+    }
+
+    async function load() {
+      const { data } = await supabase
+        .from("page_content")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+      setPage(data);
+      setInitialLoading(false);
+    }
+    load();
+  }, [slug, isNew]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const title = formData.get("title") as string;
+    const body = formData.get("body") as string;
+    const newSlug = isNew
+      ? (formData.get("slug") as string).toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "")
+      : slug;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (isNew) {
+      const { error } = await supabase.from("page_content").insert({
+        slug: newSlug,
+        title,
+        body,
+        updated_by: user?.id,
+        updated_at: new Date().toISOString(),
+      });
+
+      setLoading(false);
+
+      if (error) {
+        toast.error(
+          error.code === "23505"
+            ? "A page with that slug already exists."
+            : "Failed to create page."
+        );
+        return;
+      }
+
+      toast.success("Page created!");
+    } else {
+      const { error } = await supabase
+        .from("page_content")
+        .update({
+          title,
+          body,
+          updated_by: user?.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("slug", slug);
+
+      setLoading(false);
+
+      if (error) {
+        toast.error("Failed to update page.");
+        return;
+      }
+
+      toast.success("Page saved!");
+    }
+
+    router.push("/admin/pages");
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this page?")) return;
+
+    const { error } = await supabase
+      .from("page_content")
+      .delete()
+      .eq("slug", slug);
+
+    if (error) {
+      toast.error("Failed to delete page.");
+      return;
+    }
+
+    toast.success("Page deleted.");
+    router.push("/admin/pages");
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <p className="text-xl text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!page) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <p className="text-xl text-muted-foreground">Page not found.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-2xl">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-3xl text-brand-primary">
+            {isNew ? "New Page" : "Edit Page"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {isNew && (
+              <div className="space-y-2">
+                <Label htmlFor="slug" className="text-lg">
+                  Slug <span className="text-muted-foreground">(URL path, e.g. &quot;welcome&quot;)</span>
+                </Label>
+                <Input
+                  id="slug"
+                  name="slug"
+                  required
+                  placeholder="welcome"
+                  className="text-lg py-6"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="title" className="text-lg">Title</Label>
+              <Input
+                id="title"
+                name="title"
+                required
+                defaultValue={page.title}
+                className="text-lg py-6"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="body" className="text-lg">
+                Content <span className="text-muted-foreground">(Markdown supported)</span>
+              </Label>
+              <Textarea
+                id="body"
+                name="body"
+                rows={16}
+                defaultValue={page.body}
+                className="text-lg font-mono"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                type="submit"
+                size="lg"
+                className="flex-1 text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
+                disabled={loading}
+              >
+                {loading
+                  ? isNew
+                    ? "Creating..."
+                    : "Saving..."
+                  : isNew
+                    ? "Create Page"
+                    : "Save Changes"}
+              </Button>
+              {!isNew && (
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="destructive"
+                  className="text-lg py-6"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </Button>
+              )}
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
