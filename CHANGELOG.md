@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/cwaits6/small-group-hub/compare/v0.3.2...v0.4.0) (2026-04-10)
+
+
+### Features
+
+* image compression pipeline for photo uploads ([#63](https://github.com/cwaits6/small-group-hub/issues/63)) ([5ebb35d](https://github.com/cwaits6/small-group-hub/commit/5ebb35d814b09f05f4085ac65f1aebfff9735361))
+
 ## [0.3.2](https://github.com/cwaits6/small-group-hub/compare/v0.3.1...v0.3.2) (2026-04-10)
 
 
