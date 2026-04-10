@@ -9,19 +9,20 @@ interface UploadConfig {
   maxSizeMB: number;
 }
 
-// maxSizeMB is a safety ceiling, not a target. The real size control comes
-// from maxWidthOrHeight + initialQuality — setting maxSizeMB too low makes
-// the library iteratively crush quality to hit the byte target.
+// maxSizeMB is a safety ceiling aligned with the bucket's file_size_limit
+// (see supabase/migrations/20260410000000_storage_buckets.sql). The real
+// size control comes from maxWidthOrHeight + initialQuality — natural
+// output is well under these ceilings.
 const CONFIG: Record<ImageUploadType, UploadConfig> = {
   avatar: {
     bucket: "avatars",
     maxWidthOrHeight: 400,
-    maxSizeMB: 1,
+    maxSizeMB: 0.5,
   },
   event: {
     bucket: "event-images",
     maxWidthOrHeight: 1200,
-    maxSizeMB: 2,
+    maxSizeMB: 1,
   },
 };
 
