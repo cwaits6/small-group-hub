@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText } from "lucide-react";
+import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
 export const metadata = { title: `Admin | ${siteConfig.name}` };
@@ -53,6 +53,12 @@ export default async function AdminPage() {
       description: "Manage members and access requests",
       icon: Users,
       badge: pendingRequests ? `${pendingRequests} pending` : undefined,
+    },
+    {
+      href: "/admin/families",
+      label: "Families",
+      description: "Group members into households",
+      icon: Home,
     },
     {
       href: "/admin/events/new",

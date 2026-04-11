@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -14,8 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Check, X, UserCog, Clock } from "lucide-react";
+import { Check, X, UserCog, Clock, Pencil } from "lucide-react";
 import type { AccessRequest, Profile, UserRole } from "@/lib/types";
+import { displayName } from "@/lib/names";
 
 export default function MembersPage() {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
@@ -37,7 +39,8 @@ export default function MembersPage() {
       supabase
         .from("profiles")
         .select("*")
-        .order("full_name", { ascending: true }),
+        .order("last_name", { ascending: true })
+        .order("first_name", { ascending: true }),
     ]);
     setRequests(reqs || []);
     setMembers(mems || []);
@@ -102,7 +105,7 @@ export default function MembersPage() {
   const approvedNotSignedUp = requests.filter(
     (r) =>
       r.status === "approved" &&
-      !members.some((m) => m.full_name === r.name)
+      !members.some((m) => displayName(m) === r.name)
   );
 
   if (loading) {
@@ -206,8 +209,13 @@ export default function MembersPage() {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <p className="text-xl font-semibold">
-                        {member.full_name || "Unnamed"}
+                        {displayName(member)}
                       </p>
+                      {member.email && (
+                        <p className="text-sm text-muted-foreground">
+                          {member.email}
+                        </p>
+                      )}
                       <Badge
                         variant={
                           member.role === "admin"
@@ -216,11 +224,12 @@ export default function MembersPage() {
                             ? "secondary"
                             : "outline"
                         }
+                        className="mt-1"
                       >
                         {member.role}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <UserCog className="h-5 w-5 text-muted-foreground" />
                       <Select
                         defaultValue={member.role}
@@ -234,9 +243,21 @@ export default function MembersPage() {
                         <SelectContent>
                           <SelectItem value="pending">Pending</SelectItem>
                           <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="content_editor">
+                            Content Editor
+                          </SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        nativeButton={false}
+                        render={<Link href={`/admin/members/${member.id}`} />}
+                      >
+                        <Pencil className="mr-1 h-4 w-4" />
+                        Edit
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

@@ -6,13 +6,102 @@ export type RsvpStatus = "yes" | "no" | "maybe";
 
 export interface Profile {
   id: string;
-  full_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
   role: UserRole;
+  avatar_url: string | null;
+  email: string | null;
   phone: string | null;
+  phone_mobile: string | null;
+  phone_home: string | null;
+  phone_work: string | null;
   bio: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+  anniversary: string | null;
+  occupation: string | null;
+  employer: string | null;
+  family_id: string | null;
+  is_unlisted: boolean;
+  hide_phone_mobile: boolean;
+  hide_phone_home: boolean;
+  hide_phone_work: boolean;
+  hide_email: boolean;
+  hide_address: boolean;
+  hide_birthday: boolean;
+  hide_anniversary: boolean;
+  hide_occupation: boolean;
   approved_at: string | null;
   approved_by: string | null;
   created_at: string;
+  updated_at: string;
+}
+
+export interface FamilyUnit {
+  id: string;
+  family_name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  phone_home: string | null;
+  hide_address: boolean;
+  hide_phone_home: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Directory projection of a profile with privacy flags applied — hidden
+ * fields come back as null. Queried from the `profiles_directory` view.
+ * Admins should query the raw `profiles` table to bypass privacy.
+ */
+export interface DirectoryProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
+  role: UserRole;
+  bio: string | null;
+  family_id: string | null;
+  email: string | null;
+  phone_mobile: string | null;
+  phone_home: string | null;
+  phone_work: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+  anniversary: string | null;
+  occupation: string | null;
+  employer: string | null;
+  created_at: string;
+}
+
+export interface DirectoryFamily {
+  id: string;
+  family_name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  phone_home: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AccessRequest {

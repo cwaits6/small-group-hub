@@ -81,7 +81,7 @@ export default async function DashboardPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Welcome, {profile.full_name || "Friend"}!
+        Welcome, {profile.preferred_name || profile.first_name || "Friend"}!
       </h1>
       <p className="text-lg text-muted-foreground mb-10">
         Here&apos;s what&apos;s happening in our group.
