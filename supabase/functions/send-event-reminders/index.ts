@@ -50,7 +50,7 @@ Deno.serve(async () => {
       const { data: userData } = await supabase.auth.admin.getUserById(userId);
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name")
+        .select("first_name, preferred_name")
         .eq("id", userId)
         .single();
 
@@ -79,7 +79,7 @@ Deno.serve(async () => {
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <h1 style="color: ${BRAND_COLOR}; font-size: 28px;">Event Reminder</h1>
               <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-                Hi ${profile?.full_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
+                Hi ${profile?.preferred_name || profile?.first_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
               </p>
               <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p style="font-size: 18px; margin: 0; color: #44403c;">

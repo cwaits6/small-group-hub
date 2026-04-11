@@ -10,6 +10,8 @@ import {
   FileText,
   Settings,
   Users,
+  UserCircle,
+  Home,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -27,11 +29,14 @@ const memberNav = [
   { href: "/events", label: "Events", icon: Calendar },
   { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/lectures", label: "Lectures", icon: BookOpen },
+  { href: "/directory", label: "Directory", icon: Users },
+  { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
 const adminNav = [
   { href: "/admin", label: "Admin", icon: Settings },
   { href: "/admin/members", label: "Members", icon: Users },
+  { href: "/admin/families", label: "Families", icon: Home },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 

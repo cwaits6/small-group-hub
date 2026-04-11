@@ -16,6 +16,8 @@ const SIDEBAR_ROUTES = [
   "/lectures",
   "/pages",
   "/admin",
+  "/directory",
+  "/profile",
 ];
 
 export function AppShell({ profile, children }: AppShellProps) {
