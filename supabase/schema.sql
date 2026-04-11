@@ -28,8 +28,10 @@ CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     AS $$
 declare
   _role text := 'pending';
+  _full_name text := new.raw_user_meta_data->>'full_name';
+  _first text;
+  _last text;
 begin
-  -- If there's an approved access request for this email, make them a member
   if exists (
     select 1 from public.access_requests
     where email = new.email
@@ -38,9 +40,18 @@ begin
     _role := 'member';
   end if;
 
-  insert into public.profiles (id, full_name, role)
-  values (new.id, new.raw_user_meta_data->>'full_name', _role);
+  if _full_name is not null and btrim(_full_name) <> '' then
+    if position(' ' in btrim(_full_name)) = 0 then
+      _first := btrim(_full_name);
+      _last := null;
+    else
+      _first := btrim(substring(btrim(_full_name) from 1 for (length(btrim(_full_name)) - position(' ' in reverse(btrim(_full_name))))));
+      _last := btrim(substring(btrim(_full_name) from (length(btrim(_full_name)) - position(' ' in reverse(btrim(_full_name))) + 2)));
+    end if;
+  end if;
 
+  insert into public.profiles (id, first_name, last_name, email, role)
+  values (new.id, _first, _last, new.email, _role);
   return new;
 end;
 $$;
@@ -119,6 +130,19 @@ $$;
 
 ALTER FUNCTION "public"."rls_auto_enable"() OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "public"."touch_updated_at"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    AS $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."touch_updated_at"() OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -172,6 +196,60 @@ CREATE TABLE IF NOT EXISTS "public"."events" (
 ALTER TABLE "public"."events" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."family_units" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "family_name" "text" NOT NULL,
+    "address_line1" "text",
+    "address_line2" "text",
+    "city" "text",
+    "state" "text",
+    "postal_code" "text",
+    "phone_home" "text",
+    "hide_address" boolean DEFAULT false NOT NULL,
+    "hide_phone_home" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."family_units" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."families_directory" WITH ("security_invoker"='true') AS
+ SELECT "id",
+    "family_name",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line1"
+        END AS "address_line1",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line2"
+        END AS "address_line2",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "city"
+        END AS "city",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "state"
+        END AS "state",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "postal_code"
+        END AS "postal_code",
+        CASE
+            WHEN "hide_phone_home" THEN NULL::"text"
+            ELSE "phone_home"
+        END AS "phone_home",
+    "created_at",
+    "updated_at"
+   FROM "public"."family_units" "f";
+
+
+ALTER VIEW "public"."families_directory" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."lectures" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "title" "text" NOT NULL,
@@ -201,18 +279,126 @@ ALTER TABLE "public"."page_content" OWNER TO "postgres";
 
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL,
-    "full_name" "text",
     "role" "text" DEFAULT 'pending'::"text" NOT NULL,
     "phone" "text",
     "bio" "text",
     "approved_at" timestamp with time zone,
     "approved_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "first_name" "text",
+    "last_name" "text",
+    "preferred_name" "text",
+    "avatar_url" "text",
+    "email" "text",
+    "phone_mobile" "text",
+    "phone_home" "text",
+    "phone_work" "text",
+    "address_line1" "text",
+    "address_line2" "text",
+    "city" "text",
+    "state" "text",
+    "postal_code" "text",
+    "birth_month" smallint,
+    "birth_day" smallint,
+    "birth_year" smallint,
+    "anniversary" "date",
+    "occupation" "text",
+    "employer" "text",
+    "family_id" "uuid",
+    "is_unlisted" boolean DEFAULT false NOT NULL,
+    "hide_phone_mobile" boolean DEFAULT false NOT NULL,
+    "hide_phone_home" boolean DEFAULT false NOT NULL,
+    "hide_phone_work" boolean DEFAULT false NOT NULL,
+    "hide_email" boolean DEFAULT false NOT NULL,
+    "hide_address" boolean DEFAULT false NOT NULL,
+    "hide_birthday" boolean DEFAULT false NOT NULL,
+    "hide_anniversary" boolean DEFAULT false NOT NULL,
+    "hide_occupation" boolean DEFAULT false NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
+    CONSTRAINT "profiles_birth_month_check" CHECK ((("birth_month" >= 1) AND ("birth_month" <= 12))),
+    CONSTRAINT "profiles_birth_year_check" CHECK ((("birth_year" >= 1900) AND ("birth_year" <= 2100))),
     CONSTRAINT "profiles_role_check" CHECK (("role" = ANY (ARRAY['pending'::"text", 'member'::"text", 'content_editor'::"text", 'admin'::"text"])))
 );
 
 
 ALTER TABLE "public"."profiles" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."profiles_directory" WITH ("security_invoker"='true') AS
+ SELECT "id",
+    "first_name",
+    "last_name",
+    "preferred_name",
+    "avatar_url",
+    "role",
+    "bio",
+    "family_id",
+    "created_at",
+        CASE
+            WHEN "hide_email" THEN NULL::"text"
+            ELSE "email"
+        END AS "email",
+        CASE
+            WHEN "hide_phone_mobile" THEN NULL::"text"
+            ELSE "phone_mobile"
+        END AS "phone_mobile",
+        CASE
+            WHEN "hide_phone_home" THEN NULL::"text"
+            ELSE "phone_home"
+        END AS "phone_home",
+        CASE
+            WHEN "hide_phone_work" THEN NULL::"text"
+            ELSE "phone_work"
+        END AS "phone_work",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line1"
+        END AS "address_line1",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line2"
+        END AS "address_line2",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "city"
+        END AS "city",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "state"
+        END AS "state",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "postal_code"
+        END AS "postal_code",
+        CASE
+            WHEN "hide_birthday" THEN NULL::smallint
+            ELSE "birth_month"
+        END AS "birth_month",
+        CASE
+            WHEN "hide_birthday" THEN NULL::smallint
+            ELSE "birth_day"
+        END AS "birth_day",
+        CASE
+            WHEN "hide_birthday" THEN NULL::smallint
+            ELSE "birth_year"
+        END AS "birth_year",
+        CASE
+            WHEN "hide_anniversary" THEN NULL::"date"
+            ELSE "anniversary"
+        END AS "anniversary",
+        CASE
+            WHEN "hide_occupation" THEN NULL::"text"
+            ELSE "occupation"
+        END AS "occupation",
+        CASE
+            WHEN "hide_occupation" THEN NULL::"text"
+            ELSE "employer"
+        END AS "employer"
+   FROM "public"."profiles" "p";
+
+
+ALTER VIEW "public"."profiles_directory" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."rsvps" (
@@ -259,6 +445,11 @@ ALTER TABLE ONLY "public"."events"
 
 
 
+ALTER TABLE ONLY "public"."family_units"
+    ADD CONSTRAINT "family_units_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."lectures"
     ADD CONSTRAINT "lectures_pkey" PRIMARY KEY ("id");
 
@@ -286,6 +477,22 @@ ALTER TABLE ONLY "public"."rsvps"
 
 ALTER TABLE ONLY "public"."site_settings"
     ADD CONSTRAINT "site_settings_pkey" PRIMARY KEY ("key");
+
+
+
+CREATE INDEX "profiles_family_id_idx" ON "public"."profiles" USING "btree" ("family_id");
+
+
+
+CREATE INDEX "profiles_last_first_idx" ON "public"."profiles" USING "btree" ("last_name", "first_name");
+
+
+
+CREATE OR REPLACE TRIGGER "family_units_touch_updated_at" BEFORE UPDATE ON "public"."family_units" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "profiles_touch_updated_at" BEFORE UPDATE ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
 
 
 
@@ -320,6 +527,11 @@ ALTER TABLE ONLY "public"."profiles"
 
 
 ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."profiles"
     ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
@@ -347,6 +559,10 @@ CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING (
 
 
 
+CREATE POLICY "Admins can delete family units" ON "public"."family_units" FOR DELETE USING ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE USING ("public"."is_admin"());
 
 
@@ -363,6 +579,10 @@ CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT WITH CH
 
 
 
+CREATE POLICY "Admins can insert family units" ON "public"."family_units" FOR INSERT WITH CHECK ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can insert lectures" ON "public"."lectures" FOR INSERT WITH CHECK ("public"."is_admin"());
 
 
@@ -376,6 +596,10 @@ CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR 
 
 
 CREATE POLICY "Admins can update events" ON "public"."events" FOR UPDATE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can update family units" ON "public"."family_units" FOR UPDATE USING ("public"."is_admin"());
 
 
 
@@ -447,6 +671,14 @@ CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT USIN
 
 
 
+CREATE POLICY "Members can view directory profiles" ON "public"."profiles" FOR SELECT USING (("public"."is_member"() AND ("is_unlisted" = false) AND ("role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"]))));
+
+
+
+CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SELECT USING ("public"."is_member"());
+
+
+
 CREATE POLICY "Members can view rsvps" ON "public"."rsvps" FOR SELECT USING ("public"."is_member"());
 
 
@@ -474,6 +706,9 @@ ALTER TABLE "public"."announcements" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."events" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."family_units" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."lectures" ENABLE ROW LEVEL SECURITY;
@@ -528,6 +763,12 @@ GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "anon";
+GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."access_requests" TO "anon";
 GRANT ALL ON TABLE "public"."access_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."access_requests" TO "service_role";
@@ -546,6 +787,18 @@ GRANT ALL ON TABLE "public"."events" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."family_units" TO "anon";
+GRANT ALL ON TABLE "public"."family_units" TO "authenticated";
+GRANT ALL ON TABLE "public"."family_units" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."families_directory" TO "anon";
+GRANT ALL ON TABLE "public"."families_directory" TO "authenticated";
+GRANT ALL ON TABLE "public"."families_directory" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."lectures" TO "anon";
 GRANT ALL ON TABLE "public"."lectures" TO "authenticated";
 GRANT ALL ON TABLE "public"."lectures" TO "service_role";
@@ -561,6 +814,12 @@ GRANT ALL ON TABLE "public"."page_content" TO "service_role";
 GRANT ALL ON TABLE "public"."profiles" TO "anon";
 GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."profiles_directory" TO "anon";
+GRANT ALL ON TABLE "public"."profiles_directory" TO "authenticated";
+GRANT ALL ON TABLE "public"."profiles_directory" TO "service_role";
 
 
 
