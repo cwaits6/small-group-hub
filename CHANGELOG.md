@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/cwaits6/small-group-hub/compare/v0.4.0...v0.5.0) (2026-04-11)
+
+
+### Features
+
+* member directory with family grouping and per-field privacy ([#66](https://github.com/cwaits6/small-group-hub/issues/66)) ([050d3e9](https://github.com/cwaits6/small-group-hub/commit/050d3e922338de5ffe6f7ee9694f62c544b16e67))
+
 # [0.4.0](https://github.com/cwaits6/small-group-hub/compare/v0.3.2...v0.4.0) (2026-04-10)
 
 
