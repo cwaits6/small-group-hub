@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, MapPin, Clock, Lock } from "lucide-react";
+import { CalendarDays, MapPin, Clock, Lock, CalendarPlus } from "lucide-react";
 import type { Event } from "@/lib/types";
 
 interface EventCardProps {
@@ -76,7 +77,20 @@ export function EventCard({ event, children }: EventCardProps) {
           )}
         </div>
 
-        {children && <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>}
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <Link
+            href={`/api/events/${event.id}/ics`}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-brand-primary transition-colors"
+            title="Add to Calendar"
+          >
+            <CalendarPlus className="h-3.5 w-3.5" />
+            <span>Add to Calendar</span>
+          </Link>
+        </div>
+
+        {children && event.is_rsvp_enabled && (
+          <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>
+        )}
       </div>
     </div>
   );

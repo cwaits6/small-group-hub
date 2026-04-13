@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { EventCard } from "@/components/events/EventCard";
-import { RsvpButton } from "@/components/events/RsvpButton";
+import { EventsPageClient } from "@/components/events/EventsPageClient";
 import { siteConfig } from "@/lib/config";
-import type { Rsvp } from "@/lib/types";
+import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
 export const metadata = { title: `Events | ${siteConfig.name}` };
 
@@ -22,20 +21,34 @@ export default async function EventsPage() {
     profile = data;
   }
 
-  const isMember = profile?.role === "member" || profile?.role === "admin";
+  const isMember =
+    profile?.role === "member" ||
+    profile?.role === "content_editor" ||
+    profile?.role === "admin";
 
-  // If member, show all events; otherwise, only public
-  let query = supabase
+  // Fetch ALL events for calendar view (past + future)
+  let allEventsQuery = supabase
     .from("events")
-    .select("*")
-    .gte("start_time", new Date().toISOString())
+    .select("*, calendar:event_calendars(*)")
     .order("start_time", { ascending: true });
 
   if (!isMember) {
-    query = query.eq("is_private", false);
+    allEventsQuery = allEventsQuery.eq("is_private", false);
   }
 
-  const { data: events } = await query;
+  const { data: allEventsRaw } = await allEventsQuery;
+
+  // Upcoming-only events for list view
+  const now = new Date().toISOString();
+  const upcomingEvents = (allEventsRaw ?? []).filter(
+    (e) => e.start_time >= now
+  );
+
+  // Fetch event calendars
+  const { data: calendarsRaw } = await supabase
+    .from("event_calendars")
+    .select("*")
+    .order("name", { ascending: true });
 
   // Fetch user's RSVPs if logged in
   let userRsvps: Record<string, Rsvp> = {};
@@ -49,34 +62,30 @@ export default async function EventsPage() {
     }
   }
 
+  const allEvents = (allEventsRaw ?? []) as (Event & {
+    calendar?: EventCalendar | null;
+  })[];
+  const calendars = (calendarsRaw ?? []) as EventCalendar[];
+
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Upcoming Events
+        Events
       </h1>
-      <p className="text-lg text-muted-foreground mb-10">
+      <p className="text-lg text-muted-foreground mb-8">
         {isMember
-          ? "All upcoming events for our group."
+          ? "All events for our group."
           : "Public events open to everyone. Sign in to see all events and RSVP."}
       </p>
 
-      {events && events.length > 0 ? (
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event}>
-              {isMember && user && (
-                <RsvpButton
-                  eventId={event.id}
-                  userId={user.id}
-                  currentStatus={userRsvps[event.id]?.status ?? null}
-                />
-              )}
-            </EventCard>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xl text-muted-foreground">No upcoming events right now. Check back soon!</p>
-      )}
+      <EventsPageClient
+        allEvents={allEvents}
+        upcomingEvents={upcomingEvents as (Event & { calendar?: EventCalendar | null })[]}
+        calendars={calendars}
+        userRsvps={userRsvps}
+        userId={user?.id ?? null}
+        isMember={isMember}
+      />
     </div>
   );
 }

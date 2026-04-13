@@ -117,6 +117,14 @@ export interface AccessRequest {
   created_at: string;
 }
 
+export interface EventCalendar {
+  id: string;
+  name: string;
+  color: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -125,6 +133,8 @@ export interface Event {
   start_time: string;
   end_time: string | null;
   is_private: boolean;
+  calendar_id: string | null;
+  is_rsvp_enabled: boolean;
   created_by: string | null;
   created_at: string;
 }

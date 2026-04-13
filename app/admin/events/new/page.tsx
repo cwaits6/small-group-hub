@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
+import type { EventCalendar } from "@/lib/types";
 
 export default function NewEventPage() {
   const [loading, setLoading] = useState(false);
+  const [calendars, setCalendars] = useState<EventCalendar[]>([]);
+  const [calendarId, setCalendarId] = useState<string | null>(null);
+  const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    supabase
+      .from("event_calendars")
+      .select("*")
+      .order("name")
+      .then(({ data }) => {
+        if (data) setCalendars(data as EventCalendar[]);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,6 +51,8 @@ export default function NewEventPage() {
       start_time: formData.get("start_time") as string,
       end_time: (formData.get("end_time") as string) || null,
       is_private: formData.get("is_private") === "on",
+      calendar_id: calendarId || null,
+      is_rsvp_enabled: isRsvpEnabled,
       created_by: user?.id,
     });
 
@@ -89,9 +112,46 @@ export default function NewEventPage() {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-lg">Calendar</Label>
+              <Select
+                value={calendarId ?? "none"}
+                onValueChange={(val) => setCalendarId(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="text-lg py-6">
+                  <SelectValue placeholder="No calendar (uncategorized)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No calendar (uncategorized)</SelectItem>
+                  {calendars.map((cal) => (
+                    <SelectItem key={cal.id} value={cal.id}>
+                      <span className="flex items-center gap-2">
+                        {cal.color && (
+                          <span
+                            className="inline-block w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: cal.color }}
+                          />
+                        )}
+                        {cal.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-center gap-3">
               <Switch id="is_private" name="is_private" />
               <Label htmlFor="is_private" className="text-lg">Members only (private)</Label>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Switch
+                id="is_rsvp_enabled"
+                checked={isRsvpEnabled}
+                onCheckedChange={setIsRsvpEnabled}
+              />
+              <Label htmlFor="is_rsvp_enabled" className="text-lg">RSVP enabled</Label>
             </div>
 
             <Button

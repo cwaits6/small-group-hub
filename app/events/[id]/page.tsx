@@ -1,0 +1,236 @@
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { RsvpButton } from "@/components/events/RsvpButton";
+import { AttendeeList } from "@/components/events/AttendeeList";
+import { Badge } from "@/components/ui/badge";
+import {
+  CalendarDays,
+  Clock,
+  MapPin,
+  Lock,
+  ChevronLeft,
+  CalendarPlus,
+} from "lucide-react";
+import { siteConfig } from "@/lib/config";
+import type { Event, EventCalendar, Rsvp } from "@/lib/types";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: event } = await supabase
+    .from("events")
+    .select("title")
+    .eq("id", id)
+    .single();
+  return {
+    title: event ? `${event.title} | ${siteConfig.name}` : `Event | ${siteConfig.name}`,
+  };
+}
+
+interface Attendee {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  status: string;
+}
+
+export default async function EventDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  // Fetch event with calendar join
+  const { data: eventRaw } = await supabase
+    .from("events")
+    .select("*, calendar:event_calendars(*)")
+    .eq("id", id)
+    .single();
+
+  if (!eventRaw) notFound();
+
+  const event = eventRaw as Event & { calendar?: EventCalendar | null };
+
+  // Auth
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let profile = null;
+  if (user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    profile = data;
+  }
+
+  const isMember =
+    profile?.role === "member" ||
+    profile?.role === "content_editor" ||
+    profile?.role === "admin";
+
+  // Hide private events from non-members
+  if (event.is_private && !isMember) notFound();
+
+  // Fetch current user's RSVP
+  let userRsvp: Rsvp | null = null;
+  if (user && isMember) {
+    const { data } = await supabase
+      .from("rsvps")
+      .select("*")
+      .eq("event_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    userRsvp = data;
+  }
+
+  // Fetch attendees (yes + maybe) joined with profiles
+  const { data: rsvpsRaw } = await supabase
+    .from("rsvps")
+    .select("user_id, status, profiles(id, first_name, last_name, avatar_url)")
+    .eq("event_id", id)
+    .in("status", ["yes", "maybe"]);
+
+  const attendees: Attendee[] = (rsvpsRaw ?? []).map((r) => {
+    const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+    return {
+      id: p?.id ?? r.user_id,
+      first_name: p?.first_name ?? null,
+      last_name: p?.last_name ?? null,
+      avatar_url: p?.avatar_url ?? null,
+      status: r.status,
+    };
+  });
+
+  // Formatting helpers
+  const startDate = new Date(event.start_time);
+  const endDate = event.end_time ? new Date(event.end_time) : null;
+
+  const fullDate = startDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const formatTime = (d: Date) =>
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+  const calendarColor = event.calendar?.color ?? "#059669";
+
+  return (
+    <div className="container mx-auto px-4 py-12 max-w-3xl">
+      {/* Back link */}
+      <Link
+        href="/events"
+        className="inline-flex items-center gap-1 text-sm text-brand-primary-light hover:text-brand-primary mb-6 transition-colors"
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Back to Events
+      </Link>
+
+      <div className="bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden">
+        {/* Top accent bar using calendar color */}
+        <div className="h-2 w-full" style={{ backgroundColor: calendarColor }} />
+
+        <div className="p-6 md:p-8">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex-1 min-w-0">
+              {event.calendar && (
+                <span
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold text-white mb-3"
+                  style={{ backgroundColor: calendarColor }}
+                >
+                  {event.calendar.name}
+                </span>
+              )}
+              <h1 className="text-2xl md:text-3xl font-bold text-slate-800 font-display leading-tight">
+                {event.title}
+              </h1>
+            </div>
+            {event.is_private && (
+              <Badge
+                variant="secondary"
+                className="shrink-0 bg-amber-100 text-brand-primary border-amber-200 text-xs"
+              >
+                <Lock className="h-3 w-3 mr-1" />
+                Members
+              </Badge>
+            )}
+          </div>
+
+          {/* Details */}
+          <div className="space-y-3 mb-6">
+            <div className="flex items-center gap-2 text-slate-600">
+              <CalendarDays className="h-4 w-4 shrink-0 text-brand-primary-light" />
+              <span>{fullDate}</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-600">
+              <Clock className="h-4 w-4 shrink-0 text-brand-primary-light" />
+              <span>
+                {formatTime(startDate)}
+                {endDate && <span className="text-slate-400"> – {formatTime(endDate)}</span>}
+              </span>
+            </div>
+            {event.location && (
+              <div className="flex items-center gap-2 text-slate-600">
+                <MapPin className="h-4 w-4 shrink-0 text-brand-primary-light" />
+                <span>{event.location}</span>
+              </div>
+            )}
+          </div>
+
+          {event.description && (
+            <p className="text-base text-slate-600 leading-relaxed mb-6 whitespace-pre-wrap">
+              {event.description}
+            </p>
+          )}
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-3 mb-8">
+            {/* Add to Calendar */}
+            <Link
+              href={`/api/events/${event.id}/ics`}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-300 hover:text-brand-primary transition-all bg-white"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Add to Calendar
+            </Link>
+          </div>
+
+          {/* RSVP */}
+          {event.is_rsvp_enabled && isMember && user && (
+            <div className="border-t border-slate-100 pt-6 mb-8">
+              <h2 className="text-base font-semibold text-slate-700 mb-3">
+                Will you be there?
+              </h2>
+              <RsvpButton
+                eventId={event.id}
+                userId={user.id}
+                currentStatus={userRsvp?.status ?? null}
+              />
+            </div>
+          )}
+
+          {/* Attendee list */}
+          {attendees.length > 0 && (
+            <div className="border-t border-slate-100 pt-6">
+              <AttendeeList attendees={attendees} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

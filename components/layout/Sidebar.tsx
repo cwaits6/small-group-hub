@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Megaphone,
   BookOpen,
   FileText,
@@ -37,6 +38,7 @@ const adminNav = [
   { href: "/admin", label: "Admin", icon: Settings },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/families", label: "Families", icon: Home },
+  { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 
