@@ -12,7 +12,7 @@
     "@base-ui/react": "^1.2.0",
     "@blocknote/core": "^0.47.3",
     "@blocknote/react": "^0.48.0",
-    "@blocknote/shadcn": "^0.47.3",
+    "@blocknote/shadcn": "^0.48.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.98.0",
     "@types/dompurify": "^3.2.0",
