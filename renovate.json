@@ -5,5 +5,12 @@
   ],
   "lockFileMaintenance": {
     "automergeSchedule": ["at any time"]
-  }
+  },
+  "packageRules": [
+    {
+      "description": "Group all non-major npm dependency updates into a single PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dependencies"
+    }
+  ]
 }
