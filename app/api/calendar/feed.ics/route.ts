@@ -6,13 +6,24 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const calendarId = searchParams.get("calendar");
 
+  // Validate calendarId if provided
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (calendarId && !uuidRegex.test(calendarId)) {
+    return new Response("Invalid calendar ID", { status: 400 });
+  }
+
   const supabase = await createClient();
+
+  // Bound results to a reasonable time window
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   let query = supabase
     .from("events")
     .select("*")
     .eq("is_private", false)
-    .order("start_time", { ascending: true });
+    .gte("start_time", thirtyDaysAgo)
+    .order("start_time", { ascending: true })
+    .limit(500);
 
   if (calendarId) {
     query = query.eq("calendar_id", calendarId);

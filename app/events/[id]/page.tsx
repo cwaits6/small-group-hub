@@ -24,12 +24,32 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data: event } = await supabase
     .from("events")
-    .select("title")
+    .select("title, is_private")
     .eq("id", id)
     .single();
-  return {
-    title: event ? `${event.title} | ${siteConfig.name}` : `Event | ${siteConfig.name}`,
-  };
+
+  if (!event) {
+    return { title: `Event | ${siteConfig.name}` };
+  }
+
+  // Don't leak private event titles to non-members
+  if (event.is_private) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      const isMember = profile?.role === "member" || profile?.role === "content_editor" || profile?.role === "admin";
+      if (isMember) {
+        return { title: `${event.title} | ${siteConfig.name}` };
+      }
+    }
+    return { title: `Event | ${siteConfig.name}` };
+  }
+
+  return { title: `${event.title} | ${siteConfig.name}` };
 }
 
 interface Attendee {
@@ -207,13 +227,14 @@ export default async function EventDetailPage({
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 mb-8">
             {/* Add to Calendar */}
-            <Link
+            <a
               href={`/api/events/${event.id}/ics`}
+              download
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-300 hover:text-brand-primary transition-all bg-white"
             >
               <CalendarPlus className="h-4 w-4" />
               Add to Calendar
-            </Link>
+            </a>
           </div>
 
           {/* RSVP */}

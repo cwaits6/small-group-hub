@@ -59,7 +59,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
 
   const handleDateClick = (info: DateClickArg) => {
     if (!isAdmin) return;
-    const date = info.dateStr; // YYYY-MM-DD or ISO string
+    const date = info.dateStr.split("T")[0]; // normalize to YYYY-MM-DD
     router.push(`/admin/events/new?date=${date}`);
   };
 

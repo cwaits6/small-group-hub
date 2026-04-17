@@ -32,7 +32,9 @@ export default function NewEventPage() {
   const supabase = createClient();
 
   // Pre-fill start time from calendar date click (e.g. ?date=2026-04-15)
-  const prefillDate = searchParams.get("date");
+  // Normalize to YYYY-MM-DD in case a full ISO datetime is passed from timeGridWeek
+  const rawDate = searchParams.get("date");
+  const prefillDate = rawDate ? rawDate.split("T")[0] : null;
 
   useEffect(() => {
     supabase

@@ -39,7 +39,7 @@ function AttendeeGroup({
           <div key={person.id} className="flex items-center gap-2">
             <Avatar size="default">
               {person.avatar_url && (
-                <AvatarImage src={person.avatar_url} alt={`${person.first_name} ${person.last_name}`} />
+                <AvatarImage src={person.avatar_url} alt={[person.first_name, person.last_name].filter(Boolean).join(" ") || "Member"} />
               )}
               <AvatarFallback>
                 {getInitials(person.first_name, person.last_name)}

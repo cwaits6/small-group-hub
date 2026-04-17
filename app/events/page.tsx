@@ -27,11 +27,19 @@ export default async function EventsPage() {
     profile?.role === "content_editor" ||
     isAdmin;
 
-  // Fetch ALL events for calendar view (past + future)
+  const now = new Date();
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+  const oneYearAhead = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const nowISO = now.toISOString();
+
+  // Fetch events within a bounded window for calendar view
   let allEventsQuery = supabase
     .from("events")
     .select("*, calendar:event_calendars(*)")
-    .order("start_time", { ascending: true });
+    .gte("start_time", oneYearAgo)
+    .lte("start_time", oneYearAhead)
+    .order("start_time", { ascending: true })
+    .limit(500);
 
   if (!isMember) {
     allEventsQuery = allEventsQuery.eq("is_private", false);
@@ -40,9 +48,8 @@ export default async function EventsPage() {
   const { data: allEventsRaw } = await allEventsQuery;
 
   // Upcoming-only events for list view
-  const now = new Date().toISOString();
   const upcomingEvents = (allEventsRaw ?? []).filter(
-    (e) => e.start_time >= now
+    (e) => e.start_time >= nowISO
   );
 
   // Fetch event calendars

@@ -6,11 +6,11 @@ function parseDateToArray(
 ): [number, number, number, number, number] {
   const d = new Date(isoString);
   return [
-    d.getFullYear(),
-    d.getMonth() + 1,
-    d.getDate(),
-    d.getHours(),
-    d.getMinutes(),
+    d.getUTCFullYear(),
+    d.getUTCMonth() + 1,
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
   ];
 }
 
@@ -19,10 +19,10 @@ export function eventToICSAttributes(event: Event): EventAttributes {
     uid: event.id,
     title: event.title,
     start: parseDateToArray(event.start_time),
-    startInputType: "local",
+    startInputType: "utc",
     status: "CONFIRMED",
     ...(event.end_time
-      ? { end: parseDateToArray(event.end_time), endInputType: "local" }
+      ? { end: parseDateToArray(event.end_time), endInputType: "utc" }
       : { duration: { hours: 1 } }),
   };
 
