@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { GoogleMapsScript } from "@/components/GoogleMapsScript";
+import { LocationInput } from "@/components/events/LocationInput";
 import type { Event, EventCalendar } from "@/lib/types";
 
 export default function EditEventPage() {
@@ -24,6 +26,7 @@ export default function EditEventPage() {
   const [calendars, setCalendars] = useState<EventCalendar[]>([]);
   const [calendarId, setCalendarId] = useState<string | null>(null);
   const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
+  const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const params = useParams();
@@ -39,6 +42,7 @@ export default function EditEventPage() {
         setEvent(eventData as Event);
         setCalendarId(eventData.calendar_id ?? null);
         setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
+        setLocation(eventData.location ?? "");
       }
       if (calData) setCalendars(calData as EventCalendar[]);
     }
@@ -56,7 +60,7 @@ export default function EditEventPage() {
       .update({
         title: formData.get("title") as string,
         description: (formData.get("description") as string) || null,
-        location: (formData.get("location") as string) || null,
+        location: location || null,
         start_time: formData.get("start_time") as string,
         end_time: (formData.get("end_time") as string) || null,
         is_private: formData.get("is_private") === "on",
@@ -105,6 +109,7 @@ export default function EditEventPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
+      <GoogleMapsScript />
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl text-brand-primary">Edit Event</CardTitle>
@@ -123,7 +128,12 @@ export default function EditEventPage() {
 
             <div className="space-y-2">
               <Label htmlFor="location" className="text-lg">Location</Label>
-              <Input id="location" name="location" defaultValue={event.location || ""} className="text-lg py-6" />
+              <LocationInput
+                id="location"
+                value={location}
+                onChange={setLocation}
+                className="text-lg py-6"
+              />
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">

@@ -186,7 +186,14 @@ export default async function EventDetailPage({
             {event.location && (
               <div className="flex items-center gap-2 text-slate-600">
                 <MapPin className="h-4 w-4 shrink-0 text-brand-primary-light" />
-                <span>{event.location}</span>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  {event.location}
+                </a>
               </div>
             )}
           </div>

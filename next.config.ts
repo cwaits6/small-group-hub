@@ -23,12 +23,12 @@ const securityHeaders = [
       // Do NOT add unsafe-eval — production builds don't need it, and it
       // opens the door to eval-based XSS. If something breaks, investigate
       // what's calling eval() rather than blanket-allowing it.
-      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com`,
-      "style-src 'self' 'unsafe-inline'",
-      `img-src 'self' data: blob:${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " http://127.0.0.1:* http://localhost:*" : ""}`,
-      "font-src 'self'",
-      // Supabase realtime + API, Vercel Analytics
-      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com${isDev ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""}`,
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} https://va.vercel-scripts.com https://maps.googleapis.com`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      `img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " http://127.0.0.1:* http://localhost:*" : ""}`,
+      "font-src 'self' https://fonts.gstatic.com",
+      // Supabase realtime + API, Vercel Analytics, Google Maps
+      `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com https://maps.googleapis.com https://places.googleapis.com${isDev ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""}`,
       "frame-ancestors 'none'",
       "object-src 'none'",
       "base-uri 'self'",

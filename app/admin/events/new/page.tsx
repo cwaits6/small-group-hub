@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { GoogleMapsScript } from "@/components/GoogleMapsScript";
+import { LocationInput } from "@/components/events/LocationInput";
 import type { EventCalendar } from "@/lib/types";
 
 export default function NewEventPage() {
@@ -24,8 +26,13 @@ export default function NewEventPage() {
   const [calendars, setCalendars] = useState<EventCalendar[]>([]);
   const [calendarId, setCalendarId] = useState<string | null>(null);
   const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
+  const [location, setLocation] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Pre-fill start time from calendar date click (e.g. ?date=2026-04-15)
+  const prefillDate = searchParams.get("date");
 
   useEffect(() => {
     supabase
@@ -47,7 +54,7 @@ export default function NewEventPage() {
     const { error } = await supabase.from("events").insert({
       title: formData.get("title") as string,
       description: (formData.get("description") as string) || null,
-      location: (formData.get("location") as string) || null,
+      location: location || null,
       start_time: formData.get("start_time") as string,
       end_time: (formData.get("end_time") as string) || null,
       is_private: formData.get("is_private") === "on",
@@ -69,6 +76,7 @@ export default function NewEventPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
+      <GoogleMapsScript />
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl text-brand-primary">Create Event</CardTitle>
@@ -87,7 +95,12 @@ export default function NewEventPage() {
 
             <div className="space-y-2">
               <Label htmlFor="location" className="text-lg">Location</Label>
-              <Input id="location" name="location" className="text-lg py-6" />
+              <LocationInput
+                id="location"
+                value={location}
+                onChange={setLocation}
+                className="text-lg py-6"
+              />
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -99,6 +112,7 @@ export default function NewEventPage() {
                   type="datetime-local"
                   required
                   className="text-lg py-6"
+                  defaultValue={prefillDate ? `${prefillDate}T09:00` : undefined}
                 />
               </div>
               <div className="space-y-2">

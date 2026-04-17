@@ -14,6 +14,7 @@ interface EventsPageClientProps {
   userRsvps: Record<string, Rsvp>;
   userId: string | null;
   isMember: boolean;
+  isAdmin: boolean;
 }
 
 export function EventsPageClient({
@@ -23,6 +24,7 @@ export function EventsPageClient({
   userRsvps,
   userId,
   isMember,
+  isAdmin,
 }: EventsPageClientProps) {
   const [view, setView] = useState<View>("calendar");
 
@@ -53,7 +55,7 @@ export function EventsPageClient({
       </div>
 
       {view === "calendar" ? (
-        <EventCalendarView events={allEvents} calendars={calendars} />
+        <EventCalendarView events={allEvents} calendars={calendars} isAdmin={isAdmin} />
       ) : (
         <EventListView
           events={upcomingEvents}

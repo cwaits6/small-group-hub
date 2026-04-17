@@ -21,10 +21,11 @@ export default async function EventsPage() {
     profile = data;
   }
 
+  const isAdmin = profile?.role === "admin";
   const isMember =
     profile?.role === "member" ||
     profile?.role === "content_editor" ||
-    profile?.role === "admin";
+    isAdmin;
 
   // Fetch ALL events for calendar view (past + future)
   let allEventsQuery = supabase
@@ -85,6 +86,7 @@ export default async function EventsPage() {
         userRsvps={userRsvps}
         userId={user?.id ?? null}
         isMember={isMember}
+        isAdmin={isAdmin}
       />
     </div>
   );

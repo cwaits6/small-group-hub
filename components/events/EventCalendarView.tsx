@@ -7,14 +7,16 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg, EventInput } from "@fullcalendar/core";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import type { Event, EventCalendar } from "@/lib/types";
 
 interface EventCalendarViewProps {
   events: (Event & { calendar?: EventCalendar | null })[];
   calendars: EventCalendar[];
+  isAdmin?: boolean;
 }
 
-export function EventCalendarView({ events, calendars }: EventCalendarViewProps) {
+export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarViewProps) {
   const router = useRouter();
   const [visibleCalendarIds, setVisibleCalendarIds] = useState<Set<string | null>>(
     () => {
@@ -53,6 +55,12 @@ export function EventCalendarView({ events, calendars }: EventCalendarViewProps)
 
   const handleEventClick = (info: EventClickArg) => {
     router.push(`/events/${info.event.id}`);
+  };
+
+  const handleDateClick = (info: DateClickArg) => {
+    if (!isAdmin) return;
+    const date = info.dateStr; // YYYY-MM-DD or ISO string
+    router.push(`/admin/events/new?date=${date}`);
   };
 
   // Determine whether "uncategorized" events exist to show the chip
@@ -112,6 +120,8 @@ export function EventCalendarView({ events, calendars }: EventCalendarViewProps)
           }}
           events={filteredEvents}
           eventClick={handleEventClick}
+          dateClick={handleDateClick}
+          selectable={isAdmin}
           height="auto"
           buttonText={{
             today: "Today",
