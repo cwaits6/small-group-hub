@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -38,7 +38,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
     });
   };
 
-  const filteredEvents: EventInput[] = events
+  const filteredEvents: EventInput[] = useMemo(() => events
     .filter((e) => visibleCalendarIds.has(e.calendar_id))
     .map((e) => {
       const color = e.calendar?.color ?? "#059669";
@@ -51,7 +51,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
         borderColor: color,
         extendedProps: { event: e },
       };
-    });
+    }), [events, visibleCalendarIds]);
 
   const handleEventClick = (info: EventClickArg) => {
     router.push(`/events/${info.event.id}`);

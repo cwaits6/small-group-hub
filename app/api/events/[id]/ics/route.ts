@@ -20,6 +20,7 @@ export async function GET(
     .from("events")
     .select("*")
     .eq("id", id)
+    .eq("is_private", false)
     .single();
 
   if (error || !event) {
@@ -43,6 +44,7 @@ export async function GET(
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "public, max-age=300",
     },
   });
 }

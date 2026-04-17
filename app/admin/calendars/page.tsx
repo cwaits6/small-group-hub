@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,19 +14,19 @@ export default function AdminCalendarsPage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#6366f1");
   const [adding, setAdding] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  async function load() {
+  const load = useCallback(async () => {
     const { data } = await supabase
       .from("event_calendars")
       .select("*")
       .order("name");
     if (data) setCalendars(data as EventCalendar[]);
-  }
+  }, [supabase]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
