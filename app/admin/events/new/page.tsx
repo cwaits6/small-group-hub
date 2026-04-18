@@ -41,7 +41,12 @@ export default function NewEventPage() {
       .from("event_calendars")
       .select("*")
       .order("name")
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load event calendars:", error);
+          toast.error("Failed to load calendars.");
+          return;
+        }
         if (data) setCalendars(data as EventCalendar[]);
       });
   }, []);

@@ -95,7 +95,7 @@ export function EventCard({ event, children }: EventCardProps) {
           </a>
         </div>
 
-        {children && event.is_rsvp_enabled && (
+        {children && (
           <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>
         )}
       </div>

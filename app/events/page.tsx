@@ -45,18 +45,36 @@ export default async function EventsPage() {
     allEventsQuery = allEventsQuery.eq("is_private", false);
   }
 
-  const { data: allEventsRaw } = await allEventsQuery;
+  // Fetch upcoming events for list view (unbounded future)
+  let upcomingEventsQuery = supabase
+    .from("events")
+    .select("*, calendar:event_calendars(*)")
+    .gte("start_time", nowISO)
+    .order("start_time", { ascending: true })
+    .limit(1000);
 
-  // Upcoming-only events for list view
-  const upcomingEvents = (allEventsRaw ?? []).filter(
-    (e) => e.start_time >= nowISO
-  );
+  if (!isMember) {
+    upcomingEventsQuery = upcomingEventsQuery.eq("is_private", false);
+  }
+
+  const { data: allEventsRaw, error: allEventsError } = await allEventsQuery;
+  if (allEventsError) {
+    console.error("Failed to fetch events:", allEventsError);
+  }
+
+  const { data: upcomingEventsRaw, error: upcomingEventsError } = await upcomingEventsQuery;
+  if (upcomingEventsError) {
+    console.error("Failed to fetch upcoming events:", upcomingEventsError);
+  }
 
   // Fetch event calendars
-  const { data: calendarsRaw } = await supabase
+  const { data: calendarsRaw, error: calendarsError } = await supabase
     .from("event_calendars")
     .select("*")
     .order("name", { ascending: true });
+  if (calendarsError) {
+    console.error("Failed to fetch event calendars:", calendarsError);
+  }
 
   // Fetch user's RSVPs if logged in
   let userRsvps: Record<string, Rsvp> = {};
@@ -71,6 +89,9 @@ export default async function EventsPage() {
   }
 
   const allEvents = (allEventsRaw ?? []) as (Event & {
+    calendar?: EventCalendar | null;
+  })[];
+  const upcomingEvents = (upcomingEventsRaw ?? []) as (Event & {
     calendar?: EventCalendar | null;
   })[];
   const calendars = (calendarsRaw ?? []) as EventCalendar[];
@@ -88,7 +109,7 @@ export default async function EventsPage() {
 
       <EventsPageClient
         allEvents={allEvents}
-        upcomingEvents={upcomingEvents as (Event & { calendar?: EventCalendar | null })[]}
+        upcomingEvents={upcomingEvents}
         calendars={calendars}
         userRsvps={userRsvps}
         userId={user?.id ?? null}

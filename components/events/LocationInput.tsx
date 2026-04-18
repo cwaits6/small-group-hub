@@ -114,7 +114,7 @@ export function LocationInput({ value, onChange, className, id }: LocationInputP
       <div
         ref={containerRef}
         className={cn(
-          "[&_gmp-placeautocomplete]:w-full mt-1",
+          "[&_gmp-place-autocomplete]:w-full mt-1",
           !ready && "hidden"
         )}
       />
