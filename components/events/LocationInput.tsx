@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -25,36 +24,27 @@ interface LocationInputProps {
   name?: string;
 }
 
-export function LocationInput({ value, onChange, className, id }: LocationInputProps) {
+export function LocationInput({ value, onChange, id }: LocationInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [ready, setReady] = useState(false);
   const initializedRef = useRef(false);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  const handleManualChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    onChangeRef.current(e.target.value);
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
     let attempts = 0;
-    const maxAttempts = 25; // ~5 seconds of polling
+    const maxAttempts = 25;
     let autocompleteEl: HTMLElement | null = null;
     let handler: ((event: Event) => void) | null = null;
 
     async function init() {
-      // Wait for google.maps to be available with retry cap
       while (!window.google?.maps?.places) {
         if (cancelled) return;
         attempts++;
-        if (attempts >= maxAttempts) {
-          return; // Give up — manual input remains available
-        }
+        if (attempts >= maxAttempts) return;
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      // Import the places library (required with loading=async)
       await window.google.maps.importLibrary("places");
 
       if (cancelled || initializedRef.current || !containerRef.current) return;
@@ -80,7 +70,6 @@ export function LocationInput({ value, onChange, className, id }: LocationInputP
 
       placeAutocomplete.addEventListener("gmp-select", handler);
       containerRef.current.appendChild(placeAutocomplete);
-      setReady(true);
     }
 
     init();
@@ -97,30 +86,9 @@ export function LocationInput({ value, onChange, className, id }: LocationInputP
   }, [id]);
 
   return (
-    <div>
-      {/* Manual text input — always visible so users can type non-Google addresses */}
-      <input
-        type="text"
-        value={value}
-        onChange={handleManualChange}
-        autoComplete="off"
-        placeholder="Enter a location..."
-        className={cn(
-          "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30",
-          className
-        )}
-      />
-      {/* Google Places autocomplete element — renders below the manual input */}
-      <div
-        ref={containerRef}
-        className={cn(
-          "[&_gmp-place-autocomplete]:w-full mt-1",
-          !ready && "hidden"
-        )}
-      />
-      {ready && value && (
-        <p className="mt-1 text-sm text-muted-foreground truncate">{value}</p>
-      )}
-    </div>
+    <div
+      ref={containerRef}
+      className="[&_gmp-place-autocomplete]:w-full [&_gmp-place-autocomplete]:h-8 [&_gmp-place-autocomplete]:rounded-lg [&_gmp-place-autocomplete]:border [&_gmp-place-autocomplete]:border-input [&_gmp-place-autocomplete]:bg-white [&_gmp-place-autocomplete]:!text-slate-800 [&_gmp-place-autocomplete_input]:!text-slate-800 [&_gmp-place-autocomplete_input]:text-base [&_gmp-place-autocomplete_input]:px-2.5 [&_gmp-place-autocomplete_input]:py-1"
+    />
   );
 }
