@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { RsvpButton } from "@/components/events/RsvpButton";
+import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { AttendeeList } from "@/components/events/AttendeeList";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,7 +11,6 @@ import {
   MapPin,
   Lock,
   ChevronLeft,
-  CalendarPlus,
 } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
@@ -227,13 +227,7 @@ export default async function EventDetailPage({
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 mb-8">
             {/* Add to Calendar */}
-            <a
-              href={`/api/events/${event.id}/ics`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:border-emerald-300 hover:text-brand-primary transition-all bg-white"
-            >
-              <CalendarPlus className="h-4 w-4" />
-              Add to Calendar
-            </a>
+            <AddToCalendarButton eventId={event.id} />
           </div>
 
           {/* RSVP */}
