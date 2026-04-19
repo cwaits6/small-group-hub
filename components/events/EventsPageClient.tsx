@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Rss } from "lucide-react";
 import { EventCalendarView } from "@/components/events/EventCalendarView";
 import { EventListView } from "@/components/events/EventListView";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
@@ -30,8 +31,8 @@ export function EventsPageClient({
 
   return (
     <div>
-      {/* View toggle */}
-      <div className="flex gap-2 mb-6">
+      {/* View toggle and subscribe button */}
+      <div className="flex items-center gap-2 mb-6">
         <button
           onClick={() => setView("calendar")}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
@@ -51,6 +52,15 @@ export function EventsPageClient({
           }`}
         >
           List
+        </button>
+        <button
+          onClick={() => {
+            window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics`;
+          }}
+          className="ml-auto inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-brand-primary transition-all bg-white"
+        >
+          <Rss className="h-4 w-4" />
+          Subscribe
         </button>
       </div>
 

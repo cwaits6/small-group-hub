@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -18,6 +19,7 @@ interface EventCalendarViewProps {
 
 export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarViewProps) {
   const router = useRouter();
+  const calendarRef = useRef<FullCalendar>(null);
   const [visibleCalendarIds, setVisibleCalendarIds] = useState<Set<string | null>>(
     () => {
       const ids = new Set<string | null>(calendars.map((c) => c.id));
@@ -110,11 +112,30 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
 
       {/* FullCalendar — [&_.fc-event]:cursor-pointer makes events show pointer */}
       <div className="bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden p-4 [&_.fc-event]:cursor-pointer">
+        {/* Custom navigation buttons */}
+        <div className="flex items-center gap-1 mb-4">
+          <button
+            onClick={() => calendarRef.current?.getApi().prev()}
+            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => calendarRef.current?.getApi().next()}
+            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+
         <FullCalendar
+          ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{
-            left: "prev,next today",
+            left: "today",
             center: "title",
             right: "dayGridMonth,timeGridWeek",
           }}

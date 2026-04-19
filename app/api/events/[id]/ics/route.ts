@@ -20,7 +20,6 @@ export async function GET(
     .from("events")
     .select("*")
     .eq("id", id)
-    .eq("is_private", false)
     .single();
 
   if (error || !event) {
