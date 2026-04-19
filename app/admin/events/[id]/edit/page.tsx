@@ -58,15 +58,16 @@ export default function EditEventPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const nextLocation = (formData.get("location") as string)?.trim() ?? "";
 
     const { error } = await supabase
       .from("events")
       .update({
         title: formData.get("title") as string,
         description: (formData.get("description") as string) || null,
-        location: location || null,
-        start_time: formData.get("start_time") as string,
-        end_time: (formData.get("end_time") as string) || null,
+        location: nextLocation || null,
+        start_time: new Date(formData.get("start_time") as string).toISOString(),
+        end_time: (formData.get("end_time") as string) ? new Date(formData.get("end_time") as string).toISOString() : null,
         is_private: formData.get("is_private") === "on",
         calendar_id: calendarId || null,
         is_rsvp_enabled: isRsvpEnabled,
@@ -81,7 +82,8 @@ export default function EditEventPage() {
     }
 
     toast.success("Event updated!");
-    router.push("/admin");
+    router.replace(`/events/${params.id}`);
+    router.refresh();
   };
 
   const handleDelete = async () => {
@@ -108,7 +110,8 @@ export default function EditEventPage() {
 
   const toLocalDatetime = (iso: string) => {
     const d = new Date(iso);
-    return d.toISOString().slice(0, 16);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
 
   return (
@@ -134,6 +137,7 @@ export default function EditEventPage() {
               <Label htmlFor="location" className="text-lg">Location</Label>
               <LocationInput
                 id="location"
+                name="location"
                 value={location}
                 onChange={setLocation}
                 className="text-lg py-6"

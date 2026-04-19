@@ -10,7 +10,7 @@ export function GoogleMapsScript() {
   return (
     <Script
       id="google-maps-script"
-      src={`https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`}
+      src={`https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`}
       strategy="afterInteractive"
     />
   );

@@ -9,7 +9,15 @@ declare global {
       maps?: {
         importLibrary: (lib: string) => Promise<any>;
         places?: {
-          PlaceAutocompleteElement: new (opts?: any) => HTMLElement & { id: string; addEventListener: (type: string, handler: any) => void; removeEventListener: (type: string, handler: any) => void };
+          PlaceAutocompleteElement: new () => HTMLElement & {
+            addEventListener: (type: string, handler: any) => void;
+            removeEventListener: (type: string, handler: any) => void;
+          };
+          Place?: {
+            prototype?: {
+              fetchFields?: (options: { fields: string[] }) => Promise<unknown>;
+            };
+          };
         };
       };
     };
@@ -26,67 +34,167 @@ interface LocationInputProps {
 
 export function LocationInput({ value, onChange, id, name, className }: LocationInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const initializedRef = useRef(false);
+  const elRef = useRef<HTMLElement | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+
+  const readShadowInput = (el: HTMLElement | null) => {
+    const shadow = (el as { shadowRoot?: ShadowRoot | null } | null)?.shadowRoot;
+    const input = shadow?.querySelector("input");
+    return input instanceof HTMLInputElement ? input : null;
+  };
 
   useEffect(() => {
     let cancelled = false;
     let attempts = 0;
-    const maxAttempts = 25;
-    let autocompleteEl: HTMLElement | null = null;
-    let handler: ((event: Event) => void) | null = null;
 
     async function init() {
-      while (!window.google?.maps?.places) {
+      while (!window.google?.maps) {
         if (cancelled) return;
-        attempts++;
-        if (attempts >= maxAttempts) return;
+        if (attempts++ >= 25) return;
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      await window.google.maps.importLibrary("places");
+      await window.google!.maps!.importLibrary("places");
 
-      if (cancelled || initializedRef.current || !containerRef.current) return;
-      initializedRef.current = true;
+      if (cancelled || elRef.current || !containerRef.current) return;
+      if (!window.google?.maps?.places?.PlaceAutocompleteElement) return;
 
-      const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement();
+      const el = new window.google.maps.places.PlaceAutocompleteElement();
+      if (id) (el as any).id = id;
 
-      placeAutocomplete.id = id || "location-autocomplete";
-      autocompleteEl = placeAutocomplete;
+      // Style the host element so CSS custom properties cascade into the shadow DOM
+      Object.assign((el as HTMLElement).style, {
+        width: "100%",
+        height: "2.5rem",
+        display: "block",
+        borderRadius: "0.375rem",
+        border: "1px solid hsl(var(--input, 214.3 31.8% 91.4%))",
+        color: "hsl(var(--foreground, 222.2 84% 4.9%))",
+        backgroundColor: "hsl(var(--background, 0 0% 100%))",
+        fontSize: "1rem",
+      });
 
-      handler = async (event: Event) => {
-        const e = event as CustomEvent;
-        const prediction = e.detail?.placePrediction;
-        if (prediction) {
-          const place = await prediction.fetchFields({ fields: ["formattedAddress"] });
-          if (place?.formattedAddress) {
-            onChangeRef.current(place.formattedAddress);
+      elRef.current = el;
+
+      // Inject styles into shadow root once it's available to fix invisible text
+      const injectShadowStyles = () => {
+        const shadow = (el as any).shadowRoot as ShadowRoot | null;
+        if (!shadow) return;
+        const style = document.createElement("style");
+        style.textContent = `
+          input {
+            color: inherit !important;
+            background-color: transparent !important;
+            caret-color: currentColor !important;
+            padding: 0 0.75rem !important;
+            height: 100% !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            outline: none !important;
+            font-size: inherit !important;
           }
-        }
+        `;
+        shadow.appendChild(style);
       };
 
-      placeAutocomplete.addEventListener("gmp-select", handler);
-      containerRef.current.appendChild(placeAutocomplete);
+      const handleSelect = async (event: any) => {
+        const placeFromEvent = event.place;
+        const placePrediction = event.placePrediction;
+        const place =
+          placeFromEvent ??
+          (placePrediction?.toPlace ? placePrediction.toPlace() : null);
+
+        // Use requestAnimationFrame so the element's internal input has updated first.
+        requestAnimationFrame(async () => {
+          let addr = readShadowInput(el)?.value ?? "";
+
+          if (place) {
+            try {
+              await place.fetchFields({ fields: ["formattedAddress", "displayName"] });
+              addr = place.formattedAddress ?? place.displayName ?? addr;
+            } catch {
+              // Keep whatever value the widget input already has.
+            }
+          }
+
+          onChangeRef.current(addr);
+        });
+      };
+
+      containerRef.current.appendChild(el);
+
+      // The new Places widget uses gmp-select. Keep gmp-placeselect as a compatibility fallback.
+      el.addEventListener("gmp-select", handleSelect);
+      el.addEventListener("gmp-placeselect", handleSelect);
+
+      // The Google element renders its real input in shadow DOM, so sync typing both ways.
+      const attachShadowListeners = (tries = 0) => {
+        if (cancelled) return;
+
+        const shadow = (el as any).shadowRoot as ShadowRoot | null;
+        const input = readShadowInput(el);
+
+        if (!shadow || !input) {
+          if (tries < 20) setTimeout(() => attachShadowListeners(tries + 1), 100);
+          return;
+        }
+
+        const syncInputValue = () => {
+          onChangeRef.current(input.value);
+        };
+
+        injectShadowStyles();
+        input.addEventListener("input", syncInputValue);
+        input.addEventListener("change", syncInputValue);
+
+        if (input.value !== value) {
+          input.value = value;
+        }
+
+        (el as any)._shadowCleanup = () => {
+          input.removeEventListener("input", syncInputValue);
+          input.removeEventListener("change", syncInputValue);
+        };
+      };
+
+      attachShadowListeners();
+
+      (el as any)._cleanup = () => {
+        el.removeEventListener("gmp-select", handleSelect);
+        el.removeEventListener("gmp-placeselect", handleSelect);
+        (el as any)._shadowCleanup?.();
+      };
     }
 
     init();
     return () => {
       cancelled = true;
-      if (autocompleteEl && handler) {
-        autocompleteEl.removeEventListener("gmp-select", handler);
+      const el = elRef.current;
+      if (el) {
+        (el as any)._cleanup?.();
+        if (containerRef.current?.contains(el)) containerRef.current.removeChild(el);
       }
-      if (autocompleteEl && containerRef.current?.contains(autocompleteEl)) {
-        containerRef.current.removeChild(autocompleteEl);
-      }
-      initializedRef.current = false;
+      elRef.current = null;
     };
   }, [id]);
 
+  useEffect(() => {
+    const input = readShadowInput(elRef.current);
+    if (input && input.value !== value) {
+      input.value = value;
+    }
+  }, [value]);
+
   return (
-    <div
-      ref={containerRef}
-      className="[&_gmp-place-autocomplete]:w-full [&_gmp-place-autocomplete]:h-8 [&_gmp-place-autocomplete]:rounded-lg [&_gmp-place-autocomplete]:border [&_gmp-place-autocomplete]:border-input [&_gmp-place-autocomplete]:bg-white [&_gmp-place-autocomplete]:!text-slate-800 [&_gmp-place-autocomplete_input]:!text-slate-800 [&_gmp-place-autocomplete_input]:text-base [&_gmp-place-autocomplete_input]:px-2.5 [&_gmp-place-autocomplete_input]:py-1"
-    />
+    <div className="space-y-1.5">
+      <div ref={containerRef} className={["w-full", className].filter(Boolean).join(" ")} />
+      <input type="hidden" id={id ? `${id}-hidden` : undefined} name={name} value={value} readOnly />
+      {value && (
+        <p className="text-sm text-muted-foreground px-1 truncate">
+          Saved: {value}
+        </p>
+      )}
+    </div>
   );
 }

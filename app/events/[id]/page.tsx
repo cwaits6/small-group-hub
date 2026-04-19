@@ -12,6 +12,7 @@ import {
   MapPin,
   Lock,
   ChevronLeft,
+  Pencil,
 } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
@@ -95,10 +96,11 @@ export default async function EventDetailPage({
     profile = data;
   }
 
+  const isAdmin = profile?.role === "admin";
   const isMember =
     profile?.role === "member" ||
     profile?.role === "content_editor" ||
-    profile?.role === "admin";
+    isAdmin;
 
   // Hide private events from non-members
   if (event.is_private && !isMember) notFound();
@@ -183,15 +185,26 @@ export default async function EventDetailPage({
                 {event.title}
               </h1>
             </div>
-            {event.is_private && (
-              <Badge
-                variant="secondary"
-                className="shrink-0 bg-amber-100 text-brand-primary border-amber-200 text-xs"
-              >
-                <Lock className="h-3 w-3 mr-1" />
-                Members
-              </Badge>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {event.is_private && (
+                <Badge
+                  variant="secondary"
+                  className="bg-amber-100 text-brand-primary border-amber-200 text-xs"
+                >
+                  <Lock className="h-3 w-3 mr-1" />
+                  Members
+                </Badge>
+              )}
+              {isAdmin && (
+                <Link
+                  href={`/admin/events/${id}/edit`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 text-slate-600 hover:border-brand-primary hover:text-brand-primary transition-colors"
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Details */}

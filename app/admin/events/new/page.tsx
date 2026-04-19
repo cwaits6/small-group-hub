@@ -56,14 +56,15 @@ export default function NewEventPage() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const nextLocation = (formData.get("location") as string)?.trim() ?? "";
     const { data: { user } } = await supabase.auth.getUser();
 
     const { error } = await supabase.from("events").insert({
       title: formData.get("title") as string,
       description: (formData.get("description") as string) || null,
-      location: location || null,
-      start_time: formData.get("start_time") as string,
-      end_time: (formData.get("end_time") as string) || null,
+      location: nextLocation || null,
+      start_time: new Date(formData.get("start_time") as string).toISOString(),
+      end_time: (formData.get("end_time") as string) ? new Date(formData.get("end_time") as string).toISOString() : null,
       is_private: formData.get("is_private") === "on",
       calendar_id: calendarId || null,
       is_rsvp_enabled: isRsvpEnabled,
@@ -104,6 +105,7 @@ export default function NewEventPage() {
               <Label htmlFor="location" className="text-lg">Location</Label>
               <LocationInput
                 id="location"
+                name="location"
                 value={location}
                 onChange={setLocation}
                 className="text-lg py-6"

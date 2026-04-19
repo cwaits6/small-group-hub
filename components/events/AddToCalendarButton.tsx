@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AddToCalendarButton as AtcButton } from "add-to-calendar-button-react";
 
 interface AddToCalendarButtonProps {
@@ -46,7 +47,22 @@ export function AddToCalendarButton({
   description,
   compact,
 }: AddToCalendarButtonProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const effectiveEndTime = endTime || new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+
+  if (!isMounted) {
+    return (
+      <div
+        aria-hidden="true"
+        className={compact ? "h-8 w-24 rounded-md border border-input bg-background" : "h-10 w-40 rounded-md border border-input bg-background"}
+      />
+    );
+  }
 
   return (
     <AtcButton
