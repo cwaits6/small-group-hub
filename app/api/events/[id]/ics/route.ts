@@ -2,13 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { generateSingleEventICS } from "@/lib/ics-utils";
 import type { Event } from "@/lib/types";
 
-function slugify(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -36,13 +29,10 @@ export async function GET(
     return new Response("Failed to generate calendar file", { status: 500 });
   }
 
-  const filename = `${slugify(typedEvent.title) || "event"}.ics`;
-
   return new Response(icsString, {
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "public, max-age=300",
     },
   });
