@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, MapPin, Clock, Lock, CalendarPlus } from "lucide-react";
+import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
+import { MapPin, Clock, Lock } from "lucide-react";
 import type { Event } from "@/lib/types";
 
 interface EventCardProps {
@@ -84,15 +85,15 @@ export function EventCard({ event, children }: EventCardProps) {
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-2">
-          <a
-            href={`/api/events/${event.id}/ics`}
-            download={`${event.id}.ics`}
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-brand-primary transition-colors"
-            title="Add to Calendar"
-          >
-            <CalendarPlus className="h-3.5 w-3.5" />
-            <span>Add to Calendar</span>
-          </a>
+          <AddToCalendarButton
+            eventId={event.id}
+            eventTitle={event.title}
+            startTime={event.start_time}
+            endTime={event.end_time}
+            location={event.location}
+            description={event.description}
+            compact
+          />
         </div>
 
         {children && (

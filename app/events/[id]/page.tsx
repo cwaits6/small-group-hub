@@ -227,7 +227,14 @@ export default async function EventDetailPage({
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 mb-8">
             {/* Add to Calendar */}
-            <AddToCalendarButton eventId={event.id} />
+            <AddToCalendarButton
+              eventId={event.id}
+              eventTitle={event.title}
+              startTime={event.start_time}
+              endTime={event.end_time}
+              location={event.location}
+              description={event.description}
+            />
           </div>
 
           {/* RSVP */}
