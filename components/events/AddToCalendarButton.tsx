@@ -16,9 +16,12 @@ export function AddToCalendarButton({ eventId }: AddToCalendarButtonProps) {
       const response = await fetch(`/api/events/${eventId}/ics`);
       if (!response.ok) throw new Error("Failed to fetch calendar file");
 
-      const icsContent = await response.text();
-      const dataUri = `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`;
-      window.location.href = dataUri;
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.click();
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error adding to calendar:", error);
       alert("Failed to add event to calendar");
