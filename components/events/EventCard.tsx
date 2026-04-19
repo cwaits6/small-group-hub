@@ -86,7 +86,6 @@ export function EventCard({ event, children }: EventCardProps) {
 
         <div className="mt-4 flex items-center justify-between gap-2">
           <AddToCalendarButton
-            eventId={event.id}
             eventTitle={event.title}
             startTime={event.start_time}
             endTime={event.end_time}

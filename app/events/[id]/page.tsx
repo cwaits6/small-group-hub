@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { RsvpButton } from "@/components/events/RsvpButton";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
+import { SubscribeToEventButton } from "@/components/events/SubscribeToEventButton";
 import { AttendeeList } from "@/components/events/AttendeeList";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -226,15 +227,14 @@ export default async function EventDetailPage({
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 mb-8">
-            {/* Add to Calendar */}
             <AddToCalendarButton
-              eventId={event.id}
               eventTitle={event.title}
               startTime={event.start_time}
               endTime={event.end_time}
               location={event.location}
               description={event.description}
             />
+            <SubscribeToEventButton eventId={event.id} />
           </div>
 
           {/* RSVP */}
