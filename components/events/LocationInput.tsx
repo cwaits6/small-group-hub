@@ -24,7 +24,7 @@ interface LocationInputProps {
   name?: string;
 }
 
-export function LocationInput({ value, onChange, id }: LocationInputProps) {
+export function LocationInput({ value, onChange, id, name, className }: LocationInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
   const onChangeRef = useRef(onChange);
@@ -50,19 +50,17 @@ export function LocationInput({ value, onChange, id }: LocationInputProps) {
       if (cancelled || initializedRef.current || !containerRef.current) return;
       initializedRef.current = true;
 
-      const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement({
-        componentRestrictions: { country: "us" },
-      });
+      const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement();
 
       placeAutocomplete.id = id || "location-autocomplete";
       autocompleteEl = placeAutocomplete;
 
       handler = async (event: Event) => {
-        const e = event as Event & { place?: { fetchFields: (opts: { fields: string[] }) => Promise<void>; formattedAddress?: string } };
-        const place = e.place;
-        if (place) {
-          await place.fetchFields({ fields: ["formattedAddress"] });
-          if (place.formattedAddress) {
+        const e = event as CustomEvent;
+        const prediction = e.detail?.placePrediction;
+        if (prediction) {
+          const place = await prediction.fetchFields({ fields: ["formattedAddress"] });
+          if (place?.formattedAddress) {
             onChangeRef.current(place.formattedAddress);
           }
         }

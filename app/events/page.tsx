@@ -67,11 +67,10 @@ export default async function EventsPage() {
     console.error("Failed to fetch upcoming events:", upcomingEventsError);
   }
 
-  // Fetch event calendars
-  const { data: calendarsRaw, error: calendarsError } = await supabase
-    .from("event_calendars")
-    .select("*")
-    .order("name", { ascending: true });
+  // Fetch event calendars — for non-members, only include calendars with public events
+  const { data: calendarsRaw, error: calendarsError } = isMember
+    ? await supabase.from("event_calendars").select("*").order("name", { ascending: true })
+    : await supabase.from("event_calendars").select("*, events!inner(*)").eq("events.is_private", false).order("name", { ascending: true });
   if (calendarsError) {
     console.error("Failed to fetch event calendars:", calendarsError);
   }

@@ -28,23 +28,27 @@ export default function EditEventPage() {
   const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const params = useParams();
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const [{ data: eventData }, { data: calData }] = await Promise.all([
+      const [{ data: eventData, error: eventError }, { data: calData }] = await Promise.all([
         supabase.from("events").select("*").eq("id", params.id).single(),
         supabase.from("event_calendars").select("*").order("name"),
       ]);
-      if (eventData) {
-        setEvent(eventData as Event);
-        setCalendarId(eventData.calendar_id ?? null);
-        setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
-        setLocation(eventData.location ?? "");
+      if (eventError || !eventData) {
+        router.replace("/admin");
+        return;
       }
+      setEvent(eventData as Event);
+      setCalendarId(eventData.calendar_id ?? null);
+      setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
+      setLocation(eventData.location ?? "");
       if (calData) setCalendars(calData as EventCalendar[]);
+      setIsLoading(false);
     }
     load();
   }, [params.id]);
@@ -94,7 +98,7 @@ export default function EditEventPage() {
     router.push("/admin");
   };
 
-  if (!event) {
+  if (isLoading || !event) {
     return (
       <div className="container mx-auto px-4 py-12">
         <p className="text-xl text-muted-foreground">Loading...</p>

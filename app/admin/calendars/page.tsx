@@ -17,10 +17,14 @@ export default function AdminCalendarsPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const load = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("event_calendars")
       .select("*")
       .order("name");
+    if (error) {
+      toast.error("Failed to load calendars.");
+      return;
+    }
     if (data) setCalendars(data as EventCalendar[]);
   }, [supabase]);
 

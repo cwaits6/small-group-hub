@@ -115,23 +115,26 @@ export default async function EventDetailPage({
     userRsvp = data;
   }
 
-  // Fetch attendees (yes + maybe) joined with profiles
-  const { data: rsvpsRaw } = await supabase
-    .from("rsvps")
-    .select("user_id, status, profiles(id, first_name, last_name, avatar_url)")
-    .eq("event_id", id)
-    .in("status", ["yes", "maybe"]);
+  // Fetch attendees (yes + maybe) joined with profiles — only when RSVP is enabled
+  let attendees: Attendee[] = [];
+  if (event.is_rsvp_enabled) {
+    const { data: rsvpsRaw } = await supabase
+      .from("rsvps")
+      .select("user_id, status, profiles(id, first_name, last_name, avatar_url)")
+      .eq("event_id", id)
+      .in("status", ["yes", "maybe"]);
 
-  const attendees: Attendee[] = (rsvpsRaw ?? []).map((r) => {
-    const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
-    return {
-      id: p?.id ?? r.user_id,
-      first_name: p?.first_name ?? null,
-      last_name: p?.last_name ?? null,
-      avatar_url: p?.avatar_url ?? null,
-      status: r.status,
-    };
-  });
+    attendees = (rsvpsRaw ?? []).map((r) => {
+      const p = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+      return {
+        id: p?.id ?? r.user_id,
+        first_name: p?.first_name ?? null,
+        last_name: p?.last_name ?? null,
+        avatar_url: p?.avatar_url ?? null,
+        status: r.status,
+      };
+    });
+  }
 
   // Formatting helpers
   const startDate = new Date(event.start_time);
@@ -252,7 +255,7 @@ export default async function EventDetailPage({
           )}
 
           {/* Attendee list */}
-          {attendees.length > 0 && (
+          {event.is_rsvp_enabled && attendees.length > 0 && (
             <div className="border-t border-slate-100 pt-6">
               <AttendeeList attendees={attendees} />
             </div>

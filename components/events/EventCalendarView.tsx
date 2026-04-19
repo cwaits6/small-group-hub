@@ -79,6 +79,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
               <button
                 key={cal.id}
                 onClick={() => toggleCalendar(cal.id)}
+                aria-pressed={active}
                 className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
                   active
                     ? "border-transparent text-white shadow-sm"
@@ -97,6 +98,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
           {hasUncategorized && (
             <button
               onClick={() => toggleCalendar(null)}
+              aria-pressed={visibleCalendarIds.has(null)}
               className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
                 visibleCalendarIds.has(null)
                   ? "bg-slate-600 border-transparent text-white shadow-sm"
