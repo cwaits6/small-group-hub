@@ -33,6 +33,7 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
+      "Content-Disposition": "inline",
       "Cache-Control": "public, max-age=300",
     },
   });
