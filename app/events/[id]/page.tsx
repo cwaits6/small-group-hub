@@ -167,10 +167,11 @@ export default async function EventDetailPage({
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "America/New_York",
   });
 
   const formatTime = (d: Date) =>
-    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
   const calendarColor = event.calendar?.color ?? "#059669";
   // Build the edit URL — include the occurrence param for recurring series so the
