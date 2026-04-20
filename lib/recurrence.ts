@@ -36,14 +36,42 @@ export function buildExceptionMap(
 }
 
 /**
+ * Compute the approximate number of recurrence intervals between two dates.
+ * Returns a conservative (floor - 1) estimate so callers can safely start
+ * one step early and let the window/until checks trim the leading edge.
+ */
+function fastForwardIndex(
+  startIso: string,
+  freq: string,
+  interval: number,
+  now: Date
+): number {
+  const seriesStart = new Date(startIso);
+  const msElapsed = now.getTime() - seriesStart.getTime();
+  if (msElapsed <= 0) return 0;
+
+  let msPerStep: number;
+  if (freq === "daily") msPerStep = interval * 24 * 60 * 60 * 1000;
+  else if (freq === "weekly") msPerStep = interval * 7 * 24 * 60 * 60 * 1000;
+  else if (freq === "monthly") msPerStep = interval * 30.44 * 24 * 60 * 60 * 1000;
+  else msPerStep = interval * 365.25 * 24 * 60 * 60 * 1000; // yearly
+
+  return Math.max(0, Math.floor(msElapsed / msPerStep) - 1);
+}
+
+/**
  * Expand a recurring series anchor into its individual occurrences.
  * Occurrences whose date (ms) appears in excludedTimestamps are skipped —
  * those dates are covered by per-occurrence exception rows.
+ *
+ * Pass `now` to fast-forward past already-elapsed occurrences so the
+ * maxCount budget applies to visible/upcoming instances, not past ones.
  */
 export function expandOccurrences(
   event: Event & { calendar?: EventCalendar | null },
   excludedTimestamps?: Set<number>,
-  windowEnd?: Date
+  windowEnd?: Date,
+  now?: Date
 ): (Event & { calendar?: EventCalendar | null })[] {
   if (event.series_id) return [event];
   const { recurrence_frequency: freq, recurrence_end_mode: endMode } = event;
@@ -58,9 +86,15 @@ export function expandOccurrences(
   const maxCount =
     endMode === "count" ? (event.recurrence_count ?? 1) : MAX_OCCURRENCES;
 
+  // Fast-forward: skip intervals that are already in the past.
+  // For count-mode, iEnd is the absolute series cap so we don't overshoot it.
+  // For other modes, iEnd lets us generate maxCount upcoming occurrences.
+  const iStart = now ? fastForwardIndex(event.start_time, freq, interval, now) : 0;
+  const iEnd = endMode === "count" ? maxCount : iStart + maxCount;
+
   const results: (Event & { calendar?: EventCalendar | null })[] = [];
 
-  for (let i = 0; i < maxCount; i++) {
+  for (let i = iStart; i < iEnd; i++) {
     const occStart =
       i === 0
         ? event.start_time
@@ -104,7 +138,7 @@ export function expandUpcomingEvents(
       if (new Date(e.start_time) >= now) results.push(e);
     } else if (e.recurrence_frequency) {
       // Expand series; keep only upcoming occurrences
-      const occurrences = expandOccurrences(e, exceptions.get(e.id), windowEnd);
+      const occurrences = expandOccurrences(e, exceptions.get(e.id), windowEnd, now);
       for (const occ of occurrences) {
         if (new Date(occ.start_time) >= now) results.push(occ);
       }
