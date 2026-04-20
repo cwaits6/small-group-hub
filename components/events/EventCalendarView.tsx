@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import type { EventClickArg, EventInput } from "@fullcalendar/core";
+import type { DatesSetArg, EventClickArg, EventInput } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
 import type { Event, EventCalendar } from "@/lib/types";
 
@@ -20,6 +20,7 @@ interface EventCalendarViewProps {
 export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: EventCalendarViewProps) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
+  const [currentView, setCurrentView] = useState("dayGridMonth");
 
   const filteredEvents: EventInput[] = useMemo(() => events
     .filter((e) => visibleCalendarIds.has(e.calendar_id))
@@ -45,6 +46,20 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
     const date = info.dateStr.split("T")[0]; // normalize to YYYY-MM-DD
     router.push(`/admin/events/new?date=${date}`);
   };
+
+  const handleDatesSet = (arg: DatesSetArg) => {
+    setCurrentView(arg.view.type);
+  };
+
+  useEffect(() => {
+    if (currentView !== "timeGridWeek") return;
+
+    const timeoutId = window.setTimeout(() => {
+      calendarRef.current?.getApi().scrollToTime("08:00:00");
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentView]);
 
   return (
     <div className="bg-white rounded-[2rem] border-2 border-emerald-100 overflow-hidden p-5 shadow-sm [&_.fc-event]:cursor-pointer">
@@ -79,12 +94,20 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
           events={filteredEvents}
           eventClick={handleEventClick}
           dateClick={handleDateClick}
+          datesSet={handleDatesSet}
           selectable={isAdmin}
-          height="auto"
+          height={currentView === "timeGridWeek" ? 760 : "auto"}
+          scrollTime="08:00:00"
           buttonText={{
             today: "Today",
             month: "Month",
             week: "Week",
+          }}
+          views={{
+            timeGridWeek: {
+              slotMinTime: "00:00:00",
+              slotMaxTime: "24:00:00",
+            },
           }}
         />
       </div>

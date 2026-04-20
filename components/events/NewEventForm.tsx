@@ -100,7 +100,7 @@ export function NewEventForm() {
     }
 
     toast.success("Event created!");
-    router.push("/admin");
+    router.push("/events");
   };
 
   const handleStartTimeChange = (nextStartTime: string) => {

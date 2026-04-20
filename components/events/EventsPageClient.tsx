@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Rss, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { EventCalendarView } from "@/components/events/EventCalendarView";
 import { EventListView } from "@/components/events/EventListView";
@@ -85,46 +86,69 @@ export function EventsPageClient({
             </div>
           </div>
 
-          <div className="relative md:shrink-0">
-            <Button
-              onClick={() => setShowSubscribeMenu(!showSubscribeMenu)}
-              variant="outline"
-              className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
-            >
-              <Rss className="h-4 w-4" />
-              Subscribe to Calendar
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-
-            {showSubscribeMenu && (
-              <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                <button
-                  onClick={() => {
-                    window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics`;
-                    setShowSubscribeMenu(false);
-                  }}
-                  className="w-full cursor-pointer border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+          <div className="flex flex-wrap items-center justify-end gap-3 md:shrink-0">
+            {isAdmin && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                  nativeButton={false}
+                  render={<Link href="/admin/events/new" />}
                 >
-                  All Calendars
-                </button>
-                {calendars.map((cal) => (
+                  Add Event
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                  nativeButton={false}
+                  render={<Link href="/admin/calendars" />}
+                >
+                  Add Calendar
+                </Button>
+              </>
+            )}
+
+            <div className="relative">
+              <Button
+                onClick={() => setShowSubscribeMenu(!showSubscribeMenu)}
+                variant="outline"
+                className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+              >
+                <Rss className="h-4 w-4" />
+                Subscribe to Calendar
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+
+              {showSubscribeMenu && (
+                <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                   <button
-                    key={cal.id}
                     onClick={() => {
-                      window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?calendar=${cal.id}`;
+                      window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics`;
                       setShowSubscribeMenu(false);
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 last:border-b-0"
+                    className="w-full cursor-pointer border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
                   >
-                    <span
-                      className="inline-block h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: cal.color ?? "#059669" }}
-                    />
-                    {cal.name}
+                    All Calendars
                   </button>
-                ))}
-              </div>
-            )}
+                  {calendars.map((cal) => (
+                    <button
+                      key={cal.id}
+                      onClick={() => {
+                        window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?calendar=${cal.id}`;
+                        setShowSubscribeMenu(false);
+                      }}
+                      className="flex w-full cursor-pointer items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 last:border-b-0"
+                    >
+                      <span
+                        className="inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: cal.color ?? "#059669" }}
+                      />
+                      {cal.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
