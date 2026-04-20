@@ -58,8 +58,21 @@ export default function EditEventPage() {
       setCalendarId(eventData.calendar_id ?? null);
       setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
       setLocation(eventData.location ?? "");
-      const nextStartTime = formatDateTimeLocal(new Date(eventData.start_time));
-      const nextEndTime = eventData.end_time ? formatDateTimeLocal(new Date(eventData.end_time)) : "";
+      let nextStartTime: string;
+      let nextEndTime: string;
+      if (occurrenceISO) {
+        nextStartTime = formatDateTimeLocal(new Date(occurrenceISO));
+        if (eventData.end_time) {
+          const duration =
+            new Date(eventData.end_time).getTime() - new Date(eventData.start_time).getTime();
+          nextEndTime = formatDateTimeLocal(new Date(new Date(occurrenceISO).getTime() + duration));
+        } else {
+          nextEndTime = "";
+        }
+      } else {
+        nextStartTime = formatDateTimeLocal(new Date(eventData.start_time));
+        nextEndTime = eventData.end_time ? formatDateTimeLocal(new Date(eventData.end_time)) : "";
+      }
       setStartTime(nextStartTime);
       setEndTime(isValidEndTime(nextStartTime, nextEndTime) ? nextEndTime : addHour(nextStartTime));
       if (calData) setCalendars(calData as EventCalendar[]);
@@ -106,7 +119,6 @@ export default function EditEventPage() {
         location: nextLocation || null,
         start_time: new Date(occurrenceISO).toISOString(),
         end_time: occurrenceEnd,
-        is_private: true,
         calendar_id: calendarId || null,
         is_rsvp_enabled: isRsvpEnabled,
         created_by: user?.id,
@@ -140,7 +152,6 @@ export default function EditEventPage() {
           end_time: (formData.get("end_time") as string)
             ? new Date(formData.get("end_time") as string).toISOString()
             : null,
-          is_private: true,
           calendar_id: calendarId || null,
           is_rsvp_enabled: isRsvpEnabled,
         })
