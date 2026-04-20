@@ -56,7 +56,7 @@ export function EventsPageClient({
   const [visibleCalendarIds, setVisibleCalendarIds] = useState<Set<string | null>>(
     () => {
       const ids = new Set<string | null>(calendars.map((calendar) => calendar.id));
-      ids.add(null);
+      if (hasUncategorized) ids.add(null);
       return ids;
     }
   );
@@ -74,7 +74,8 @@ export function EventsPageClient({
   };
 
   const totalCalendarOptions = calendars.length + (hasUncategorized ? 1 : 0);
-  const selectedCalendarCount = visibleCalendarIds.size;
+  const selectedCalendarCount =
+    visibleCalendarIds.size - (!hasUncategorized && visibleCalendarIds.has(null) ? 1 : 0);
   const calendarFilterSummary =
     totalCalendarOptions === 0 || selectedCalendarCount === totalCalendarOptions
       ? "All calendars"
