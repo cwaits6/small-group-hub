@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/cwaits6/small-group-hub/compare/v0.5.0...v0.6.0) (2026-04-20)
+
+
+### Features
+
+* event calendar view with FullCalendar, ICS feeds, recurring events, location autocomplete, and admin-defined calendars ([#76](https://github.com/cwaits6/small-group-hub/issues/76)) ([206f1d7](https://github.com/cwaits6/small-group-hub/commit/206f1d7d95a63cd839514b208c829789d64f222a))
+
 # [0.5.0](https://github.com/cwaits6/small-group-hub/compare/v0.4.0...v0.5.0) (2026-04-11)
 
 
