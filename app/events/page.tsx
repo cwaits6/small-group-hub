@@ -103,15 +103,6 @@ export default async function EventsPage() {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Calendar
-      </h1>
-      <p className="text-lg text-muted-foreground mb-8">
-        {isMember
-          ? "Browse the shared calendar for our group."
-          : "Browse the public calendar. Sign in to see all events and RSVP."}
-      </p>
-
       <EventsPageClient
         allEvents={allEvents}
         upcomingEvents={upcomingEvents}

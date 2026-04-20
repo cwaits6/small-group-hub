@@ -13,32 +13,13 @@ import type { Event, EventCalendar } from "@/lib/types";
 
 interface EventCalendarViewProps {
   events: (Event & { calendar?: EventCalendar | null })[];
-  calendars: EventCalendar[];
+  visibleCalendarIds: Set<string | null>;
   isAdmin?: boolean;
 }
 
-export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarViewProps) {
+export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: EventCalendarViewProps) {
   const router = useRouter();
   const calendarRef = useRef<FullCalendar>(null);
-  const [visibleCalendarIds, setVisibleCalendarIds] = useState<Set<string | null>>(
-    () => {
-      const ids = new Set<string | null>(calendars.map((c) => c.id));
-      ids.add(null); // uncategorized events
-      return ids;
-    }
-  );
-
-  const toggleCalendar = (id: string | null) => {
-    setVisibleCalendarIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
 
   const filteredEvents: EventInput[] = useMemo(() => events
     .filter((e) => visibleCalendarIds.has(e.calendar_id))
@@ -65,67 +46,21 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
     router.push(`/admin/events/new?date=${date}`);
   };
 
-  // Determine whether "uncategorized" events exist to show the chip
-  const hasUncategorized = events.some((e) => e.calendar_id === null);
-
   return (
-    <div>
-      {/* Calendar filter chips */}
-      {(calendars.length > 0 || hasUncategorized) && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {calendars.map((cal) => {
-            const active = visibleCalendarIds.has(cal.id);
-            return (
-              <button
-                key={cal.id}
-                onClick={() => toggleCalendar(cal.id)}
-                aria-pressed={active}
-                className={`inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
-                  active
-                    ? "border-transparent text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-500"
-                }`}
-                style={active ? { backgroundColor: cal.color ?? "#059669" } : undefined}
-              >
-                <span
-                  className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: cal.color ?? "#059669" }}
-                />
-                {cal.name}
-              </button>
-            );
-          })}
-          {hasUncategorized && (
-            <button
-              onClick={() => toggleCalendar(null)}
-              aria-pressed={visibleCalendarIds.has(null)}
-              className={`inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
-                visibleCalendarIds.has(null)
-                  ? "bg-slate-600 border-transparent text-white shadow-sm"
-                  : "border-slate-200 bg-white text-slate-500"
-              }`}
-            >
-              <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0 bg-slate-400" />
-              Other
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* FullCalendar — [&_.fc-event]:cursor-pointer makes events show pointer */}
-      <div className="bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden p-4 [&_.fc-event]:cursor-pointer">
+    <div className="bg-white rounded-[2rem] border-2 border-emerald-100 overflow-hidden p-5 shadow-sm [&_.fc-event]:cursor-pointer">
+      <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-4 md:p-5">
         {/* Custom navigation buttons */}
-        <div className="flex items-center gap-1 mb-4">
+        <div className="mb-3 flex items-center gap-1.5">
           <button
             onClick={() => calendarRef.current?.getApi().prev()}
-            className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-emerald-300 hover:text-brand-primary"
             aria-label="Previous month"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => calendarRef.current?.getApi().next()}
-            className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-emerald-300 hover:text-brand-primary"
             aria-label="Next month"
           >
             <ChevronRight className="h-5 w-5" />
