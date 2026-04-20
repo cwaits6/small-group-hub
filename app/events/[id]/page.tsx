@@ -162,7 +162,7 @@ export default async function EventDetailPage({
         className="inline-flex items-center gap-1 text-sm text-brand-primary-light hover:text-brand-primary mb-6 transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
-        Back to Events
+        Back to Calendar
       </Link>
 
       <div className="bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden">

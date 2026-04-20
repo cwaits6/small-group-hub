@@ -142,10 +142,10 @@ export function NewEventForm() {
                 value={calendarId ?? "none"}
                 onValueChange={(val) => setCalendarId(val === "none" ? null : val)}
               >
-                <SelectTrigger className="text-lg py-6">
+                <SelectTrigger className="w-full text-lg py-6">
                   <SelectValue placeholder="No calendar (uncategorized)" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-[20rem]">
                   <SelectItem value="none">No calendar (uncategorized)</SelectItem>
                   {calendars.map((cal) => (
                     <SelectItem key={cal.id} value={cal.id}>

@@ -80,7 +80,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
                 key={cal.id}
                 onClick={() => toggleCalendar(cal.id)}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
+                className={`inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
                   active
                     ? "border-transparent text-white shadow-sm"
                     : "border-slate-200 bg-white text-slate-500"
@@ -99,7 +99,7 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
             <button
               onClick={() => toggleCalendar(null)}
               aria-pressed={visibleCalendarIds.has(null)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
+              className={`inline-flex cursor-pointer items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border transition-all ${
                 visibleCalendarIds.has(null)
                   ? "bg-slate-600 border-transparent text-white shadow-sm"
                   : "border-slate-200 bg-white text-slate-500"
@@ -118,14 +118,14 @@ export function EventCalendarView({ events, calendars, isAdmin }: EventCalendarV
         <div className="flex items-center gap-1 mb-4">
           <button
             onClick={() => calendarRef.current?.getApi().prev()}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
             aria-label="Previous month"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => calendarRef.current?.getApi().next()}
-            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
+            className="cursor-pointer p-1.5 rounded-md hover:bg-slate-100 text-slate-600 transition-colors"
             aria-label="Next month"
           >
             <ChevronRight className="h-5 w-5" />

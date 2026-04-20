@@ -36,13 +36,13 @@ export function Header({ profile }: HeaderProps) {
   const isMember = profile?.role === "member" || isAdmin;
 
   const publicLinks = [
-    { href: "/events", label: "Events" },
+    { href: "/events", label: "Calendar" },
     { href: "/lectures", label: "Lectures" },
   ];
 
   const memberLinks = [
     { href: "/dashboard", label: "Dashboard" },
-    { href: "/events", label: "Events" },
+    { href: "/events", label: "Calendar" },
     { href: "/announcements", label: "Announcements" },
     { href: "/lectures", label: "Lectures" },
   ];

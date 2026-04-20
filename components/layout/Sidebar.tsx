@@ -27,7 +27,7 @@ interface SidebarProps {
 
 const memberNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/events", label: "Calendar", icon: Calendar },
   { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/lectures", label: "Lectures", icon: BookOpen },
   { href: "/directory", label: "Directory", icon: Users },

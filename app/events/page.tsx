@@ -3,7 +3,7 @@ import { EventsPageClient } from "@/components/events/EventsPageClient";
 import { siteConfig } from "@/lib/config";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
-export const metadata = { title: `Events | ${siteConfig.name}` };
+export const metadata = { title: `Calendar | ${siteConfig.name}` };
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -104,12 +104,12 @@ export default async function EventsPage() {
   return (
     <div className="container mx-auto px-4 py-12">
       <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Events
+        Calendar
       </h1>
       <p className="text-lg text-muted-foreground mb-8">
         {isMember
-          ? "All events for our group."
-          : "Public events open to everyone. Sign in to see all events and RSVP."}
+          ? "Browse the shared calendar for our group."
+          : "Browse the public calendar. Sign in to see all events and RSVP."}
       </p>
 
       <EventsPageClient
