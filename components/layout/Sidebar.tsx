@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Megaphone,
   BookOpen,
   FileText,
@@ -26,7 +27,7 @@ interface SidebarProps {
 
 const memberNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/events", label: "Events", icon: Calendar },
+  { href: "/events", label: "Calendar", icon: Calendar },
   { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/lectures", label: "Lectures", icon: BookOpen },
   { href: "/directory", label: "Directory", icon: Users },
@@ -37,6 +38,7 @@ const adminNav = [
   { href: "/admin", label: "Admin", icon: Settings },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/families", label: "Families", icon: Home },
+  { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 

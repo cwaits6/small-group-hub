@@ -117,6 +117,14 @@ export interface AccessRequest {
   created_at: string;
 }
 
+export interface EventCalendar {
+  id: string;
+  name: string;
+  color: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Event {
   id: string;
   title: string;
@@ -125,8 +133,19 @@ export interface Event {
   start_time: string;
   end_time: string | null;
   is_private: boolean;
+  calendar_id: string | null;
+  is_rsvp_enabled: boolean;
   created_by: string | null;
   created_at: string;
+  // Recurrence metadata (Apple/ICS style — one row per series, expanded at render time)
+  recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly" | null;
+  recurrence_interval: number;
+  recurrence_end_mode: "never" | "count" | "until" | null;
+  recurrence_count: number | null;
+  recurrence_until: string | null;
+  // Per-occurrence exception support
+  series_id: string | null;           // set on exception events; points to the anchor series
+  series_occurrence_date: string | null; // the original occurrence ISO date this row replaces
 }
 
 export interface Rsvp {

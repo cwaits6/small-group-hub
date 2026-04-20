@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, MapPin, Clock, Lock } from "lucide-react";
+import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
+import { MapPin, Clock } from "lucide-react";
 import type { Event } from "@/lib/types";
 
 interface EventCardProps {
@@ -41,15 +42,6 @@ export function EventCard({ event, children }: EventCardProps) {
               <h3 className="font-display text-xl font-bold text-slate-800 leading-tight">
                 {event.title}
               </h3>
-              {event.is_private && (
-                <Badge
-                  variant="secondary"
-                  className="shrink-0 bg-amber-100 text-brand-primary border-amber-200 text-xs"
-                >
-                  <Lock className="h-3 w-3 mr-1" />
-                  Members
-                </Badge>
-              )}
             </div>
             <p className="text-sm text-brand-primary-light font-semibold">{weekday}</p>
           </div>
@@ -66,7 +58,14 @@ export function EventCard({ event, children }: EventCardProps) {
           {event.location && (
             <div className="flex items-center gap-2 text-base text-slate-500">
               <MapPin className="h-4 w-4 shrink-0 text-brand-primary-light" />
-              <span>{event.location}</span>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline"
+              >
+                {event.location}
+              </a>
             </div>
           )}
           {event.description && (
@@ -76,7 +75,21 @@ export function EventCard({ event, children }: EventCardProps) {
           )}
         </div>
 
-        {children && <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>}
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <AddToCalendarButton
+            instance={`event-card-${event.id}`}
+            eventTitle={event.title}
+            startTime={event.start_time}
+            endTime={event.end_time}
+            location={event.location}
+            description={event.description}
+            compact
+          />
+        </div>
+
+        {children && (
+          <div className="mt-4 pt-4 border-t border-slate-100">{children}</div>
+        )}
       </div>
     </div>
   );

@@ -108,7 +108,14 @@ Small Group Hub was built to solve exactly that. It has since been open-sourced 
      - `http://localhost:3000/api/auth/callback`
      - `https://yourdomain.com/api/auth/callback` (add when deploying)
 
-4. **Set up environment variables**
+4. **Set up Google Maps API** (for event location autocomplete)
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Enable the **Places API**
+   - Create an API key at **Credentials → Create Credentials → API Key**
+   - (Optional) Restrict it to your domain(s) under **Application restrictions**
+
+5. **Set up environment variables**
    ```bash
    cp .env.example .env.local
    ```
@@ -118,10 +125,11 @@ Small Group Hub was built to solve exactly that. It has since been open-sourced 
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
    SUPABASE_SECRET_KEY=sb_secret_...
    RESEND_API_KEY=re_...
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your-api-key-from-google-cloud
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
    ```
 
-5. **Start the dev server**
+6. **Start the dev server**
    ```bash
    npm run dev
    ```

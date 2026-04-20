@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { EventCard } from "@/components/events/EventCard";
-import { RsvpButton } from "@/components/events/RsvpButton";
+import { EventsPageClient } from "@/components/events/EventsPageClient";
 import { siteConfig } from "@/lib/config";
-import type { Rsvp } from "@/lib/types";
+import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
-export const metadata = { title: `Events | ${siteConfig.name}` };
+export const metadata = { title: `Calendar | ${siteConfig.name}` };
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -22,20 +21,76 @@ export default async function EventsPage() {
     profile = data;
   }
 
-  const isMember = profile?.role === "member" || profile?.role === "admin";
+  const isAdmin = profile?.role === "admin";
+  const isMember =
+    profile?.role === "member" ||
+    profile?.role === "content_editor" ||
+    isAdmin;
 
-  // If member, show all events; otherwise, only public
-  let query = supabase
+  const now = new Date();
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+  const oneYearAhead = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const nowISO = now.toISOString();
+
+  // Fetch events within a bounded window for calendar view.
+  // Include non-recurring events whose start_time falls in the window, AND
+  // recurring anchors whose series overlaps the window (start_time <= windowEnd
+  // and the series hasn't ended before the window start).
+  let allEventsQuery = supabase
     .from("events")
-    .select("*")
-    .gte("start_time", new Date().toISOString())
-    .order("start_time", { ascending: true });
+    .select("*, calendar:event_calendars(*)")
+    .lte("start_time", oneYearAhead)
+    .or(
+      `start_time.gte.${oneYearAgo},` +
+      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${oneYearAgo}))`
+    )
+    .order("start_time", { ascending: true })
+    .limit(500);
 
   if (!isMember) {
-    query = query.eq("is_private", false);
+    allEventsQuery = allEventsQuery.eq("is_private", false);
   }
 
-  const { data: events } = await query;
+  // Fetch upcoming events for list view.
+  // Include non-recurring events starting from now, AND recurring anchors whose
+  // series hasn't ended yet (recurrence_until IS NULL or >= now).
+  let upcomingEventsQuery = supabase
+    .from("events")
+    .select("*, calendar:event_calendars(*)")
+    .or(
+      `start_time.gte.${nowISO},` +
+      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${nowISO}))`
+    )
+    .order("start_time", { ascending: true })
+    .limit(1000);
+
+  if (!isMember) {
+    upcomingEventsQuery = upcomingEventsQuery.eq("is_private", false);
+  }
+
+  const { data: allEventsRaw, error: allEventsError } = await allEventsQuery;
+  if (allEventsError) {
+    console.error("Failed to fetch events:", allEventsError);
+  }
+
+  const { data: upcomingEventsRaw, error: upcomingEventsError } = await upcomingEventsQuery;
+  if (upcomingEventsError) {
+    console.error("Failed to fetch upcoming events:", upcomingEventsError);
+  }
+
+  // Fetch event calendars — for non-members, only include calendars with public events
+  const { data: calendarsRaw, error: calendarsError } = isMember
+    ? await supabase.from("event_calendars").select("*").order("name", { ascending: true })
+    : await supabase
+        .from("event_calendars")
+        .select("*, events!inner(id)")
+        .eq("events.is_private", false)
+        .gte("events.start_time", oneYearAgo)
+        .lte("events.start_time", oneYearAhead)
+        .order("name", { ascending: true });
+  if (calendarsError) {
+    console.error("Failed to fetch event calendars:", calendarsError);
+  }
 
   // Fetch user's RSVPs if logged in
   let userRsvps: Record<string, Rsvp> = {};
@@ -49,34 +104,25 @@ export default async function EventsPage() {
     }
   }
 
+  const allEvents = (allEventsRaw ?? []) as (Event & {
+    calendar?: EventCalendar | null;
+  })[];
+  const upcomingEvents = (upcomingEventsRaw ?? []) as (Event & {
+    calendar?: EventCalendar | null;
+  })[];
+  const calendars = (calendarsRaw ?? []) as EventCalendar[];
+
   return (
     <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Upcoming Events
-      </h1>
-      <p className="text-lg text-muted-foreground mb-10">
-        {isMember
-          ? "All upcoming events for our group."
-          : "Public events open to everyone. Sign in to see all events and RSVP."}
-      </p>
-
-      {events && events.length > 0 ? (
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event}>
-              {isMember && user && (
-                <RsvpButton
-                  eventId={event.id}
-                  userId={user.id}
-                  currentStatus={userRsvps[event.id]?.status ?? null}
-                />
-              )}
-            </EventCard>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xl text-muted-foreground">No upcoming events right now. Check back soon!</p>
-      )}
+      <EventsPageClient
+        allEvents={allEvents}
+        upcomingEvents={upcomingEvents}
+        calendars={calendars}
+        userRsvps={userRsvps}
+        userId={user?.id ?? null}
+        isMember={isMember}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,55 +9,174 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import type { Event } from "@/lib/types";
+import { GoogleMapsScript } from "@/components/GoogleMapsScript";
+import { LocationInput } from "@/components/events/LocationInput";
+import { addHour, formatDateTimeLocal, isValidEndTime } from "@/lib/datetime-local";
+import type { Event, EventCalendar } from "@/lib/types";
+
+type EditScope = "all" | "this";
 
 export default function EditEventPage() {
   const [event, setEvent] = useState<Event | null>(null);
+  const [calendars, setCalendars] = useState<EventCalendar[]>([]);
+  const [calendarId, setCalendarId] = useState<string | null>(null);
+  const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
+  const [location, setLocation] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [editScope, setEditScope] = useState<EditScope>("all");
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const supabase = createClient();
+
+  // Occurrence param is set when navigating from a specific recurring occurrence.
+  const rawOccurrence = searchParams.get("occurrence");
+  const occurrenceISO = rawOccurrence ? decodeURIComponent(rawOccurrence) : null;
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", params.id)
-        .single();
-      setEvent(data);
+      const [{ data: eventData, error: eventError }, { data: calData }] = await Promise.all([
+        supabase.from("events").select("*").eq("id", params.id).single(),
+        supabase.from("event_calendars").select("*").order("name"),
+      ]);
+      if (eventError || !eventData) {
+        router.replace("/admin");
+        return;
+      }
+      setEvent(eventData as Event);
+      setCalendarId(eventData.calendar_id ?? null);
+      setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
+      setLocation(eventData.location ?? "");
+      let nextStartTime: string;
+      let nextEndTime: string;
+      if (occurrenceISO) {
+        nextStartTime = formatDateTimeLocal(new Date(occurrenceISO));
+        if (eventData.end_time) {
+          const duration =
+            new Date(eventData.end_time).getTime() - new Date(eventData.start_time).getTime();
+          nextEndTime = formatDateTimeLocal(new Date(new Date(occurrenceISO).getTime() + duration));
+        } else {
+          nextEndTime = "";
+        }
+      } else {
+        nextStartTime = formatDateTimeLocal(new Date(eventData.start_time));
+        nextEndTime = eventData.end_time ? formatDateTimeLocal(new Date(eventData.end_time)) : "";
+      }
+      setStartTime(nextStartTime);
+      setEndTime(isValidEndTime(nextStartTime, nextEndTime) ? nextEndTime : addHour(nextStartTime));
+      if (calData) setCalendars(calData as EventCalendar[]);
+      setIsLoading(false);
     }
     load();
   }, [params.id]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-
-    const { error } = await supabase
-      .from("events")
-      .update({
-        title: formData.get("title") as string,
-        description: (formData.get("description") as string) || null,
-        location: (formData.get("location") as string) || null,
-        start_time: formData.get("start_time") as string,
-        end_time: (formData.get("end_time") as string) || null,
-        is_private: formData.get("is_private") === "on",
-      })
-      .eq("id", params.id);
-
-    setLoading(false);
-
-    if (error) {
-      toast.error("Failed to update event.");
+    if (!isValidEndTime(startTime, endTime)) {
+      toast.error("End time must be after start time.");
       return;
     }
 
-    toast.success("Event updated!");
-    router.push("/admin");
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const nextLocation = (formData.get("location") as string)?.trim() ?? "";
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+
+    const isRecurringSeries = !!event?.recurrence_frequency && !event?.series_id;
+
+    if (isRecurringSeries && occurrenceISO && editScope === "this") {
+      // Create a one-off exception row for just this occurrence.
+      // The anchor event is untouched; expandOccurrences will skip this date.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // Compute the occurrence's end time by preserving the original duration.
+      let occurrenceEnd: string | null = null;
+      if (event!.end_time) {
+        const duration =
+          new Date(event!.end_time).getTime() - new Date(event!.start_time).getTime();
+        occurrenceEnd = new Date(new Date(occurrenceISO).getTime() + duration).toISOString();
+      }
+
+      const { error } = await supabase.from("events").insert({
+        title,
+        description,
+        location: nextLocation || null,
+        start_time: new Date(occurrenceISO).toISOString(),
+        end_time: occurrenceEnd,
+        calendar_id: calendarId || null,
+        is_rsvp_enabled: isRsvpEnabled,
+        created_by: user?.id,
+        recurrence_frequency: null,
+        recurrence_interval: 1,
+        recurrence_end_mode: null,
+        recurrence_count: null,
+        recurrence_until: null,
+        series_id: String(params.id),
+        series_occurrence_date: new Date(occurrenceISO).toISOString(),
+      });
+
+      setLoading(false);
+
+      if (error) {
+        toast.error("Failed to create event exception.");
+        return;
+      }
+
+      toast.success("This occurrence has been saved separately.");
+      router.push("/events");
+    } else {
+      // Edit all events in the series (or a one-off / exception event).
+      const { error } = await supabase
+        .from("events")
+        .update({
+          title,
+          description,
+          location: nextLocation || null,
+          start_time: new Date(formData.get("start_time") as string).toISOString(),
+          end_time: (formData.get("end_time") as string)
+            ? new Date(formData.get("end_time") as string).toISOString()
+            : null,
+          calendar_id: calendarId || null,
+          is_rsvp_enabled: isRsvpEnabled,
+        })
+        .eq("id", params.id);
+
+      setLoading(false);
+
+      if (error) {
+        toast.error("Failed to update event.");
+        return;
+      }
+
+      toast.success("Event updated!");
+      router.replace(`/events/${params.id}`);
+      router.refresh();
+    }
+  };
+
+  const handleStartTimeChange = (nextStartTime: string) => {
+    const previousSuggestedEndTime = addHour(startTime);
+    setStartTime(nextStartTime);
+
+    if (!endTime || endTime === previousSuggestedEndTime || !isValidEndTime(nextStartTime, endTime)) {
+      setEndTime(addHour(nextStartTime));
+    }
   };
 
   const handleDelete = async () => {
@@ -74,7 +193,7 @@ export default function EditEventPage() {
     router.push("/admin");
   };
 
-  if (!event) {
+  if (isLoading || !event) {
     return (
       <div className="container mx-auto px-4 py-12">
         <p className="text-xl text-muted-foreground">Loading...</p>
@@ -82,19 +201,56 @@ export default function EditEventPage() {
     );
   }
 
-  const toLocalDatetime = (iso: string) => {
-    const d = new Date(iso);
-    return d.toISOString().slice(0, 16);
-  };
+  const selectedCalendar = calendars.find((calendar) => calendar.id === calendarId) ?? null;
+  const isRecurringSeries = !!event.recurrence_frequency && !event.series_id;
+  const showScopeChoice = isRecurringSeries && !!occurrenceISO;
+
+  const occurrenceLabel = occurrenceISO
+    ? new Date(occurrenceISO).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
+      <GoogleMapsScript />
       <Card>
         <CardHeader>
           <CardTitle className="text-3xl text-brand-primary">Edit Event</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+
+            {/* Scope choice — only shown for recurring series occurrences */}
+            {showScopeChoice && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Recurring event</p>
+                  <p className="text-sm text-amber-700">
+                    You are editing the <span className="font-medium">{occurrenceLabel}</span> occurrence.
+                    Choose whether to save changes for just this date or the whole series.
+                  </p>
+                </div>
+                <Select
+                  value={editScope}
+                  onValueChange={(v) => setEditScope(v as EditScope)}
+                >
+                  <SelectTrigger className="w-full text-base py-5 bg-white">
+                    <SelectValue>
+                      {editScope === "this" ? "This event only" : "All events in series"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="this">This event only</SelectItem>
+                    <SelectItem value="all">All events in series</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="title" className="text-lg">Title</Label>
               <Input id="title" name="title" required defaultValue={event.title} className="text-lg py-6" />
@@ -107,7 +263,12 @@ export default function EditEventPage() {
 
             <div className="space-y-2">
               <Label htmlFor="location" className="text-lg">Location</Label>
-              <Input id="location" name="location" defaultValue={event.location || ""} className="text-lg py-6" />
+              <LocationInput
+                id="location"
+                name="location"
+                value={location}
+                onChange={setLocation}
+              />
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -118,8 +279,9 @@ export default function EditEventPage() {
                   name="start_time"
                   type="datetime-local"
                   required
-                  defaultValue={toLocalDatetime(event.start_time)}
                   className="text-lg py-6"
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -128,15 +290,63 @@ export default function EditEventPage() {
                   id="end_time"
                   name="end_time"
                   type="datetime-local"
-                  defaultValue={event.end_time ? toLocalDatetime(event.end_time) : ""}
                   className="text-lg py-6"
+                  min={startTime || undefined}
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label className="text-lg">Calendar</Label>
+              <Select
+                value={calendarId ?? "none"}
+                onValueChange={(val) => setCalendarId(val === "none" ? null : val)}
+              >
+                <SelectTrigger className="w-full text-lg py-6">
+                  <SelectValue placeholder="No calendar (uncategorized)">
+                    {selectedCalendar ? (
+                      <span className="flex items-center gap-2">
+                        {selectedCalendar.color && (
+                          <span
+                            className="inline-block h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: selectedCalendar.color }}
+                          />
+                        )}
+                        {selectedCalendar.name}
+                      </span>
+                    ) : (
+                      "No calendar (uncategorized)"
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="min-w-[20rem]">
+                  <SelectItem value="none">No calendar (uncategorized)</SelectItem>
+                  {calendars.map((cal) => (
+                    <SelectItem key={cal.id} value={cal.id}>
+                      <span className="flex items-center gap-2">
+                        {cal.color && (
+                          <span
+                            className="inline-block w-3 h-3 rounded-full shrink-0"
+                            style={{ backgroundColor: cal.color }}
+                          />
+                        )}
+                        {cal.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex items-center gap-3">
-              <Switch id="is_private" name="is_private" defaultChecked={event.is_private} />
-              <Label htmlFor="is_private" className="text-lg">Members only (private)</Label>
+              <Switch
+                id="is_rsvp_enabled"
+                checked={isRsvpEnabled}
+                onCheckedChange={setIsRsvpEnabled}
+              />
+              <Label htmlFor="is_rsvp_enabled" className="text-lg">RSVP enabled</Label>
             </div>
 
             <div className="flex gap-3">
@@ -147,6 +357,15 @@ export default function EditEventPage() {
                 disabled={loading}
               >
                 {loading ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="text-lg py-6"
+                onClick={() => router.push(`/events/${params.id}`)}
+              >
+                Cancel
               </Button>
               <Button
                 type="button"

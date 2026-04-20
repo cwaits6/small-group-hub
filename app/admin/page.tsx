@@ -67,6 +67,12 @@ export default async function AdminPage() {
       icon: Calendar,
     },
     {
+      href: "/admin/calendars",
+      label: "Event Calendars",
+      description: "Create and manage shared calendars",
+      icon: Calendar,
+    },
+    {
       href: "/admin/announcements/new",
       label: "New Announcement",
       description: "Post an announcement",
