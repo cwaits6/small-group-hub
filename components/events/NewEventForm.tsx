@@ -110,7 +110,6 @@ export function NewEventForm() {
                 name="location"
                 value={location}
                 onChange={setLocation}
-                className="text-lg py-6"
               />
             </div>
 

@@ -27,12 +27,11 @@ declare global {
 interface LocationInputProps {
   value: string;
   onChange: (value: string) => void;
-  className?: string;
   id?: string;
   name?: string;
 }
 
-export function LocationInput({ value, onChange, id, name, className }: LocationInputProps) {
+export function LocationInput({ value, onChange, id, name }: LocationInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const elRef = useRef<HTMLElement | null>(null);
   const onChangeRef = useRef(onChange);
@@ -69,9 +68,9 @@ export function LocationInput({ value, onChange, id, name, className }: Location
         height: "2.5rem",
         display: "block",
         borderRadius: "0.375rem",
-        border: "1px solid hsl(var(--input, 214.3 31.8% 91.4%))",
+        border: "0",
         color: "hsl(var(--foreground, 222.2 84% 4.9%))",
-        backgroundColor: "hsl(var(--background, 0 0% 100%))",
+        backgroundColor: "transparent",
         fontSize: "1rem",
       });
 
@@ -93,6 +92,14 @@ export function LocationInput({ value, onChange, id, name, className }: Location
             box-sizing: border-box !important;
             outline: none !important;
             font-size: inherit !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            display: block !important;
+            box-shadow: none !important;
+          }
+
+          input:focus {
+            border: 0 !important;
           }
         `;
         shadow.appendChild(style);
@@ -188,7 +195,13 @@ export function LocationInput({ value, onChange, id, name, className }: Location
 
   return (
     <div className="space-y-1.5">
-      <div ref={containerRef} className={["w-full", className].filter(Boolean).join(" ")} />
+      <div className="relative w-full">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-lg border border-input bg-background"
+        />
+        <div ref={containerRef} className="relative z-10 w-full" />
+      </div>
       <input type="hidden" id={id ? `${id}-hidden` : undefined} name={name} value={value} readOnly />
       {value && (
         <p className="text-sm text-muted-foreground px-1 truncate">

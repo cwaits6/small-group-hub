@@ -140,7 +140,6 @@ export default function EditEventPage() {
                 name="location"
                 value={location}
                 onChange={setLocation}
-                className="text-lg py-6"
               />
             </div>
 
@@ -218,6 +217,15 @@ export default function EditEventPage() {
                 disabled={loading}
               >
                 {loading ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="text-lg py-6"
+                onClick={() => router.push(`/events/${params.id}`)}
+              >
+                Cancel
               </Button>
               <Button
                 type="button"
