@@ -34,6 +34,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
           weekday: "long",
           month: "long",
           day: "numeric",
+          year: "numeric",
         });
         const formatTime = (date: Date) =>
           date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
