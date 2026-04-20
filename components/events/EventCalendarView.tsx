@@ -122,6 +122,7 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
             center: "title",
             right: "dayGridMonth,timeGridWeek",
           }}
+          timeZone="America/New_York"
           events={filteredEvents}
           eventClick={handleEventClick}
           dateClick={handleDateClick}
