@@ -180,6 +180,18 @@ CREATE TABLE IF NOT EXISTS "public"."announcements" (
 ALTER TABLE "public"."announcements" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."event_calendars" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "color" "text",
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."event_calendars" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."events" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "title" "text" NOT NULL,
@@ -189,7 +201,18 @@ CREATE TABLE IF NOT EXISTS "public"."events" (
     "end_time" timestamp with time zone,
     "is_private" boolean DEFAULT false NOT NULL,
     "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "calendar_id" "uuid",
+    "is_rsvp_enabled" boolean DEFAULT true NOT NULL,
+    "recurrence_frequency" "text",
+    "recurrence_interval" integer DEFAULT 1 NOT NULL,
+    "recurrence_end_mode" "text",
+    "recurrence_count" integer,
+    "recurrence_until" timestamp with time zone,
+    "series_id" "uuid",
+    "series_occurrence_date" timestamp with time zone,
+    CONSTRAINT "events_recurrence_end_mode_check" CHECK (("recurrence_end_mode" = ANY (ARRAY['never'::"text", 'count'::"text", 'until'::"text"]))),
+    CONSTRAINT "events_recurrence_frequency_check" CHECK (("recurrence_frequency" = ANY (ARRAY['daily'::"text", 'weekly'::"text", 'monthly'::"text", 'yearly'::"text"])))
 );
 
 
@@ -440,6 +463,11 @@ ALTER TABLE ONLY "public"."announcements"
 
 
 
+ALTER TABLE ONLY "public"."event_calendars"
+    ADD CONSTRAINT "event_calendars_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."events"
     ADD CONSTRAINT "events_pkey" PRIMARY KEY ("id");
 
@@ -506,8 +534,23 @@ ALTER TABLE ONLY "public"."announcements"
 
 
 
+ALTER TABLE ONLY "public"."event_calendars"
+    ADD CONSTRAINT "event_calendars_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+
+
+
+ALTER TABLE ONLY "public"."events"
+    ADD CONSTRAINT "events_calendar_id_fkey" FOREIGN KEY ("calendar_id") REFERENCES "public"."event_calendars"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."events"
     ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+
+
+
+ALTER TABLE ONLY "public"."events"
+    ADD CONSTRAINT "events_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "public"."events"("id") ON DELETE CASCADE;
 
 
 
@@ -555,6 +598,10 @@ CREATE POLICY "Admins can delete announcements" ON "public"."announcements" FOR 
 
 
 
+CREATE POLICY "Admins can delete event calendars" ON "public"."event_calendars" FOR DELETE USING ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING ("public"."is_admin"());
 
 
@@ -575,6 +622,10 @@ CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR 
 
 
 
+CREATE POLICY "Admins can insert event calendars" ON "public"."event_calendars" FOR INSERT WITH CHECK ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT WITH CHECK ("public"."is_admin"());
 
 
@@ -592,6 +643,10 @@ CREATE POLICY "Admins can update access requests" ON "public"."access_requests" 
 
 
 CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR UPDATE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can update event calendars" ON "public"."event_calendars" FOR UPDATE USING ("public"."is_admin"());
 
 
 
@@ -624,6 +679,10 @@ CREATE POLICY "Admins can view all profiles" ON "public"."profiles" FOR SELECT U
 
 
 CREATE POLICY "Admins full access rsvps" ON "public"."rsvps" USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Anyone can read event calendars" ON "public"."event_calendars" FOR SELECT USING (true);
 
 
 
@@ -705,6 +764,9 @@ ALTER TABLE "public"."access_requests" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."announcements" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."event_calendars" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."events" ENABLE ROW LEVEL SECURITY;
 
 
@@ -778,6 +840,12 @@ GRANT ALL ON TABLE "public"."access_requests" TO "service_role";
 GRANT ALL ON TABLE "public"."announcements" TO "anon";
 GRANT ALL ON TABLE "public"."announcements" TO "authenticated";
 GRANT ALL ON TABLE "public"."announcements" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."event_calendars" TO "anon";
+GRANT ALL ON TABLE "public"."event_calendars" TO "authenticated";
+GRANT ALL ON TABLE "public"."event_calendars" TO "service_role";
 
 
 
