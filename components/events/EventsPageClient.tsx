@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Rss, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { EventCalendarView } from "@/components/events/EventCalendarView";
 import { EventListView } from "@/components/events/EventListView";
+import { expandUpcomingEvents } from "@/lib/recurrence";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -40,6 +41,14 @@ export function EventsPageClient({
 }: EventsPageClientProps) {
   const [view, setView] = useState<View>("calendar");
   const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
+
+  // For the list view, expand recurring events from the ±1-year window and
+  // filter to upcoming occurrences (so "never-ending" series show future dates).
+  const expandedUpcomingEvents = useMemo(
+    () => expandUpcomingEvents(allEvents),
+    [allEvents]
+  );
+
   const hasUncategorized = useMemo(
     () => allEvents.some((event) => event.calendar_id === null),
     [allEvents]
@@ -240,7 +249,7 @@ export function EventsPageClient({
         />
       ) : (
         <EventListView
-          events={upcomingEvents}
+          events={expandedUpcomingEvents}
           userRsvps={userRsvps}
           userId={userId}
           isMember={isMember}

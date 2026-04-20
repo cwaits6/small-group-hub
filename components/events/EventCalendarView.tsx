@@ -9,6 +9,7 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { DatesSetArg, EventClickArg, EventInput } from "@fullcalendar/core";
 import type { DateClickArg } from "@fullcalendar/interaction";
+import { buildExceptionMap, expandOccurrences } from "@/lib/recurrence";
 import type { Event, EventCalendar } from "@/lib/types";
 
 interface EventCalendarViewProps {
@@ -22,9 +23,28 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
   const calendarRef = useRef<FullCalendar>(null);
   const [currentView, setCurrentView] = useState("dayGridMonth");
 
-  const filteredEvents: EventInput[] = useMemo(() => events
-    .filter((e) => visibleCalendarIds.has(e.calendar_id))
-    .map((e) => {
+  const filteredEvents: EventInput[] = useMemo(() => {
+    // Build exception map from all events before filtering by calendar visibility,
+    // so exception rows for hidden calendars still suppress their series occurrences.
+    const exceptions = buildExceptionMap(events);
+
+    const expanded: (Event & { calendar?: EventCalendar | null })[] = [];
+
+    for (const e of events) {
+      if (!visibleCalendarIds.has(e.calendar_id)) continue;
+
+      if (e.series_id) {
+        // Exception event — include directly (not expanded as a series)
+        expanded.push(e);
+      } else if (e.recurrence_frequency) {
+        // Recurring series — expand, skipping exception-covered dates
+        expanded.push(...expandOccurrences(e, exceptions.get(e.id)));
+      } else {
+        expanded.push(e);
+      }
+    }
+
+    return expanded.map((e) => {
       const color = e.calendar?.color ?? "#059669";
       return {
         id: e.id,
@@ -35,10 +55,21 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
         borderColor: color,
         extendedProps: { event: e },
       };
-    }), [events, visibleCalendarIds]);
+    });
+  }, [events, visibleCalendarIds]);
 
   const handleEventClick = (info: EventClickArg) => {
-    router.push(`/events/${info.event.id}`);
+    const event = info.event.extendedProps.event as Event;
+
+    if (event.recurrence_frequency && !event.series_id) {
+      // Recurring series occurrence — pass the occurrence date so the detail
+      // page and edit page know which specific occurrence is being viewed.
+      const occurrence = encodeURIComponent(event.start_time);
+      router.push(`/events/${event.id}?occurrence=${occurrence}`);
+    } else {
+      // Regular event or per-occurrence exception
+      router.push(`/events/${event.id}`);
+    }
   };
 
   const handleDateClick = (info: DateClickArg) => {

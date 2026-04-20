@@ -25,7 +25,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
 
   return (
     <div className="max-w-5xl space-y-4 overflow-visible">
-      {events.map((event) => {
+      {events.map((event, index) => {
         const startDate = new Date(event.start_time);
         const endDate = event.end_time ? new Date(event.end_time) : null;
         const month = startDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
@@ -38,9 +38,18 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
         const formatTime = (date: Date) =>
           date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
+        // For recurring series occurrences (not exceptions), pass the occurrence
+        // date so the detail/edit pages know which specific occurrence is shown.
+        const isSeriesOccurrence = !!event.recurrence_frequency && !event.series_id;
+        const occurrenceParam = isSeriesOccurrence
+          ? `?occurrence=${encodeURIComponent(event.start_time)}`
+          : "";
+        const viewHref = `/events/${event.id}${occurrenceParam}`;
+        const editHref = `/admin/events/${event.id}/edit${occurrenceParam}`;
+
         return (
           <div
-            key={event.id}
+            key={`${event.id}-${index}`}
             className="relative overflow-visible rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
           >
             <div
@@ -62,7 +71,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/events/${event.id}`}
+                        href={viewHref}
                         className="font-display text-xl font-bold leading-tight text-slate-800 hover:text-brand-primary"
                       >
                         {event.title}
@@ -102,12 +111,13 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  {/* shrink-0 prevents this group from compressing and wrapping "Add to Calendar" */}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 md:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       nativeButton={false}
-                      render={<Link href={`/events/${event.id}`} />}
+                      render={<Link href={viewHref} />}
                     >
                       View
                     </Button>
@@ -116,7 +126,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                         variant="outline"
                         size="sm"
                         nativeButton={false}
-                        render={<Link href={`/admin/events/${event.id}/edit`} />}
+                        render={<Link href={editHref} />}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         Edit
@@ -124,7 +134,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                     )}
                     <div className="relative z-10 overflow-visible">
                       <AddToCalendarButton
-                        instance={`event-list-${event.id}`}
+                        instance={`event-list-${event.id}-${index}`}
                         eventTitle={event.title}
                         startTime={event.start_time}
                         endTime={event.end_time}

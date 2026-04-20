@@ -63,10 +63,13 @@ interface Attendee {
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ occurrence?: string }>;
 }) {
   const { id } = await params;
+  const { occurrence } = await searchParams;
   const supabase = await createClient();
 
   // Fetch event with calendar join
@@ -137,9 +140,24 @@ export default async function EventDetailPage({
     });
   }
 
-  // Formatting helpers
-  const startDate = new Date(event.start_time);
-  const endDate = event.end_time ? new Date(event.end_time) : null;
+  // Formatting helpers.
+  // When viewing a specific occurrence of a recurring series, shift the displayed
+  // start/end times to that occurrence's date while preserving the event duration.
+  let displayStartTime = event.start_time;
+  let displayEndTime = event.end_time;
+
+  if (occurrence && event.recurrence_frequency && !event.series_id) {
+    const occurrenceISO = decodeURIComponent(occurrence);
+    displayStartTime = occurrenceISO;
+    if (event.end_time) {
+      const duration =
+        new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+      displayEndTime = new Date(new Date(occurrenceISO).getTime() + duration).toISOString();
+    }
+  }
+
+  const startDate = new Date(displayStartTime);
+  const endDate = displayEndTime ? new Date(displayEndTime) : null;
 
   const fullDate = startDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -152,6 +170,11 @@ export default async function EventDetailPage({
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   const calendarColor = event.calendar?.color ?? "#059669";
+  // Build the edit URL — include the occurrence param for recurring series so the
+  // edit page knows which occurrence is being modified.
+  const editHref = occurrence && event.recurrence_frequency && !event.series_id
+    ? `/admin/events/${id}/edit?occurrence=${encodeURIComponent(occurrence)}`
+    : `/admin/events/${id}/edit`;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
@@ -191,7 +214,7 @@ export default async function EventDetailPage({
                   size="sm"
                   className="gap-1.5 text-slate-600 hover:border-emerald-300 hover:text-brand-primary"
                   nativeButton={false}
-                  render={<Link href={`/admin/events/${id}/edit`} />}
+                  render={<Link href={editHref} />}
                 >
                   <Pencil className="h-3 w-3" />
                   Edit
@@ -239,8 +262,8 @@ export default async function EventDetailPage({
             <AddToCalendarButton
               instance={`event-detail-${event.id}`}
               eventTitle={event.title}
-              startTime={event.start_time}
-              endTime={event.end_time}
+              startTime={displayStartTime}
+              endTime={displayEndTime}
               location={event.location}
               description={event.description}
             />

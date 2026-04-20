@@ -22,11 +22,32 @@ import { LocationInput } from "@/components/events/LocationInput";
 import { addHour, isValidEndTime } from "@/lib/datetime-local";
 import type { EventCalendar } from "@/lib/types";
 
+type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
+type RecurrenceEndMode = "never" | "count" | "until";
+
+const RECURRENCE_LABELS: Record<RecurrenceFrequency, string> = {
+  daily: "Daily",
+  weekly: "Weekly",
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+
+const END_MODE_LABELS: Record<RecurrenceEndMode, string> = {
+  never: "Never",
+  count: "After Number Of Times",
+  until: "On Date",
+};
+
 export function NewEventForm() {
   const [loading, setLoading] = useState(false);
   const [calendars, setCalendars] = useState<EventCalendar[]>([]);
   const [calendarId, setCalendarId] = useState<string | null>(null);
   const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>("weekly");
+  const [recurrenceEndMode, setRecurrenceEndMode] = useState<RecurrenceEndMode>("never");
+  const [recurrenceCount, setRecurrenceCount] = useState("4");
+  const [recurrenceUntil, setRecurrenceUntil] = useState("");
   const [location, setLocation] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,6 +91,30 @@ export function NewEventForm() {
       return;
     }
 
+    const parsedRecurrenceCount = Number(recurrenceCount);
+    if (
+      isRecurring &&
+      recurrenceEndMode === "count" &&
+      (!Number.isInteger(parsedRecurrenceCount) || parsedRecurrenceCount < 2 || parsedRecurrenceCount > 999)
+    ) {
+      toast.error("Recurring events must repeat between 2 and 999 times.");
+      return;
+    }
+
+    if (isRecurring && recurrenceEndMode === "until") {
+      if (!recurrenceUntil) {
+        toast.error("Choose when the recurring event should stop repeating.");
+        return;
+      }
+
+      const untilDate = new Date(recurrenceUntil);
+      const firstStartDate = new Date(startTime);
+      if (Number.isNaN(untilDate.getTime()) || untilDate.getTime() < firstStartDate.getTime()) {
+        toast.error("Repeat until must be on or after the first event.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -78,18 +123,27 @@ export function NewEventForm() {
       data: { user },
     } = await supabase.auth.getUser();
 
+    const title = formData.get("title") as string;
+    const description = (formData.get("description") as string) || null;
+
     const { error } = await supabase.from("events").insert({
-      title: formData.get("title") as string,
-      description: (formData.get("description") as string) || null,
+      title,
+      description,
       location: nextLocation || null,
-      start_time: new Date(formData.get("start_time") as string).toISOString(),
-      end_time: (formData.get("end_time") as string)
-        ? new Date(formData.get("end_time") as string).toISOString()
-        : null,
+      start_time: new Date(startTime).toISOString(),
+      end_time: endTime ? new Date(endTime).toISOString() : null,
       is_private: true,
       calendar_id: calendarId || null,
       is_rsvp_enabled: isRsvpEnabled,
       created_by: user?.id,
+      recurrence_frequency: isRecurring ? recurrenceFrequency : null,
+      recurrence_interval: 1,
+      recurrence_end_mode: isRecurring ? recurrenceEndMode : null,
+      recurrence_count: isRecurring && recurrenceEndMode === "count" ? parsedRecurrenceCount : null,
+      recurrence_until:
+        isRecurring && recurrenceEndMode === "until"
+          ? new Date(recurrenceUntil).toISOString()
+          : null,
     });
 
     setLoading(false);
@@ -217,6 +271,93 @@ export function NewEventForm() {
                 onCheckedChange={setIsRsvpEnabled}
               />
               <Label htmlFor="is_rsvp_enabled" className="text-lg">RSVP enabled</Label>
+            </div>
+
+            <div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="is_recurring"
+                  checked={isRecurring}
+                  onCheckedChange={setIsRecurring}
+                />
+                <div>
+                  <Label htmlFor="is_recurring" className="text-lg">Recurring event</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Repeat this event on a schedule.
+                  </p>
+                </div>
+              </div>
+
+              {isRecurring && (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-lg">Repeat</Label>
+                      <Select
+                        value={recurrenceFrequency}
+                        onValueChange={(value) => setRecurrenceFrequency(value as RecurrenceFrequency)}
+                      >
+                        <SelectTrigger className="w-full text-lg py-6">
+                          <SelectValue>{RECURRENCE_LABELS[recurrenceFrequency]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="daily">Daily</SelectItem>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                          <SelectItem value="yearly">Yearly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-lg">End Repeat</Label>
+                      <Select
+                        value={recurrenceEndMode}
+                        onValueChange={(value) => setRecurrenceEndMode(value as RecurrenceEndMode)}
+                      >
+                        <SelectTrigger className="w-full text-lg py-6">
+                          <SelectValue>{END_MODE_LABELS[recurrenceEndMode]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="never">Never</SelectItem>
+                          <SelectItem value="count">After Number Of Times</SelectItem>
+                          <SelectItem value="until">On Date</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {recurrenceEndMode === "count" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="recurrence_count" className="text-lg">Occurrences</Label>
+                      <Input
+                        id="recurrence_count"
+                        type="number"
+                        min="2"
+                        max="999"
+                        step="1"
+                        value={recurrenceCount}
+                        onChange={(e) => setRecurrenceCount(e.target.value)}
+                        className="text-lg py-6"
+                      />
+                    </div>
+                  )}
+
+                  {recurrenceEndMode === "until" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="recurrence_until" className="text-lg">Repeat Until</Label>
+                      <Input
+                        id="recurrence_until"
+                        type="datetime-local"
+                        min={startTime || undefined}
+                        value={recurrenceUntil}
+                        onChange={(e) => setRecurrenceUntil(e.target.value)}
+                        className="text-lg py-6"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <Button
