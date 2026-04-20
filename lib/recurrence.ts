@@ -45,6 +45,7 @@ export function expandOccurrences(
   excludedTimestamps?: Set<number>,
   windowEnd?: Date
 ): (Event & { calendar?: EventCalendar | null })[] {
+  if (event.series_id) return [event];
   const { recurrence_frequency: freq, recurrence_end_mode: endMode } = event;
   if (!freq) return [event];
 
