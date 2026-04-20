@@ -32,12 +32,18 @@ export default async function EventsPage() {
   const oneYearAhead = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
   const nowISO = now.toISOString();
 
-  // Fetch events within a bounded window for calendar view
+  // Fetch events within a bounded window for calendar view.
+  // Include non-recurring events whose start_time falls in the window, AND
+  // recurring anchors whose series overlaps the window (start_time <= windowEnd
+  // and the series hasn't ended before the window start).
   let allEventsQuery = supabase
     .from("events")
     .select("*, calendar:event_calendars(*)")
-    .gte("start_time", oneYearAgo)
     .lte("start_time", oneYearAhead)
+    .or(
+      `start_time.gte.${oneYearAgo},` +
+      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${oneYearAgo}))`
+    )
     .order("start_time", { ascending: true })
     .limit(500);
 
@@ -45,11 +51,16 @@ export default async function EventsPage() {
     allEventsQuery = allEventsQuery.eq("is_private", false);
   }
 
-  // Fetch upcoming events for list view (unbounded future)
+  // Fetch upcoming events for list view.
+  // Include non-recurring events starting from now, AND recurring anchors whose
+  // series hasn't ended yet (recurrence_until IS NULL or >= now).
   let upcomingEventsQuery = supabase
     .from("events")
     .select("*, calendar:event_calendars(*)")
-    .gte("start_time", nowISO)
+    .or(
+      `start_time.gte.${nowISO},` +
+      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${nowISO}))`
+    )
     .order("start_time", { ascending: true })
     .limit(1000);
 
