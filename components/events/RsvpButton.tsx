@@ -48,18 +48,18 @@ export function RsvpButton({ eventId, userId, currentStatus }: RsvpButtonProps) 
   ];
 
   return (
-    <div className="flex gap-2 pt-3">
+    <div className="flex flex-wrap gap-3 pt-3">
       {options.map((option) => (
         <Button
           key={option.value}
           variant={status === option.value ? "default" : "outline"}
           size="lg"
-          className={`text-base ${status === option.value ? "bg-brand-primary hover:bg-brand-primary/90 text-white" : ""}`}
+          className={`gap-2 px-4 text-base ${status === option.value ? "bg-brand-primary hover:bg-brand-primary/90 text-white" : "text-slate-700 hover:border-emerald-300 hover:text-brand-primary"}`}
           onClick={() => handleRsvp(option.value)}
           disabled={loading}
         >
           {option.icon}
-          <span className="ml-1">{option.label}</span>
+          <span>{option.label}</span>
         </Button>
       ))}
     </div>

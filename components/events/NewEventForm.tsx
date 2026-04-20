@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { GoogleMapsScript } from "@/components/GoogleMapsScript";
 import { LocationInput } from "@/components/events/LocationInput";
+import { addHour, isValidEndTime } from "@/lib/datetime-local";
 import type { EventCalendar } from "@/lib/types";
 
 export function NewEventForm() {
@@ -33,6 +34,18 @@ export function NewEventForm() {
 
   const rawDate = searchParams.get("date");
   const prefillDate = rawDate ? rawDate.split("T")[0] : null;
+  const selectedCalendar = calendars.find((calendar) => calendar.id === calendarId) ?? null;
+  const initialStartTime = useMemo(
+    () => (prefillDate ? `${prefillDate}T09:00` : ""),
+    [prefillDate]
+  );
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endTime, setEndTime] = useState(() => addHour(initialStartTime));
+
+  useEffect(() => {
+    setStartTime(initialStartTime);
+    setEndTime(addHour(initialStartTime));
+  }, [initialStartTime]);
 
   useEffect(() => {
     supabase
@@ -51,6 +64,12 @@ export function NewEventForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!isValidEndTime(startTime, endTime)) {
+      toast.error("End time must be after start time.");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -67,7 +86,7 @@ export function NewEventForm() {
       end_time: (formData.get("end_time") as string)
         ? new Date(formData.get("end_time") as string).toISOString()
         : null,
-      is_private: formData.get("is_private") === "on",
+      is_private: true,
       calendar_id: calendarId || null,
       is_rsvp_enabled: isRsvpEnabled,
       created_by: user?.id,
@@ -82,6 +101,15 @@ export function NewEventForm() {
 
     toast.success("Event created!");
     router.push("/admin");
+  };
+
+  const handleStartTimeChange = (nextStartTime: string) => {
+    const previousSuggestedEndTime = addHour(startTime);
+    setStartTime(nextStartTime);
+
+    if (!endTime || endTime === previousSuggestedEndTime) {
+      setEndTime(addHour(nextStartTime));
+    }
   };
 
   return (
@@ -122,7 +150,8 @@ export function NewEventForm() {
                   type="datetime-local"
                   required
                   className="text-lg py-6"
-                  defaultValue={prefillDate ? `${prefillDate}T09:00` : undefined}
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -132,6 +161,9 @@ export function NewEventForm() {
                   name="end_time"
                   type="datetime-local"
                   className="text-lg py-6"
+                  min={startTime || undefined}
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
             </div>
@@ -143,7 +175,21 @@ export function NewEventForm() {
                 onValueChange={(val) => setCalendarId(val === "none" ? null : val)}
               >
                 <SelectTrigger className="w-full text-lg py-6">
-                  <SelectValue placeholder="No calendar (uncategorized)" />
+                  <SelectValue placeholder="No calendar (uncategorized)">
+                    {selectedCalendar ? (
+                      <span className="flex items-center gap-2">
+                        {selectedCalendar.color && (
+                          <span
+                            className="inline-block h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: selectedCalendar.color }}
+                          />
+                        )}
+                        {selectedCalendar.name}
+                      </span>
+                    ) : (
+                      "No calendar (uncategorized)"
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="min-w-[20rem]">
                   <SelectItem value="none">No calendar (uncategorized)</SelectItem>
@@ -162,11 +208,6 @@ export function NewEventForm() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Switch id="is_private" name="is_private" />
-              <Label htmlFor="is_private" className="text-lg">Members only (private)</Label>
             </div>
 
             <div className="flex items-center gap-3">

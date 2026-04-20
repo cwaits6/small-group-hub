@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { GoogleMapsScript } from "@/components/GoogleMapsScript";
 import { LocationInput } from "@/components/events/LocationInput";
+import { addHour, formatDateTimeLocal, isValidEndTime } from "@/lib/datetime-local";
 import type { Event, EventCalendar } from "@/lib/types";
 
 export default function EditEventPage() {
@@ -27,6 +28,8 @@ export default function EditEventPage() {
   const [calendarId, setCalendarId] = useState<string | null>(null);
   const [isRsvpEnabled, setIsRsvpEnabled] = useState(true);
   const [location, setLocation] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -47,6 +50,10 @@ export default function EditEventPage() {
       setCalendarId(eventData.calendar_id ?? null);
       setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
       setLocation(eventData.location ?? "");
+      const nextStartTime = formatDateTimeLocal(new Date(eventData.start_time));
+      const nextEndTime = eventData.end_time ? formatDateTimeLocal(new Date(eventData.end_time)) : "";
+      setStartTime(nextStartTime);
+      setEndTime(isValidEndTime(nextStartTime, nextEndTime) ? nextEndTime : addHour(nextStartTime));
       if (calData) setCalendars(calData as EventCalendar[]);
       setIsLoading(false);
     }
@@ -55,6 +62,12 @@ export default function EditEventPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (!isValidEndTime(startTime, endTime)) {
+      toast.error("End time must be after start time.");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -68,7 +81,7 @@ export default function EditEventPage() {
         location: nextLocation || null,
         start_time: new Date(formData.get("start_time") as string).toISOString(),
         end_time: (formData.get("end_time") as string) ? new Date(formData.get("end_time") as string).toISOString() : null,
-        is_private: formData.get("is_private") === "on",
+        is_private: true,
         calendar_id: calendarId || null,
         is_rsvp_enabled: isRsvpEnabled,
       })
@@ -84,6 +97,15 @@ export default function EditEventPage() {
     toast.success("Event updated!");
     router.replace(`/events/${params.id}`);
     router.refresh();
+  };
+
+  const handleStartTimeChange = (nextStartTime: string) => {
+    const previousSuggestedEndTime = addHour(startTime);
+    setStartTime(nextStartTime);
+
+    if (!endTime || endTime === previousSuggestedEndTime || !isValidEndTime(nextStartTime, endTime)) {
+      setEndTime(addHour(nextStartTime));
+    }
   };
 
   const handleDelete = async () => {
@@ -108,11 +130,7 @@ export default function EditEventPage() {
     );
   }
 
-  const toLocalDatetime = (iso: string) => {
-    const d = new Date(iso);
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
+  const selectedCalendar = calendars.find((calendar) => calendar.id === calendarId) ?? null;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
@@ -151,8 +169,9 @@ export default function EditEventPage() {
                   name="start_time"
                   type="datetime-local"
                   required
-                  defaultValue={toLocalDatetime(event.start_time)}
                   className="text-lg py-6"
+                  value={startTime}
+                  onChange={(e) => handleStartTimeChange(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -161,8 +180,10 @@ export default function EditEventPage() {
                   id="end_time"
                   name="end_time"
                   type="datetime-local"
-                  defaultValue={event.end_time ? toLocalDatetime(event.end_time) : ""}
                   className="text-lg py-6"
+                  min={startTime || undefined}
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
             </div>
@@ -174,7 +195,21 @@ export default function EditEventPage() {
                 onValueChange={(val) => setCalendarId(val === "none" ? null : val)}
               >
                 <SelectTrigger className="w-full text-lg py-6">
-                  <SelectValue placeholder="No calendar (uncategorized)" />
+                  <SelectValue placeholder="No calendar (uncategorized)">
+                    {selectedCalendar ? (
+                      <span className="flex items-center gap-2">
+                        {selectedCalendar.color && (
+                          <span
+                            className="inline-block h-3 w-3 shrink-0 rounded-full"
+                            style={{ backgroundColor: selectedCalendar.color }}
+                          />
+                        )}
+                        {selectedCalendar.name}
+                      </span>
+                    ) : (
+                      "No calendar (uncategorized)"
+                    )}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="min-w-[20rem]">
                   <SelectItem value="none">No calendar (uncategorized)</SelectItem>
@@ -193,11 +228,6 @@ export default function EditEventPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Switch id="is_private" name="is_private" defaultChecked={event.is_private} />
-              <Label htmlFor="is_private" className="text-lg">Members only (private)</Label>
             </div>
 
             <div className="flex items-center gap-3">

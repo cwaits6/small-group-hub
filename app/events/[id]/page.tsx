@@ -5,12 +5,11 @@ import { RsvpButton } from "@/components/events/RsvpButton";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { SubscribeToEventButton } from "@/components/events/SubscribeToEventButton";
 import { AttendeeList } from "@/components/events/AttendeeList";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   CalendarDays,
   Clock,
   MapPin,
-  Lock,
   ChevronLeft,
   Pencil,
 } from "lucide-react";
@@ -186,23 +185,17 @@ export default async function EventDetailPage({
               </h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {event.is_private && (
-                <Badge
-                  variant="secondary"
-                  className="bg-amber-100 text-brand-primary border-amber-200 text-xs"
-                >
-                  <Lock className="h-3 w-3 mr-1" />
-                  Members
-                </Badge>
-              )}
               {isAdmin && (
-                <Link
-                  href={`/admin/events/${id}/edit`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 text-slate-600 hover:border-brand-primary hover:text-brand-primary transition-colors"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-slate-600 hover:border-emerald-300 hover:text-brand-primary"
+                  nativeButton={false}
+                  render={<Link href={`/admin/events/${id}/edit`} />}
                 >
                   <Pencil className="h-3 w-3" />
                   Edit
-                </Link>
+                </Button>
               )}
             </div>
           </div>
@@ -242,8 +235,9 @@ export default async function EventDetailPage({
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap items-center gap-3 mb-8">
+          <div className="mb-8 flex flex-wrap items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/60 p-3">
             <AddToCalendarButton
+              instance={`event-detail-${event.id}`}
               eventTitle={event.title}
               startTime={event.start_time}
               endTime={event.end_time}
@@ -257,7 +251,7 @@ export default async function EventDetailPage({
           {event.is_rsvp_enabled && isMember && user && (
             <div className="border-t border-slate-100 pt-6 mb-8">
               <h2 className="text-base font-semibold text-slate-700 mb-3">
-                Will you be there?
+                RSVP
               </h2>
               <RsvpButton
                 eventId={event.id}

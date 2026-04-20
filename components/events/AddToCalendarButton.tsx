@@ -10,9 +10,62 @@ interface AddToCalendarButtonProps {
   location?: string | null;
   description?: string | null;
   compact?: boolean;
+  instance?: string | number;
 }
 
 const TZ = "America/New_York";
+const detailButtonStyle = [
+  "--btn-background:#fff",
+  "--btn-hover-background:#ecfdf5",
+  "--btn-hover-border:#86efac",
+  "--btn-border:oklch(0.88 0.02 163)",
+  "--btn-border-width:1px",
+  "--btn-border-radius:0.75rem",
+  "--btn-padding-x:0.95em",
+  "--btn-padding-y:0.52em",
+  "--btn-text:#475569",
+  "--btn-hover-text:#0d4f3c",
+  "--btn-font-weight:600",
+  "--font:var(--font-nunito), sans-serif",
+  "--base-font-size-l:16px",
+  "--base-font-size-m:16px",
+  "--base-font-size-s:16px",
+  "--accent-color:#059669",
+  "--list-background:#fff",
+  "--list-hover-background:#ecfdf5",
+  "--list-text:#334155",
+  "--list-hover-text:#0d4f3c",
+  "--list-border:oklch(0.88 0.02 163)",
+  "--list-border-radius:1rem",
+  "--list-padding:0.8em 1em",
+  "--buttonslist-gap:0.75rem",
+].join(";");
+
+const compactButtonStyle = [
+  "--btn-background:#fff",
+  "--btn-hover-background:#f8fafc",
+  "--btn-hover-border:#cbd5e1",
+  "--btn-border:#e2e8f0",
+  "--btn-border-width:1px",
+  "--btn-border-radius:0.75rem",
+  "--btn-padding-x:0.9em",
+  "--btn-padding-y:0.55em",
+  "--btn-text:#334155",
+  "--btn-hover-text:#0d4f3c",
+  "--btn-font-weight:600",
+  "--font:var(--font-nunito), sans-serif",
+  "--base-font-size-l:14px",
+  "--base-font-size-m:14px",
+  "--base-font-size-s:14px",
+  "--accent-color:#059669",
+  "--list-background:#fff",
+  "--list-hover-background:#ecfdf5",
+  "--list-text:#334155",
+  "--list-hover-text:#0d4f3c",
+  "--list-border:#e2e8f0",
+  "--list-border-radius:1rem",
+  "--list-padding:0.8em 1em",
+].join(";");
 
 function formatDate(iso: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -46,6 +99,7 @@ export function AddToCalendarButton({
   location,
   description,
   compact,
+  instance,
 }: AddToCalendarButtonProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -53,7 +107,12 @@ export function AddToCalendarButton({
     setIsMounted(true);
   }, []);
 
-  const effectiveEndTime = endTime || new Date(new Date(startTime).getTime() + 60 * 60 * 1000).toISOString();
+  const startDate = new Date(startTime);
+  const parsedEndTime = endTime ? new Date(endTime) : null;
+  const effectiveEndTime =
+    parsedEndTime && parsedEndTime.getTime() > startDate.getTime()
+      ? parsedEndTime.toISOString()
+      : new Date(startDate.getTime() + 60 * 60 * 1000).toISOString();
 
   if (!isMounted) {
     return (
@@ -66,6 +125,7 @@ export function AddToCalendarButton({
 
   return (
     <AtcButton
+      instance={instance}
       name={eventTitle}
       startDate={formatDate(startTime)}
       startTime={formatTime(startTime)}
@@ -75,9 +135,11 @@ export function AddToCalendarButton({
       location={location || undefined}
       description={description ?? undefined}
       options={["Apple", "Google", "iCal", "Outlook.com", "Microsoft365"]}
-      buttonStyle={compact ? "text" : "default"}
+      buttonStyle="default"
       lightMode="light"
       size={compact ? "3" : "5"}
+      styleLight={compact ? compactButtonStyle : detailButtonStyle}
+      styleDark={compact ? compactButtonStyle : detailButtonStyle}
       hideBranding
     />
   );

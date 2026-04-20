@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { RsvpButton } from "@/components/events/RsvpButton";
-import { CalendarDays, Clock, Lock, MapPin, Pencil } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Pencil } from "lucide-react";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
 interface EventListViewProps {
@@ -75,15 +75,6 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                           {event.calendar.name}
                         </Badge>
                       )}
-                      {event.is_private && (
-                        <Badge
-                          variant="secondary"
-                          className="bg-amber-100 text-brand-primary border-amber-200"
-                        >
-                          <Lock className="mr-1 h-3 w-3" />
-                          Members
-                        </Badge>
-                      )}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500">
                       <div className="flex items-center gap-2">
@@ -133,6 +124,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                     )}
                     <div className="relative z-10 overflow-visible">
                       <AddToCalendarButton
+                        instance={`event-list-${event.id}`}
                         eventTitle={event.title}
                         startTime={event.start_time}
                         endTime={event.end_time}
