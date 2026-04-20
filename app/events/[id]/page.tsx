@@ -148,11 +148,14 @@ export default async function EventDetailPage({
 
   if (occurrence && event.recurrence_frequency && !event.series_id) {
     const occurrenceISO = decodeURIComponent(occurrence);
-    displayStartTime = occurrenceISO;
-    if (event.end_time) {
-      const duration =
-        new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
-      displayEndTime = new Date(new Date(occurrenceISO).getTime() + duration).toISOString();
+    const parsedOccurrence = new Date(occurrenceISO);
+    if (!isNaN(parsedOccurrence.getTime())) {
+      displayStartTime = occurrenceISO;
+      if (event.end_time) {
+        const duration =
+          new Date(event.end_time).getTime() - new Date(event.start_time).getTime();
+        displayEndTime = new Date(parsedOccurrence.getTime() + duration).toISOString();
+      }
     }
   }
 
