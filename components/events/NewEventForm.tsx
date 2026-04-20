@@ -22,6 +22,30 @@ import { LocationInput } from "@/components/events/LocationInput";
 import { addHour, isValidEndTime } from "@/lib/datetime-local";
 import type { EventCalendar } from "@/lib/types";
 
+const APP_TIMEZONE = "America/New_York";
+
+/** Parse a datetime-local string (YYYY-MM-DDTHH:mm) as wall-clock time in
+ *  APP_TIMEZONE and return a UTC ISO string. */
+function localToUTCISO(localStr: string): string {
+  const [datePart, timePart] = localStr.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  // Treat the desired local time as UTC (arbitrary reference)
+  const ref = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  // Ask Intl what APP_TIMEZONE shows for that UTC moment
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: APP_TIMEZONE,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  }).formatToParts(ref);
+  const p: Record<string, number> = {};
+  for (const part of parts) if (part.type !== "literal") p[part.type] = Number(part.value);
+  // delta = how far UTC is ahead of APP_TIMEZONE at this moment
+  const shownAsUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return new Date(ref.getTime() + (ref.getTime() - shownAsUTC)).toISOString();
+}
+
 type RecurrenceFrequency = "daily" | "weekly" | "monthly" | "yearly";
 type RecurrenceEndMode = "never" | "count" | "until";
 
@@ -109,6 +133,8 @@ export function NewEventForm() {
 
       const untilDate = new Date(recurrenceUntil);
       const firstStartDate = new Date(startTime);
+      // Both are datetime-local strings (same timezone offset implicit), so
+      // comparing them as browser-local Dates is valid for ordering checks.
       if (Number.isNaN(untilDate.getTime()) || untilDate.getTime() < firstStartDate.getTime()) {
         toast.error("Repeat until must be on or after the first event.");
         return;
@@ -130,8 +156,8 @@ export function NewEventForm() {
       title,
       description,
       location: nextLocation || null,
-      start_time: new Date(startTime).toISOString(),
-      end_time: endTime ? new Date(endTime).toISOString() : null,
+      start_time: localToUTCISO(startTime),
+      end_time: endTime ? localToUTCISO(endTime) : null,
       is_private: true,
       calendar_id: calendarId || null,
       is_rsvp_enabled: isRsvpEnabled,
@@ -142,7 +168,7 @@ export function NewEventForm() {
       recurrence_count: isRecurring && recurrenceEndMode === "count" ? parsedRecurrenceCount : null,
       recurrence_until:
         isRecurring && recurrenceEndMode === "until"
-          ? new Date(recurrenceUntil).toISOString()
+          ? localToUTCISO(recurrenceUntil)
           : null,
     });
 
