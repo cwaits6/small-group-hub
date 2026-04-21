@@ -16,6 +16,3 @@ permissions:
 jobs:
   semgrep:
     uses: krypsis-io/.github/.github/workflows/semgrep.yml@main
-    secrets:
-      APP_ID: ${{ secrets.APP_ID }}
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
