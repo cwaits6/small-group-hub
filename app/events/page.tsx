@@ -79,6 +79,27 @@ export default async function EventsPage() {
     console.error("Failed to fetch event calendars:", calendarsError);
   }
 
+  // Fetch or create the user's calendar subscription token
+  let subscriptionToken: string | null = null;
+  if (user && isMember) {
+    const { data: existingToken } = await supabase
+      .from("calendar_subscription_tokens")
+      .select("token")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingToken) {
+      subscriptionToken = existingToken.token;
+    } else {
+      const { data: newToken } = await supabase
+        .from("calendar_subscription_tokens")
+        .insert({ user_id: user.id })
+        .select("token")
+        .single();
+      subscriptionToken = newToken?.token ?? null;
+    }
+  }
+
   // Fetch user's RSVPs if logged in
   let userRsvps: Record<string, Rsvp> = {};
   if (user && isMember) {
@@ -109,6 +130,7 @@ export default async function EventsPage() {
         userId={user?.id ?? null}
         isMember={isMember}
         isAdmin={isAdmin}
+        subscriptionToken={subscriptionToken}
       />
     </div>
   );

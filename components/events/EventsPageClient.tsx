@@ -28,6 +28,7 @@ interface EventsPageClientProps {
   userId: string | null;
   isMember: boolean;
   isAdmin: boolean;
+  subscriptionToken: string | null;
 }
 
 export function EventsPageClient({
@@ -38,6 +39,7 @@ export function EventsPageClient({
   userId,
   isMember,
   isAdmin,
+  subscriptionToken,
 }: EventsPageClientProps) {
   const [view, setView] = useState<View>("calendar");
   const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
@@ -131,7 +133,7 @@ export function EventsPageClient({
                 <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                   <button
                     onClick={() => {
-                      window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics`;
+                      window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?token=${subscriptionToken}`;
                       setShowSubscribeMenu(false);
                     }}
                     className="w-full cursor-pointer border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
@@ -142,7 +144,7 @@ export function EventsPageClient({
                     <button
                       key={cal.id}
                       onClick={() => {
-                        window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?calendar=${cal.id}`;
+                        window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?token=${subscriptionToken}&calendar=${cal.id}`;
                         setShowSubscribeMenu(false);
                       }}
                       className="flex w-full cursor-pointer items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 last:border-b-0"
