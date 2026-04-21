@@ -17,10 +17,10 @@
 # disclosure. This is by design and contains no sensitive server-side data.
 10027	IGNORE	# Information Disclosure - Suspicious Comments (Next.js build metadata)
 
-# CSP unsafe-inline in style-src: Next.js requires this without nonce-based CSP
-# middleware (CSS-in-JS and Tailwind inject inline styles at runtime). Removing it
-# would break the UI. The risk is limited compared to unsafe-inline in script-src.
-10055	IGNORE	# CSP: style-src unsafe-inline
+# CSP: style-src unsafe-inline. Next.js/Tailwind require this (CSS-in-JS injects
+# inline styles at runtime). Risk is limited since only styles, not scripts.
+# script-src unsafe-inline was removed via nonce-based CSP in middleware.
+10055	IGNORE	# CSP: style-src unsafe-inline (only; script-src now uses nonce)
 
 # ZAP identifying the app as a Next.js SPA. Informational only, not a vulnerability.
 10109	IGNORE	# Modern Web Application
@@ -45,6 +45,12 @@
 # ZAP flags its own spider-injected test emails (e.g. zaproxy@example.com) appearing
 # in URLs it constructed. Our forms submit via JS (onSubmit), not GET.
 10024	IGNORE	# Information Disclosure - Sensitive Information in URL
+
+# User Controllable HTML Element Attribute: ZAP flags the login ?email= and ?redirect=
+# parameters as potentially appearing in HTML attributes. This is a false positive:
+# neither login nor forgot-password reads the email param; the redirect param is
+# only used in router.replace() post-auth, never rendered into any HTML attribute.
+10031	IGNORE	# User Controllable HTML Element Attribute (false positive)
 
 # Retrieved from Cache: informational only — Vercel CDN caching is intentional.
 10050	IGNORE	# Retrieved from Cache
