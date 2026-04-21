@@ -33,7 +33,7 @@ export function Header({ profile }: HeaderProps) {
   };
 
   const isAdmin = profile?.role === "admin";
-  const isMember = profile?.role === "member" || isAdmin;
+  const isMember = profile?.role === "member" || profile?.role === "content_editor" || isAdmin;
 
   const memberLinks = [
     { href: "/dashboard", label: "Dashboard" },
