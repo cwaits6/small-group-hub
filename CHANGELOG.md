@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/cwaits6/small-group-hub/compare/v0.6.0...v0.7.0) (2026-04-21)
+
+
+### Features
+
+* gate content behind auth, fix ICS subscriptions ([#85](https://github.com/cwaits6/small-group-hub/issues/85)) ([8aab788](https://github.com/cwaits6/small-group-hub/commit/8aab788bf86294bfb7105388fdc3eaac34b7cd53))
+
 # [0.6.0](https://github.com/cwaits6/small-group-hub/compare/v0.5.0...v0.6.0) (2026-04-20)
 
 
