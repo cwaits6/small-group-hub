@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@0a14e3e7dc1d4ed8076356f18f82e9dc4848e0b2 # v1.1.0
         with:
           version: 2.78.1
 
@@ -47,11 +47,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@ba4b1b88f2881d8caf18e4b5f42ba34795b70892 # v1.9.3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      - uses: supabase/setup-cli@v1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: supabase/setup-cli@0a14e3e7dc1d4ed8076356f18f82e9dc4848e0b2 # v1.1.0
         with:
           version: 2.78.1
 
@@ -78,7 +85,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add supabase/schema.sql
-          git diff --staged --quiet || git commit -m "chore(db): update schema dump [skip ci]"
+          if git diff --staged --quiet; then
+            echo "No schema changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(db): update schema dump [skip ci]"
           git fetch origin main
           git pull --rebase origin main
           pushed=false
