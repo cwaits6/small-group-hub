@@ -25,28 +25,11 @@ export async function generateMetadata({
   const supabase = await createClient();
   const { data: event } = await supabase
     .from("events")
-    .select("title, is_private")
+    .select("title")
     .eq("id", id)
     .single();
 
   if (!event) {
-    return { title: `Event | ${siteConfig.name}` };
-  }
-
-  // Don't leak private event titles to non-members
-  if (event.is_private) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      const isMember = profile?.role === "member" || profile?.role === "content_editor" || profile?.role === "admin";
-      if (isMember) {
-        return { title: `${event.title} | ${siteConfig.name}` };
-      }
-    }
     return { title: `Event | ${siteConfig.name}` };
   }
 
@@ -103,9 +86,6 @@ export default async function EventDetailPage({
     profile?.role === "member" ||
     profile?.role === "content_editor" ||
     isAdmin;
-
-  // Hide private events from non-members
-  if (event.is_private && !isMember) notFound();
 
   // Fetch current user's RSVP
   let userRsvp: Rsvp | null = null;

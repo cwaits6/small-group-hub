@@ -132,7 +132,6 @@ export interface Event {
   location: string | null;
   start_time: string;
   end_time: string | null;
-  is_private: boolean;
   calendar_id: string | null;
   is_rsvp_enabled: boolean;
   created_by: string | null;

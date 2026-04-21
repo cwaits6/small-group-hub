@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { generateMultiEventICS } from "@/lib/ics-utils";
 import type { Event } from "@/lib/types";
 
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     return new Response("Invalid calendar ID", { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createServiceClient();
 
   // Bound results to a reasonable time window
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -20,7 +20,6 @@ export async function GET(request: Request) {
   let query = supabase
     .from("events")
     .select("*")
-    .eq("is_private", false)
     .gte("start_time", thirtyDaysAgo)
     .order("start_time", { ascending: true })
     .limit(500);

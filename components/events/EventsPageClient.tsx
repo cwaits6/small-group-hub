@@ -89,9 +89,7 @@ export function EventsPageClient({
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">Calendar</h1>
               <p className="mt-2 text-lg text-muted-foreground">
-                {isMember
-                  ? "Browse the shared calendar for our group."
-                  : "Browse the public calendar. Sign in to see all events and RSVP."}
+                Browse the shared calendar for our group.
               </p>
             </div>
           </div>
