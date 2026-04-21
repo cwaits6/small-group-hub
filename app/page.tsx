@@ -1,28 +1,11 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { EventCard } from "@/components/events/EventCard";
-import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
 import { Heart, Users, BookOpen, ArrowRight, Sparkles } from "lucide-react";
 
 export default async function HomePage() {
   const supabase = await createClient();
-
-  const { data: events } = await supabase
-    .from("events")
-    .select("*")
-    .eq("is_private", false)
-    .gte("start_time", new Date().toISOString())
-    .order("start_time", { ascending: true })
-    .limit(3);
-
-  const { data: announcements } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("is_published", true)
-    .order("published_at", { ascending: false })
-    .limit(1);
 
   const { data: donationSetting } = await supabase
     .from("site_settings")
@@ -104,9 +87,9 @@ export default async function HomePage() {
                 size="lg"
                 className="text-lg px-8 py-6 font-semibold border-2 border-white/40 text-white bg-white/10 hover:bg-white/20 hover:border-white/60 backdrop-blur-sm"
                 nativeButton={false}
-                render={<Link href="/events" />}
+                render={<Link href="/login" />}
               >
-                View Events
+                Sign In
               </Button>
             </div>
           </div>
@@ -181,56 +164,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* ── Upcoming Events ── */}
-      {events && events.length > 0 && (
-        <section className="py-20" style={{ background: "#ecfdf5" }}>
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
-              <div>
-                <p className="text-brand-primary-light font-bold text-base uppercase tracking-widest mb-2">
-                  On the Calendar
-                </p>
-                <h2 className="font-display text-4xl font-bold text-brand-primary">
-                  Upcoming Events
-                </h2>
-              </div>
-              <Button
-                variant="outline"
-                size="lg"
-                className="text-base font-semibold border-2 border-emerald-300 text-brand-primary hover:bg-brand-primary-light hover:text-white hover:border-emerald-600 transition-all"
-                nativeButton={false}
-                render={<Link href="/events" />}
-              >
-                View All Events
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── Latest Announcement ── */}
-      {announcements && announcements.length > 0 && (
-        <section className="py-20">
-          <div className="container mx-auto px-4 max-w-3xl">
-            <div className="text-center mb-10">
-              <p className="text-brand-accent font-bold text-base uppercase tracking-widest mb-2">
-                From the Group
-              </p>
-              <h2 className="font-display text-4xl font-bold text-brand-primary">
-                Latest Announcement
-              </h2>
-            </div>
-            <AnnouncementCard announcement={announcements[0]} />
-          </div>
-        </section>
-      )}
 
       {/* ── Donation CTA ── */}
       {donationUrl && (

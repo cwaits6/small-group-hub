@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 
 interface SubscribeToEventButtonProps {
   eventId: string;
+  subscriptionToken: string | null;
 }
 
-export function SubscribeToEventButton({ eventId }: SubscribeToEventButtonProps) {
+export function SubscribeToEventButton({ eventId, subscriptionToken }: SubscribeToEventButtonProps) {
+  if (!subscriptionToken) return null;
+
   return (
     <Button
       onClick={() => {
-        window.location.href = `webcal://${window.location.host}/api/events/${eventId}/ics`;
+        window.location.href = `webcal://${window.location.host}/api/events/${eventId}/ics?token=${subscriptionToken}`;
       }}
       variant="outline"
       size="lg"

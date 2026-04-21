@@ -33,12 +33,7 @@ export function Header({ profile }: HeaderProps) {
   };
 
   const isAdmin = profile?.role === "admin";
-  const isMember = profile?.role === "member" || isAdmin;
-
-  const publicLinks = [
-    { href: "/events", label: "Calendar" },
-    { href: "/lectures", label: "Lectures" },
-  ];
+  const isMember = profile?.role === "member" || profile?.role === "content_editor" || isAdmin;
 
   const memberLinks = [
     { href: "/dashboard", label: "Dashboard" },
@@ -47,7 +42,7 @@ export function Header({ profile }: HeaderProps) {
     { href: "/lectures", label: "Lectures" },
   ];
 
-  const links = isMember ? memberLinks : publicLinks;
+  const links = isMember ? memberLinks : [];
 
   return (
     <header
@@ -104,25 +99,15 @@ export function Header({ profile }: HeaderProps) {
                 Sign Out
               </Button>
             ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="text-base text-slate-600 hover:text-brand-primary"
-                  nativeButton={false}
-                  render={<Link href="/login" />}
-                >
-                  Sign In
-                </Button>
-                <Button
-                  size="lg"
-                  className="text-base bg-brand-accent hover:bg-brand-accent/90 text-white shadow-sm hover:shadow-md transition-all px-6"
-                  nativeButton={false}
-                  render={<Link href="/join" />}
-                >
-                  Join Us
-                </Button>
-              </>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="text-base text-slate-600 hover:text-brand-primary"
+                nativeButton={false}
+                render={<Link href="/login" />}
+              >
+                Sign In
+              </Button>
             )}
           </div>
         </nav>
@@ -172,25 +157,15 @@ export function Header({ profile }: HeaderProps) {
                     Sign Out
                   </Button>
                 ) : (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full text-lg border-emerald-200 text-brand-primary"
-                      nativeButton={false}
-                      render={<Link href="/login" onClick={() => setOpen(false)} />}
-                    >
-                      Sign In
-                    </Button>
-                    <Button
-                      size="lg"
-                      className="w-full text-lg bg-brand-accent hover:bg-brand-accent/90 text-white"
-                      nativeButton={false}
-                      render={<Link href="/join" onClick={() => setOpen(false)} />}
-                    >
-                      Join Us
-                    </Button>
-                  </>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full text-lg border-emerald-200 text-brand-primary"
+                    nativeButton={false}
+                    render={<Link href="/login" onClick={() => setOpen(false)} />}
+                  >
+                    Sign In
+                  </Button>
                 )}
               </div>
             </nav>

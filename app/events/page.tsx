@@ -47,10 +47,6 @@ export default async function EventsPage() {
     .order("start_time", { ascending: true })
     .limit(500);
 
-  if (!isMember) {
-    allEventsQuery = allEventsQuery.eq("is_private", false);
-  }
-
   // Fetch upcoming events for list view.
   // Include non-recurring events starting from now, AND recurring anchors whose
   // series hasn't ended yet (recurrence_until IS NULL or >= now).
@@ -64,10 +60,6 @@ export default async function EventsPage() {
     .order("start_time", { ascending: true })
     .limit(1000);
 
-  if (!isMember) {
-    upcomingEventsQuery = upcomingEventsQuery.eq("is_private", false);
-  }
-
   const { data: allEventsRaw, error: allEventsError } = await allEventsQuery;
   if (allEventsError) {
     console.error("Failed to fetch events:", allEventsError);
@@ -78,18 +70,34 @@ export default async function EventsPage() {
     console.error("Failed to fetch upcoming events:", upcomingEventsError);
   }
 
-  // Fetch event calendars — for non-members, only include calendars with public events
-  const { data: calendarsRaw, error: calendarsError } = isMember
-    ? await supabase.from("event_calendars").select("*").order("name", { ascending: true })
-    : await supabase
-        .from("event_calendars")
-        .select("*, events!inner(id)")
-        .eq("events.is_private", false)
-        .gte("events.start_time", oneYearAgo)
-        .lte("events.start_time", oneYearAhead)
-        .order("name", { ascending: true });
+  // Fetch event calendars
+  const { data: calendarsRaw, error: calendarsError } = await supabase
+    .from("event_calendars")
+    .select("*")
+    .order("name", { ascending: true });
   if (calendarsError) {
     console.error("Failed to fetch event calendars:", calendarsError);
+  }
+
+  // Fetch or create the user's calendar subscription token
+  let subscriptionToken: string | null = null;
+  if (user && isMember) {
+    const { data: existingToken } = await supabase
+      .from("calendar_subscription_tokens")
+      .select("token")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingToken) {
+      subscriptionToken = existingToken.token;
+    } else {
+      const { data: newToken } = await supabase
+        .from("calendar_subscription_tokens")
+        .insert({ user_id: user.id })
+        .select("token")
+        .single();
+      subscriptionToken = newToken?.token ?? null;
+    }
   }
 
   // Fetch user's RSVPs if logged in
@@ -122,6 +130,7 @@ export default async function EventsPage() {
         userId={user?.id ?? null}
         isMember={isMember}
         isAdmin={isAdmin}
+        subscriptionToken={subscriptionToken}
       />
     </div>
   );

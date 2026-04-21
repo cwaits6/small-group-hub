@@ -1,13 +1,32 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { generateSingleEventICS } from "@/lib/ics-utils";
 import type { Event } from "@/lib/types";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get("token");
+
+  // Require a valid subscription token
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!token || !uuidRegex.test(token)) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const supabase = await createServiceClient();
+
+  const { data: sub } = await supabase
+    .from("calendar_subscription_tokens")
+    .select("id")
+    .eq("token", token)
+    .single();
+
+  if (!sub) {
+    return new Response("Unauthorized", { status: 401 });
+  }
 
   const { data: event, error } = await supabase
     .from("events")

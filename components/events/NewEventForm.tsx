@@ -158,7 +158,6 @@ export function NewEventForm() {
       location: nextLocation || null,
       start_time: localToUTCISO(startTime),
       end_time: endTime ? localToUTCISO(endTime) : null,
-      is_private: true,
       calendar_id: calendarId || null,
       is_rsvp_enabled: isRsvpEnabled,
       created_by: user?.id,
