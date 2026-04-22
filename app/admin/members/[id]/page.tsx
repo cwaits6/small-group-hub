@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ProfileForm } from "@/components/profile/ProfileForm";
+import { MemberGroupsSection } from "@/components/profile/MemberGroupsSection";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { siteConfig } from "@/lib/config";
@@ -67,6 +68,8 @@ export default async function EditMemberPage({ params }: EditMemberPageProps) {
         families={families || []}
         isAdmin={true}
       />
+
+      <MemberGroupsSection profileId={profile.id} />
     </div>
   );
 }

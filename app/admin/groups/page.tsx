@@ -396,7 +396,7 @@ export default function GroupsPage() {
                 <Label htmlFor="g_icon">Icon</Label>
                 <Select
                   value={form.icon}
-                  onValueChange={(v) => setForm({ ...form, icon: v })}
+                  onValueChange={(v) => setForm({ ...form, icon: v ?? "users" })}
                 >
                   <SelectTrigger id="g_icon">
                     <SelectValue placeholder="Select icon" />
@@ -417,7 +417,7 @@ export default function GroupsPage() {
               <Select
                 value={form.functional_role}
                 onValueChange={(v) =>
-                  setForm({ ...form, functional_role: v })
+                  setForm({ ...form, functional_role: v ?? "none" })
                 }
               >
                 <SelectTrigger id="g_role">

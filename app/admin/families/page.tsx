@@ -768,7 +768,7 @@ export default function FamiliesPage() {
                           <Select
                             value={memberForm.birth_month}
                             onValueChange={(v) =>
-                              setMemberForm({ ...memberForm, birth_month: v })
+                              setMemberForm({ ...memberForm, birth_month: v ?? "" })
                             }
                           >
                             <SelectTrigger className="h-8 text-sm">
