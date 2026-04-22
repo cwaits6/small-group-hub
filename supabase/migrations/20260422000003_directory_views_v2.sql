@@ -69,7 +69,7 @@ select
   case when f.hide_address then null else f.state end as state,
   case when f.hide_address then null else f.postal_code end as postal_code,
   case when f.hide_phone_home then null else f.phone_home end as phone_home,
-  case when f.hide_anniversary then null else f.anniversary end as anniversary,
+  f.anniversary,
   f.created_at,
   f.updated_at
 from public.family_units f;
@@ -92,7 +92,7 @@ select
   case when f.hide_address then null else f.state end as state,
   case when f.hide_address then null else f.postal_code end as postal_code,
   case when f.hide_phone_home then null else f.phone_home end as phone_home,
-  case when f.hide_anniversary then null else f.anniversary end as anniversary,
+  f.anniversary,
   f.created_at,
   f.updated_at,
   -- aggregate all profiles in this family as JSONB array
