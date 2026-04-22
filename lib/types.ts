@@ -38,6 +38,10 @@ export interface Profile {
   hide_birthday: boolean;
   hide_anniversary: boolean;
   hide_occupation: boolean;
+  hide_birth_year: boolean;
+  relationship: FamilyMemberRelationship;
+  is_prayer_team: boolean;
+  is_greeter_team: boolean;
   approved_at: string | null;
   approved_by: string | null;
   created_at: string;
@@ -53,6 +57,7 @@ export interface FamilyUnit {
   state: string | null;
   postal_code: string | null;
   phone_home: string | null;
+  anniversary: string | null;
   hide_address: boolean;
   hide_phone_home: boolean;
   created_at: string;
@@ -71,6 +76,7 @@ export interface DirectoryProfile {
   preferred_name: string | null;
   avatar_url: string | null;
   role: UserRole;
+  relationship: FamilyMemberRelationship;
   bio: string | null;
   family_id: string | null;
   email: string | null;
@@ -88,6 +94,7 @@ export interface DirectoryProfile {
   anniversary: string | null;
   occupation: string | null;
   employer: string | null;
+  groups: GroupChip[];
   created_at: string;
 }
 
@@ -100,6 +107,7 @@ export interface DirectoryFamily {
   state: string | null;
   postal_code: string | null;
   phone_home: string | null;
+  anniversary: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -174,6 +182,112 @@ export interface Lecture {
   lecture_date: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+export type FamilyMemberRelationship =
+  | "primary"
+  | "spouse"
+  | "child"
+  | "parent"
+  | "sibling"
+  | "other";
+
+/** Lightweight non-auth family member (children, non-attending spouses, etc.) */
+export interface FamilyMember {
+  id: string;
+  family_id: string;
+  first_name: string;
+  last_name: string | null;
+  preferred_name: string | null;
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+  relationship: FamilyMemberRelationship;
+  avatar_url: string | null;
+  is_class_member: boolean;
+  claimed_profile_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A member group (prayer team, greeter team, custom groups, etc.) */
+export interface MemberGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  display_order: number;
+  functional_role: "prayer_team" | "greeter_team" | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Join record linking a profile to a member group */
+export interface ProfileGroup {
+  profile_id: string;
+  group_id: string;
+  assigned_by: string | null;
+  assigned_at: string;
+}
+
+/** Minimal group info embedded in directory views */
+export interface GroupChip {
+  id: string;
+  name: string;
+  color: string | null;
+  icon: string | null;
+}
+
+/** Member entry within a families_directory_full household row */
+export interface HouseholdMember {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
+  relationship: FamilyMemberRelationship;
+  is_class_member: boolean;
+  phone_mobile: string | null;
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+}
+
+/** Family member entry (non-auth) within a families_directory_full row */
+export interface HouseholdFamilyMember {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
+  relationship: FamilyMemberRelationship;
+  is_class_member: boolean;
+  birth_month: number | null;
+  birth_day: number | null;
+  birth_year: number | null;
+  claimed_profile_id: string | null;
+}
+
+/**
+ * Full household row from families_directory_full view.
+ * Includes aggregated members (profiles) and family_members_list (non-auth).
+ */
+export interface FamilyDirectoryFull {
+  id: string;
+  family_name: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  phone_home: string | null;
+  anniversary: string | null;
+  created_at: string;
+  updated_at: string;
+  members: HouseholdMember[];
+  family_members_list: HouseholdFamilyMember[];
 }
 
 export interface SiteSetting {
