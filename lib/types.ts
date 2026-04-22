@@ -42,6 +42,7 @@ export interface Profile {
   relationship: FamilyMemberRelationship;
   is_prayer_team: boolean;
   is_greeter_team: boolean;
+  setup_completed: boolean;
   approved_at: string | null;
   approved_by: string | null;
   created_at: string;
@@ -288,6 +289,19 @@ export interface FamilyDirectoryFull {
   updated_at: string;
   members: HouseholdMember[];
   family_members_list: HouseholdFamilyMember[];
+}
+
+/** Family invite record — links a family_members row to a pending account creation */
+export interface FamilyInvite {
+  id: string;
+  family_member_id: string;
+  family_id: string;
+  invite_email: string;
+  token: string;
+  sent_at: string | null;
+  accepted_at: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface SiteSetting {

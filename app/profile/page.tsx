@@ -25,6 +25,11 @@ export default async function ProfilePage() {
     redirect("/dashboard");
   }
 
+  // New members must complete the setup wizard before editing their profile
+  if (!profile.setup_completed) {
+    redirect("/profile/setup");
+  }
+
   // Members don't reassign their own family — but we still need the form
   // component to render the family tab disabled, so pass an empty list.
   const families: FamilyUnit[] = [];
