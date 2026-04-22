@@ -12,7 +12,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 export default function SetupAccountPage() {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
-  const [tokenData, setTokenData] = useState<{ name: string; email: string } | null>(null);
+  const [tokenData, setTokenData] = useState<{
+    name: string;
+    email: string;
+    invite_token: string | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
   const searchParams = useSearchParams();
@@ -41,7 +45,11 @@ export default function SetupAccountPage() {
       }
 
       const data = await res.json();
-      setTokenData(data);
+      setTokenData({
+        name: data.name,
+        email: data.email,
+        invite_token: data.invite_token ?? null,
+      });
       setVerifying(false);
     }
     verifyToken();
@@ -89,6 +97,21 @@ export default function SetupAccountPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
+
+    // If this signup came from a family invite link, claim the invite now
+    // so the new profile is linked to the household automatically.
+    if (tokenData.invite_token) {
+      try {
+        await fetch("/api/family-invites/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invite_token: tokenData.invite_token }),
+        });
+      } catch {
+        // Non-fatal — the account is created; an admin can link the family manually
+        console.warn("Failed to claim family invite after signup");
+      }
+    }
 
     toast.success("Account created! Welcome aboard.");
     router.replace("/dashboard");

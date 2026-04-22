@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,11 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
-export default function JoinPage() {
+function JoinForm() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const supabase = createClient();
+  const searchParams = useSearchParams();
+
+  // Pre-fill when coming from a family invite link
+  const prefilledEmail = searchParams.get("email") ?? "";
+  const inviteToken = searchParams.get("invite_token") ?? "";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,6 +33,9 @@ export default function JoinPage() {
       name,
       email,
       message: message || null,
+      // Store the family invite token on the access request so that when
+      // the user creates their account the family link can be established.
+      ...(inviteToken ? { invite_token: inviteToken } : {}),
     });
 
     setLoading(false);
@@ -83,9 +92,16 @@ export default function JoinPage() {
                 name="email"
                 type="email"
                 required
+                defaultValue={prefilledEmail}
+                readOnly={!!prefilledEmail}
                 placeholder="your@email.com"
-                className="text-lg py-6"
+                className={`text-lg py-6${prefilledEmail ? " bg-muted" : ""}`}
               />
+              {prefilledEmail && (
+                <p className="text-xs text-muted-foreground">
+                  Your invite was sent to this email address — please use it to sign up.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="message" className="text-lg">
@@ -111,5 +127,21 @@ export default function JoinPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-12 max-w-lg">
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground text-lg">
+            Loading...
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <JoinForm />
+    </Suspense>
   );
 }

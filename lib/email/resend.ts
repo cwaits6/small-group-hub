@@ -44,6 +44,47 @@ export async function sendInviteEmail(
   }
 }
 
+export async function sendFamilyInviteEmail(
+  email: string,
+  inviterName: string,
+  familyMemberName: string,
+  joinLink: string
+) {
+  const { error } = await getResend().emails.send({
+    from: siteConfig.email.from,
+    to: email,
+    subject: `${inviterName} added you to their household on ${siteConfig.name}`,
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">You've been invited!</h1>
+        <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
+          <strong>${inviterName}</strong> has added <strong>${familyMemberName}</strong> to their household
+          on <strong>${siteConfig.name}</strong> and would like to invite you to create your own account.
+        </p>
+        <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
+          Click the button below to sign up and join your household.
+        </p>
+        <a href="${joinLink}"
+           style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+          Create My Account
+        </a>
+        <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
+          If the button doesn't work, copy and paste this link into your browser:<br />
+          <a href="${joinLink}" style="color: ${siteConfig.colors.primaryLight};">${joinLink}</a>
+        </p>
+        <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
+          &mdash; The ${siteConfig.name} Team
+        </p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Failed to send family invite email:", error);
+    throw error;
+  }
+}
+
 export async function sendEventReminderEmail(
   email: string,
   name: string,
