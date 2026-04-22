@@ -22,6 +22,7 @@ import {
   Home,
   LayoutList,
   Users,
+  Download,
 } from "lucide-react";
 import { formatPhone } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
@@ -64,6 +65,13 @@ function resolveAddress(
   const postal = member.postal_code ?? family?.postal_code ?? null;
   if (!line1 && !city) return null;
   return { line1, line2, city, state, postal };
+}
+
+// ---------------------------------------------------------------------------
+// vCard download helper
+// ---------------------------------------------------------------------------
+function downloadVCard(profileId: string) {
+  window.location.href = `/api/members/${profileId}/vcard`;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +308,19 @@ function ProfileSheetContent({ profile, family }: ProfileSheetProps) {
           </div>
         </div>
       )}
+
+      {/* Save to Contacts */}
+      <div className="pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => downloadVCard(profile.id)}
+          className="gap-2"
+        >
+          <Download className="h-4 w-4" />
+          Save to Contacts
+        </Button>
+      </div>
     </div>
   );
 }
@@ -490,6 +511,25 @@ function HouseholdSheetContent({ family, profileMap }: HouseholdSheetProps) {
           </span>
         </div>
       )}
+
+      {/* Save to Contacts — primary member of the household */}
+      {(() => {
+        const primary = family.members.find((m) => m.relationship === "primary");
+        if (!primary) return null;
+        return (
+          <div className="pt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadVCard(primary.id)}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Save to Contacts
+            </Button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
