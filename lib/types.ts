@@ -220,6 +220,7 @@ export interface MemberGroup {
   icon: string | null;
   display_order: number;
   functional_role: "prayer_team" | "greeter_team" | null;
+  show_in_directory_filter: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
