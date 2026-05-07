@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Pencil,
@@ -30,6 +31,7 @@ import {
   ArrowUp,
   ArrowDown,
   Users,
+  Filter,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
 
@@ -55,6 +57,7 @@ interface GroupFormState {
   color: string;
   icon: string;
   functional_role: string;
+  show_in_directory_filter: boolean;
 }
 
 const EMPTY_FORM: GroupFormState = {
@@ -63,6 +66,7 @@ const EMPTY_FORM: GroupFormState = {
   color: "#059669",
   icon: "users",
   functional_role: "none",
+  show_in_directory_filter: true,
 };
 
 function fromGroup(g: MemberGroup): GroupFormState {
@@ -72,6 +76,7 @@ function fromGroup(g: MemberGroup): GroupFormState {
     color: g.color || "#059669",
     icon: g.icon || "users",
     functional_role: g.functional_role || "none",
+    show_in_directory_filter: g.show_in_directory_filter ?? true,
   };
 }
 
@@ -145,6 +150,7 @@ export default function GroupsPage() {
       icon: form.icon || null,
       functional_role:
         form.functional_role === "none" ? null : form.functional_role,
+      show_in_directory_filter: form.show_in_directory_filter,
     };
 
     setSaving(true);
@@ -246,8 +252,8 @@ export default function GroupsPage() {
             Member Groups
           </h1>
           <p className="text-base text-muted-foreground mt-1">
-            Create and manage groups like Prayer Team, Greeter Team, or any
-            custom group. Groups appear as filter chips in the directory.
+            Create and manage groups. Control which groups appear as filter
+            chips in the member directory.
           </p>
         </div>
         <Button
@@ -280,11 +286,17 @@ export default function GroupsPage() {
                     style={{ backgroundColor: group.color || "#6b7280" }}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold">{group.name}</p>
                       {group.functional_role && (
                         <Badge variant="outline" className="text-xs capitalize">
                           {group.functional_role.replace("_", " ")}
+                        </Badge>
+                      )}
+                      {group.show_in_directory_filter && (
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <Filter className="h-3 w-3" />
+                          Directory filter
                         </Badge>
                       )}
                     </div>
@@ -432,6 +444,22 @@ export default function GroupsPage() {
               <p className="text-xs text-muted-foreground">
                 Functional roles sync with scheduling booleans on the profile.
               </p>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="g_filter">Show as directory filter chip</Label>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, members can filter the directory by this group.
+                </p>
+              </div>
+              <Switch
+                id="g_filter"
+                checked={form.show_in_directory_filter}
+                onCheckedChange={(v) =>
+                  setForm({ ...form, show_in_directory_filter: v })
+                }
+              />
             </div>
           </div>
 

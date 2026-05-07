@@ -707,6 +707,7 @@ export default function DirectoryPage() {
         supabase
           .from("member_groups")
           .select("id, name, color, icon")
+          .eq("show_in_directory_filter", true)
           .order("display_order"),
       ]);
 
