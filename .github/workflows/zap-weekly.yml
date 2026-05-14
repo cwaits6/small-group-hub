@@ -39,7 +39,7 @@ jobs:
           echo "deploy_id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
 
       - name: ZAP Full Scan
-        uses: zaproxy/action-full-scan@0f308f7880b18f2b30f25e82e62c59238c3f5c85 # v0.13.0
+        uses: zaproxy/action-full-scan@3c58388149901b9a03b7718852c5ba889646c27c # v0.13.0
         env:
           ZAP_AUTH_HEADER: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET != '' && 'x-vercel-protection-bypass' || '' }}
           ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
