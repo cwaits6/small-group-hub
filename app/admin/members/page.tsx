@@ -159,7 +159,7 @@ export default function MembersPage() {
                       <div className="flex gap-2 shrink-0">
                         <Button
                           size="lg"
-                          className="bg-green-600 hover:bg-green-700 text-lg"
+                          className="bg-brand-primary hover:bg-brand-primary/90 text-lg"
                           onClick={() => handleRequest(req.id, "approved")}
                         >
                           <Check className="mr-1 h-5 w-5" />

@@ -10,7 +10,7 @@ const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!;
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "Incouragers <noreply@incouragers.org>";
 const APP_NAME = Deno.env.get("APP_NAME") || "Incouragers";
-const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#0d4f3c";
+const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#2F6BA8";
 
 Deno.serve(async () => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);

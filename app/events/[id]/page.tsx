@@ -164,7 +164,7 @@ export default async function EventDetailPage({
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
-  const calendarColor = event.calendar?.color ?? "#059669";
+  const calendarColor = event.calendar?.color ?? "#2F6BA8";
   // Build the edit URL — include the occurrence param for recurring series so the
   // edit page knows which occurrence is being modified.
   const editHref = occurrence && event.recurrence_frequency && !event.series_id
@@ -182,7 +182,7 @@ export default async function EventDetailPage({
         Back to Calendar
       </Link>
 
-      <div className="bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border-2 border-border overflow-hidden">
         {/* Top accent bar using calendar color */}
         <div className="h-2 w-full" style={{ backgroundColor: calendarColor }} />
 
@@ -207,7 +207,7 @@ export default async function EventDetailPage({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 text-slate-600 hover:border-emerald-300 hover:text-brand-primary"
+                  className="gap-1.5 text-slate-600 hover:border-brand-primary/30 hover:text-brand-primary"
                   nativeButton={false}
                   render={<Link href={editHref} />}
                 >

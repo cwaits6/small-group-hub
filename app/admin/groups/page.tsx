@@ -63,7 +63,7 @@ interface GroupFormState {
 const EMPTY_FORM: GroupFormState = {
   name: "",
   description: "",
-  color: "#059669",
+  color: "#2F6BA8",
   icon: "users",
   functional_role: "none",
   show_in_directory_filter: true,
@@ -73,7 +73,7 @@ function fromGroup(g: MemberGroup): GroupFormState {
   return {
     name: g.name,
     description: g.description || "",
-    color: g.color || "#059669",
+    color: g.color || "#2F6BA8",
     icon: g.icon || "users",
     functional_role: g.functional_role || "none",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
@@ -398,7 +398,7 @@ export default function GroupsPage() {
                     onChange={(e) =>
                       setForm({ ...form, color: e.target.value })
                     }
-                    placeholder="#059669"
+                    placeholder="#2F6BA8"
                     className="font-mono text-sm"
                   />
                 </div>

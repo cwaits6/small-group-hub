@@ -36,18 +36,17 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const blocks = parseBlocks(announcement.content);
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-rose-100 overflow-hidden hover:border-rose-300 hover:shadow-lg transition-all duration-200">
+    <div className="bg-white rounded-2xl border-2 border-border overflow-hidden hover:border-brand-accent/40 hover:shadow-lg transition-all duration-200">
       {/* Top accent */}
       <div
-        className="h-1.5 w-full"
-        style={{ background: "linear-gradient(90deg, #f43f5e, #fb7185, #f97316)" }}
+        className="h-1.5 w-full bg-brand-accent"
       />
 
       <div className="p-6 md:p-8">
         <div className="flex items-center gap-3 mb-4">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "#fff1f2" }}
+            style={{ background: "#FAEBC2" }}
           >
             <Megaphone className="h-5 w-5 text-brand-accent" />
           </div>
