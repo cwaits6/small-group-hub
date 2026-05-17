@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/cwaits6/small-group-hub/compare/v0.7.0...v0.8.0) (2026-05-17)
+
+
+### Features
+
+* **directory:** member directory revamp — households, groups, setup wizard, vCard, bulk invite ([#107](https://github.com/cwaits6/small-group-hub/issues/107)) ([c73cc2a](https://github.com/cwaits6/small-group-hub/commit/c73cc2a3e9f2f228041364c63df3c3bcc3b5ad76))
+
 # [0.7.0](https://github.com/cwaits6/small-group-hub/compare/v0.6.0...v0.7.0) (2026-04-21)
 
 
