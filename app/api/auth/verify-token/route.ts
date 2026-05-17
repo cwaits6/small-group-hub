@@ -12,7 +12,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("access_requests")
-    .select("name, email, status, token_expires_at")
+    .select("name, email, status, token_expires_at, invite_token")
     .eq("signup_token", token)
     .eq("status", "approved")
     .single();
@@ -25,5 +25,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Token has expired" }, { status: 410 });
   }
 
-  return NextResponse.json({ name: data.name, email: data.email });
+  return NextResponse.json({
+    name: data.name,
+    email: data.email,
+    invite_token: data.invite_token ?? null,
+  });
 }

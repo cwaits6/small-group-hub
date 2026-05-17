@@ -186,6 +186,37 @@ export function ProfileForm({
       ? normalizePostalCode(state.postal_code)
       : null;
 
+    // Validate required fields.
+    if (!firstName) {
+      toast.error("First name is required.");
+      setSaving(false);
+      return;
+    }
+    if (!lastName) {
+      toast.error("Last name is required.");
+      setSaving(false);
+      return;
+    }
+    if (!state.birth_month || !state.birth_day) {
+      toast.error("Birthday month and day are required.");
+      setSaving(false);
+      return;
+    }
+    // At least one phone or a visible email is required so members can be reached.
+    const hasPhone = !!(
+      (state.phone_mobile && !state.hide_phone_mobile) ||
+      (state.phone_home && !state.hide_phone_home) ||
+      (state.phone_work && !state.hide_phone_work)
+    );
+    const hasVisibleEmail = !!state.email && !state.hide_email;
+    if (!hasPhone && !hasVisibleEmail) {
+      toast.error(
+        "Please provide at least one phone number, or keep your email visible so others can reach you.",
+      );
+      setSaving(false);
+      return;
+    }
+
     // Validate required shapes — state/zip return null on malformed input.
     if (state.state && !stateCode) {
       toast.error("State must be a valid 2-letter code or full state name.");
@@ -227,12 +258,6 @@ export function ProfileForm({
     const birthMonth = state.birth_month ? Number(state.birth_month) : null;
     const birthDay = state.birth_day ? Number(state.birth_day) : null;
     const birthYear = state.birth_year ? Number(state.birth_year) : null;
-
-    if ((birthMonth && !birthDay) || (!birthMonth && birthDay)) {
-      toast.error("Please set both birthday month and day, or neither.");
-      setSaving(false);
-      return;
-    }
 
     const updates = {
       first_name: firstName,
@@ -353,7 +378,8 @@ export function ProfileForm({
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="first_name" className="text-base">
-                    First name
+                    First name{" "}
+                    <span className="text-destructive" aria-hidden>*</span>
                   </Label>
                   <Input
                     id="first_name"
@@ -362,12 +388,14 @@ export function ProfileForm({
                     onBlur={(e) =>
                       update("first_name", titleCaseName(e.target.value) || "")
                     }
+                    required
                     className="text-base py-5"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name" className="text-base">
-                    Last name
+                    Last name{" "}
+                    <span className="text-destructive" aria-hidden>*</span>
                   </Label>
                   <Input
                     id="last_name"
@@ -376,6 +404,7 @@ export function ProfileForm({
                     onBlur={(e) =>
                       update("last_name", titleCaseName(e.target.value) || "")
                     }
+                    required
                     className="text-base py-5"
                   />
                 </div>
@@ -422,9 +451,12 @@ export function ProfileForm({
               <Separator />
 
               <div>
-                <Label className="text-base">Birthday</Label>
+                <Label className="text-base">
+                  Birthday{" "}
+                  <span className="text-destructive" aria-hidden>*</span>
+                </Label>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Year is optional.
+                  Month and day are required. Year is optional.
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <Select

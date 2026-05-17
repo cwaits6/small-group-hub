@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -15,9 +16,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
-import type { FamilyUnit, Profile } from "@/lib/types";
+import { Plus, Pencil, Trash2, Users, X } from "lucide-react";
+import type { FamilyUnit, Profile, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
 import {
   titleCaseName,
   titleCaseStreet,
@@ -29,6 +37,29 @@ import {
   formatPhoneAsYouType,
 } from "@/lib/sanitize";
 import { displayName } from "@/lib/names";
+
+const MONTHS = [
+  { value: "1", label: "January" },
+  { value: "2", label: "February" },
+  { value: "3", label: "March" },
+  { value: "4", label: "April" },
+  { value: "5", label: "May" },
+  { value: "6", label: "June" },
+  { value: "7", label: "July" },
+  { value: "8", label: "August" },
+  { value: "9", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+];
+
+const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
+  { value: "child", label: "Child" },
+  { value: "spouse", label: "Spouse" },
+  { value: "parent", label: "Parent" },
+  { value: "sibling", label: "Sibling" },
+  { value: "other", label: "Other" },
+];
 
 interface FamilyWithMembers extends FamilyUnit {
   members: Pick<Profile, "id" | "first_name" | "last_name" | "preferred_name">[];
@@ -42,6 +73,7 @@ interface FamilyFormState {
   state: string;
   postal_code: string;
   phone_home: string;
+  anniversary: string;
   hide_address: boolean;
   hide_phone_home: boolean;
 }
@@ -54,6 +86,7 @@ const EMPTY_FORM: FamilyFormState = {
   state: "",
   postal_code: "",
   phone_home: "",
+  anniversary: "",
   hide_address: false,
   hide_phone_home: false,
 };
@@ -67,10 +100,29 @@ function fromFamily(f: FamilyUnit): FamilyFormState {
     state: f.state || "",
     postal_code: f.postal_code || "",
     phone_home: formatPhone(f.phone_home),
+    anniversary: f.anniversary || "",
     hide_address: f.hide_address,
     hide_phone_home: f.hide_phone_home,
   };
 }
+
+interface FamilyMemberFormState {
+  first_name: string;
+  last_name: string;
+  relationship: FamilyMemberRelationship;
+  birth_month: string;
+  birth_day: string;
+  birth_year: string;
+}
+
+const EMPTY_MEMBER_FORM: FamilyMemberFormState = {
+  first_name: "",
+  last_name: "",
+  relationship: "child",
+  birth_month: "",
+  birth_day: "",
+  birth_year: "",
+};
 
 export default function FamiliesPage() {
   const [families, setFamilies] = useState<FamilyWithMembers[]>([]);
@@ -79,6 +131,14 @@ export default function FamiliesPage() {
   const [editing, setEditing] = useState<FamilyUnit | null>(null);
   const [form, setForm] = useState<FamilyFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  // Family members state (populated when editing a family)
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [memberForm, setMemberForm] = useState<FamilyMemberFormState>(EMPTY_MEMBER_FORM);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+  const [showMemberForm, setShowMemberForm] = useState(false);
+  const [savingMember, setSavingMember] = useState(false);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -123,16 +183,38 @@ export default function FamiliesPage() {
     setLoading(false);
   }
 
+  async function loadFamilyMembers(familyId: string) {
+    const { data, error } = await supabase
+      .from("family_members")
+      .select("*")
+      .eq("family_id", familyId)
+      .order("relationship");
+
+    if (error) {
+      toast.error("Failed to load family members.");
+      return;
+    }
+    setFamilyMembers((data || []) as FamilyMember[]);
+  }
+
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setFamilyMembers([]);
+    setShowMemberForm(false);
+    setEditingMember(null);
+    setMemberForm(EMPTY_MEMBER_FORM);
     setDialogOpen(true);
   }
 
   function openEdit(family: FamilyUnit) {
     setEditing(family);
     setForm(fromFamily(family));
+    setShowMemberForm(false);
+    setEditingMember(null);
+    setMemberForm(EMPTY_MEMBER_FORM);
     setDialogOpen(true);
+    loadFamilyMembers(family.id);
   }
 
   async function handleSave() {
@@ -168,6 +250,7 @@ export default function FamiliesPage() {
       state: stateCode,
       postal_code: postal,
       phone_home: phone,
+      anniversary: form.anniversary || null,
       hide_address: form.hide_address,
       hide_phone_home: form.hide_phone_home,
     };
@@ -216,6 +299,89 @@ export default function FamiliesPage() {
     toast.success("Family deleted.");
     setDialogOpen(false);
     loadFamilies();
+  }
+
+  function startAddMember() {
+    setEditingMember(null);
+    setMemberForm(EMPTY_MEMBER_FORM);
+    setShowMemberForm(true);
+  }
+
+  function startEditMember(fm: FamilyMember) {
+    setEditingMember(fm);
+    setMemberForm({
+      first_name: fm.first_name,
+      last_name: fm.last_name || "",
+      relationship: fm.relationship,
+      birth_month: fm.birth_month?.toString() || "",
+      birth_day: fm.birth_day?.toString() || "",
+      birth_year: fm.birth_year?.toString() || "",
+    });
+    setShowMemberForm(true);
+  }
+
+  async function handleSaveMember() {
+    if (!editing) return;
+    const firstName = titleCaseName(memberForm.first_name);
+    if (!firstName) {
+      toast.error("First name is required.");
+      return;
+    }
+
+    const payload = {
+      family_id: editing.id,
+      first_name: firstName,
+      last_name: titleCaseName(memberForm.last_name) || null,
+      relationship: memberForm.relationship,
+      birth_month: memberForm.birth_month ? Number(memberForm.birth_month) : null,
+      birth_day: memberForm.birth_day ? Number(memberForm.birth_day) : null,
+      birth_year: memberForm.birth_year ? Number(memberForm.birth_year) : null,
+    };
+
+    setSavingMember(true);
+    if (editingMember) {
+      const res = await fetch(`/api/admin/family-members/${editingMember.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        toast.error("Failed to update family member.");
+        setSavingMember(false);
+        return;
+      }
+      toast.success("Family member updated.");
+    } else {
+      const res = await fetch("/api/admin/family-members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        toast.error("Failed to add family member.");
+        setSavingMember(false);
+        return;
+      }
+      toast.success("Family member added.");
+    }
+    setSavingMember(false);
+    setShowMemberForm(false);
+    setEditingMember(null);
+    setMemberForm(EMPTY_MEMBER_FORM);
+    loadFamilyMembers(editing.id);
+  }
+
+  async function handleDeleteMember(fm: FamilyMember) {
+    if (!confirm(`Remove ${fm.first_name} from this family?`)) return;
+    const res = await fetch(`/api/admin/family-members/${fm.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      toast.error("Failed to remove family member.");
+      return;
+    }
+    toast.success("Family member removed.");
+    if (editing) loadFamilyMembers(editing.id);
   }
 
   if (loading) {
@@ -405,6 +571,21 @@ export default function FamiliesPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="f_anniversary">Anniversary</Label>
+              <Input
+                id="f_anniversary"
+                type="date"
+                value={form.anniversary}
+                onChange={(e) =>
+                  setForm({ ...form, anniversary: e.target.value })
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                Only displayed on family card if a spouse relationship exists in the household.
+              </p>
+            </div>
+
             <div className="border-t pt-4 space-y-3">
               <p className="text-sm font-semibold">Family-level privacy</p>
               <div className="flex items-center justify-between">
@@ -428,6 +609,232 @@ export default function FamiliesPage() {
                 />
               </div>
             </div>
+
+            {/* =========================================================
+                FAMILY MEMBERS SECTION (only when editing an existing family)
+                ========================================================= */}
+            {editing && (
+              <>
+                <Separator />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-semibold">Family Members</p>
+                    {!showMemberForm && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={startAddMember}
+                      >
+                        <Plus className="mr-1 h-3 w-3" />
+                        Add member
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Existing family members list */}
+                  {familyMembers.length > 0 && (
+                    <ul className="space-y-2 mb-3">
+                      {familyMembers.map((fm) => (
+                        <li
+                          key={fm.id}
+                          className="flex items-center justify-between text-sm bg-muted/40 rounded-md px-3 py-2"
+                        >
+                          <div>
+                            <span className="font-medium">
+                              {fm.first_name}
+                              {fm.last_name && ` ${fm.last_name}`}
+                            </span>
+                            <span className="text-muted-foreground ml-2 capitalize">
+                              · {fm.relationship}
+                            </span>
+                            {fm.birth_month && fm.birth_day && (
+                              <span className="text-muted-foreground ml-2">
+                                · {MONTHS[fm.birth_month - 1]?.label} {fm.birth_day}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => startEditMember(fm)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                              <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleDeleteMember(fm)}
+                            >
+                              <Trash2 className="h-3 w-3 text-destructive" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {familyMembers.length === 0 && !showMemberForm && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No additional family members yet.
+                    </p>
+                  )}
+
+                  {/* Add / Edit family member inline form */}
+                  {showMemberForm && (
+                    <div className="border rounded-md p-3 space-y-3 bg-muted/20">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">
+                          {editingMember ? "Edit family member" : "Add family member"}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => {
+                            setShowMemberForm(false);
+                            setEditingMember(null);
+                            setMemberForm(EMPTY_MEMBER_FORM);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                          <span className="sr-only">Cancel</span>
+                        </Button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="fm_first" className="text-xs">
+                            First name
+                          </Label>
+                          <Input
+                            id="fm_first"
+                            value={memberForm.first_name}
+                            onChange={(e) =>
+                              setMemberForm({ ...memberForm, first_name: e.target.value })
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="fm_last" className="text-xs">
+                            Last name
+                          </Label>
+                          <Input
+                            id="fm_last"
+                            value={memberForm.last_name}
+                            onChange={(e) =>
+                              setMemberForm({ ...memberForm, last_name: e.target.value })
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="fm_rel" className="text-xs">
+                          Relationship
+                        </Label>
+                        <Select
+                          value={memberForm.relationship}
+                          onValueChange={(v) =>
+                            setMemberForm({
+                              ...memberForm,
+                              relationship: v as FamilyMemberRelationship,
+                            })
+                          }
+                        >
+                          <SelectTrigger id="fm_rel" className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {RELATIONSHIPS.map((r) => (
+                              <SelectItem key={r.value} value={r.value}>
+                                {r.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-xs">Birthday (optional)</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-1">
+                          <Select
+                            value={memberForm.birth_month}
+                            onValueChange={(v) =>
+                              setMemberForm({ ...memberForm, birth_month: v ?? "" })
+                            }
+                          >
+                            <SelectTrigger className="h-8 text-sm">
+                              <SelectValue placeholder="Month" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {MONTHS.map((m) => (
+                                <SelectItem key={m.value} value={m.value}>
+                                  {m.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="31"
+                            placeholder="Day"
+                            value={memberForm.birth_day}
+                            onChange={(e) =>
+                              setMemberForm({ ...memberForm, birth_day: e.target.value })
+                            }
+                            className="h-8 text-sm"
+                          />
+                          <Input
+                            type="number"
+                            min="1900"
+                            max="2100"
+                            placeholder="Year"
+                            value={memberForm.birth_year}
+                            onChange={(e) =>
+                              setMemberForm({ ...memberForm, birth_year: e.target.value })
+                            }
+                            className="h-8 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowMemberForm(false);
+                            setEditingMember(null);
+                            setMemberForm(EMPTY_MEMBER_FORM);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={savingMember}
+                          onClick={handleSaveMember}
+                          className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+                        >
+                          {savingMember ? "Saving..." : editingMember ? "Update" : "Add"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <DialogFooter className="flex sm:justify-between">

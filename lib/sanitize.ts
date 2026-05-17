@@ -86,6 +86,12 @@ export function titleCaseName(raw: string | null | undefined): string | null {
     .join(" ");
 }
 
+/**
+ * Alias for titleCaseName — "john smith" → "John Smith".
+ * Exported separately for callers that prefer this name.
+ */
+export const toTitleCase = titleCaseName;
+
 // -----------------------------------------------------------------------------
 // Phone numbers
 // -----------------------------------------------------------------------------

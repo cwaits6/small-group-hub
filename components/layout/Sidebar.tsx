@@ -15,6 +15,7 @@ import {
   Home,
   ChevronLeft,
   ChevronRight,
+  MailPlus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Profile } from "@/lib/types";
@@ -38,6 +39,8 @@ const adminNav = [
   { href: "/admin", label: "Admin", icon: Settings },
   { href: "/admin/members", label: "Members", icon: Users },
   { href: "/admin/families", label: "Families", icon: Home },
+  { href: "/admin/groups", label: "Groups", icon: Users },
+  { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
   { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
