@@ -44,33 +44,58 @@ export async function sendInviteEmail(
   }
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function sanitizeLink(link: string): string {
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" && url.protocol !== "http:") {
+      throw new Error("Unsafe scheme");
+    }
+    return url.href;
+  } catch {
+    throw new Error(`Invalid or unsafe joinLink: ${link}`);
+  }
+}
+
 export async function sendFamilyInviteEmail(
   email: string,
   inviterName: string,
   familyMemberName: string,
   joinLink: string
 ) {
+  const safeInviterName = escapeHtml(inviterName);
+  const safeFamilyMemberName = escapeHtml(familyMemberName);
+  const safeJoinLink = sanitizeLink(joinLink);
+
   const { error } = await getResend().emails.send({
     from: siteConfig.email.from,
     to: email,
-    subject: `${inviterName} added you to their household on ${siteConfig.name}`,
+    subject: `${safeInviterName} added you to their household on ${siteConfig.name}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">You've been invited!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-          <strong>${inviterName}</strong> has added <strong>${familyMemberName}</strong> to their household
+          <strong>${safeInviterName}</strong> has added <strong>${safeFamilyMemberName}</strong> to their household
           on <strong>${siteConfig.name}</strong> and would like to invite you to create your own account.
         </p>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Click the button below to sign up and join your household.
         </p>
-        <a href="${joinLink}"
+        <a href="${safeJoinLink}"
            style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
           Create My Account
         </a>
         <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
           If the button doesn't work, copy and paste this link into your browser:<br />
-          <a href="${joinLink}" style="color: ${siteConfig.colors.primaryLight};">${joinLink}</a>
+          <a href="${safeJoinLink}" style="color: ${siteConfig.colors.primaryLight};">${safeJoinLink}</a>
         </p>
         <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
           &mdash; The ${siteConfig.name} Team

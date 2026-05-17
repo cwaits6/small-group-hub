@@ -102,11 +102,15 @@ export default function SetupAccountPage() {
     // so the new profile is linked to the household automatically.
     if (tokenData.invite_token) {
       try {
-        await fetch("/api/family-invites/claim", {
+        const claimRes = await fetch("/api/family-invites/claim", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ invite_token: tokenData.invite_token }),
         });
+        if (!claimRes.ok) {
+          const text = await claimRes.text().catch(() => "");
+          console.warn("Failed to claim family invite after signup — status %s: %s", claimRes.status, text);
+        }
       } catch {
         // Non-fatal — the account is created; an admin can link the family manually
         console.warn("Failed to claim family invite after signup");

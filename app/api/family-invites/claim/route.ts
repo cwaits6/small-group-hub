@@ -58,6 +58,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // Verify the authenticated user's email matches the invite recipient
+  if (user.email?.toLowerCase() !== invite.invite_email?.toLowerCase()) {
+    return NextResponse.json(
+      { error: "Email does not match invite recipient" },
+      { status: 403 },
+    );
+  }
+
   const now = new Date().toISOString();
 
   // 1. Link the new profile to the family
@@ -86,10 +94,16 @@ export async function POST(request: Request) {
   }
 
   // 3. Mark the invite as accepted
-  await service
+  const { error: acceptError } = await service
     .from("family_invites")
     .update({ accepted_at: now })
     .eq("id", invite.id);
+
+  if (acceptError) {
+    console.warn("family-invites/claim: failed to mark invite accepted (id=%s):", invite.id, acceptError);
+    // Profile is already linked; return partial success so admin can remediate
+    return NextResponse.json({ success: true, warning: "Profile linked but invite record was not updated." });
+  }
 
   return NextResponse.json({ success: true });
 }

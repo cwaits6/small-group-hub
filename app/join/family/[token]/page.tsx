@@ -93,7 +93,7 @@ export default async function FamilyJoinPage({ params }: PageProps) {
 
   // The join page URL — pass invite_token so the access-request form can
   // store it, and pre-fill email.
-  const joinUrl = `/join?invite_token=${token}&email=${encodeURIComponent(invite.invite_email)}`;
+  const joinUrl = `/join?invite_token=${encodeURIComponent(token)}&email=${encodeURIComponent(invite.invite_email)}`;
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-lg">

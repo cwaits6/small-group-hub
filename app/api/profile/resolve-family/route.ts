@@ -32,7 +32,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ matches: [] });
   }
 
-  const normalized = last_name.trim();
+  const normalized = last_name.trim()
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_");
   const searchPattern = `${normalized} Family`;
 
   // Query family_units with matching name that have at least one profile

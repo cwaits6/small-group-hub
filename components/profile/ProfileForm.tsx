@@ -203,7 +203,11 @@ export function ProfileForm({
       return;
     }
     // At least one phone or a visible email is required so members can be reached.
-    const hasPhone = !!(state.phone_mobile || state.phone_home || state.phone_work);
+    const hasPhone = !!(
+      (state.phone_mobile && !state.hide_phone_mobile) ||
+      (state.phone_home && !state.hide_phone_home) ||
+      (state.phone_work && !state.hide_phone_work)
+    );
     const hasVisibleEmail = !!state.email && !state.hide_email;
     if (!hasPhone && !hasVisibleEmail) {
       toast.error(

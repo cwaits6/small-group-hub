@@ -648,7 +648,7 @@ function PeopleRow({ member, onOpen }: PeopleRowProps) {
       className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-brand-bg-light/50 transition-colors"
     >
       <Avatar className="h-10 w-10 shrink-0">
-        {member.avatar_url && <AvatarFallback className="hidden" />}
+        {member.avatar_url && <AvatarImage src={member.avatar_url} alt={displayName(member)} />}
         <AvatarFallback className="bg-brand-primary text-white text-sm">
           {initials(member)}
         </AvatarFallback>
@@ -695,7 +695,7 @@ export default function DirectoryPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: m }, { data: f }, { data: g }] = await Promise.all([
+      const [{ data: m, error: mErr }, { data: f, error: fErr }, { data: g, error: gErr }] = await Promise.all([
         supabase
           .from("profiles_directory")
           .select("*")
@@ -710,6 +710,12 @@ export default function DirectoryPage() {
           .eq("show_in_directory_filter", true)
           .order("display_order"),
       ]);
+
+      if (mErr || fErr || gErr) {
+        console.error("directory load error:", mErr ?? fErr ?? gErr);
+        setLoading(false);
+        return;
+      }
 
       setMembers((m || []) as DirectoryProfile[]);
       setFamilies((f || []) as FamilyDirectoryFull[]);

@@ -205,11 +205,16 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
       const url = await uploadImage(file, "avatar", `${profile.id}/avatar`);
       const busted = `${url}?t=${Date.now()}`;
       setAvatarUrl(busted);
-      await supabase
+      const { error: avatarErr } = await supabase
         .from("profiles")
         .update({ avatar_url: url })
         .eq("id", profile.id);
-      toast.success("Photo uploaded.");
+      if (avatarErr) {
+        console.error("avatar update error:", avatarErr);
+        toast.error("Photo uploaded but failed to save. Please try again.");
+      } else {
+        toast.success("Photo uploaded.");
+      }
     } catch {
       toast.error("Failed to upload photo.");
     } finally {
@@ -270,6 +275,9 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ last_name: lastName.trim() }),
       });
+      if (!res.ok) {
+        throw new Error(`resolve-family returned ${res.status}`);
+      }
       const json = await res.json();
       setFamilyMatches(json.matches ?? []);
       setFamilySearchDone(true);
@@ -395,7 +403,6 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
         occupation: occupation.trim() || null,
         employer: employer.trim() || null,
         bio: bio.trim() || null,
-        setup_completed: true,
       };
 
       const { error: profileError } = await supabase
@@ -432,6 +439,14 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
 
         if (membersError) throw membersError;
       }
+
+      // Mark setup complete only after all dependent writes succeed
+      const { error: setupError } = await supabase
+        .from("profiles")
+        .update({ setup_completed: true })
+        .eq("id", profile.id);
+
+      if (setupError) throw setupError;
 
       toast.success("Profile setup complete! Welcome to the directory.");
       router.push("/directory");

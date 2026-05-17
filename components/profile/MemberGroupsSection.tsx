@@ -28,7 +28,7 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
 
   useEffect(() => {
     async function load() {
-      const [{ data: allGroups }, { data: profileGroups }] = await Promise.all([
+      const [{ data: allGroups, error: groupsErr }, { data: profileGroups, error: pgErr }] = await Promise.all([
         supabase
           .from("member_groups")
           .select("*")
@@ -38,6 +38,12 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
           .select("group_id")
           .eq("profile_id", profileId),
       ]);
+
+      if (groupsErr || pgErr) {
+        toast.error("Failed to load groups.");
+        setLoading(false);
+        return;
+      }
 
       setGroups((allGroups || []) as MemberGroup[]);
       setAssigned(
@@ -65,15 +71,25 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
 
       // Sync functional role boolean if applicable
       if (group.functional_role === "prayer_team") {
-        await supabase
+        const { error: roleErr } = await supabase
           .from("profiles")
           .update({ is_prayer_team: true })
           .eq("id", profileId);
+        if (roleErr) {
+          toast.error(`Added to ${group.name} but failed to sync role.`);
+          setToggling(null);
+          return;
+        }
       } else if (group.functional_role === "greeter_team") {
-        await supabase
+        const { error: roleErr } = await supabase
           .from("profiles")
           .update({ is_greeter_team: true })
           .eq("id", profileId);
+        if (roleErr) {
+          toast.error(`Added to ${group.name} but failed to sync role.`);
+          setToggling(null);
+          return;
+        }
       }
 
       setAssigned((prev) => new Set([...prev, group.id]));
@@ -93,15 +109,25 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
 
       // Sync functional role boolean if applicable
       if (group.functional_role === "prayer_team") {
-        await supabase
+        const { error: roleErr } = await supabase
           .from("profiles")
           .update({ is_prayer_team: false })
           .eq("id", profileId);
+        if (roleErr) {
+          toast.error(`Removed from ${group.name} but failed to sync role.`);
+          setToggling(null);
+          return;
+        }
       } else if (group.functional_role === "greeter_team") {
-        await supabase
+        const { error: roleErr } = await supabase
           .from("profiles")
           .update({ is_greeter_team: false })
           .eq("id", profileId);
+        if (roleErr) {
+          toast.error(`Removed from ${group.name} but failed to sync role.`);
+          setToggling(null);
+          return;
+        }
       }
 
       setAssigned((prev) => {

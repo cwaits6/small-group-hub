@@ -138,13 +138,12 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
     [filtered],
   );
 
-  const thisMonth = useMemo(
-    () =>
-      filtered
-        .filter((e) => e.month === currentMonth && e.daysUntil > 7)
-        .sort((a, b) => a.day - b.day),
-    [filtered, currentMonth],
-  );
+  const thisMonth = useMemo(() => {
+    const todayDay = new Date().getDate();
+    return filtered
+      .filter((e) => e.month === currentMonth && e.daysUntil > 7 && e.day >= todayDay)
+      .sort((a, b) => a.day - b.day);
+  }, [filtered, currentMonth]);
 
   const hasEvents = thisWeek.length > 0 || thisMonth.length > 0;
 
