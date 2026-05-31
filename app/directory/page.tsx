@@ -712,7 +712,14 @@ export default function DirectoryPage() {
       ]);
 
       if (mErr || fErr || gErr) {
-        console.error("directory load error:", mErr ?? fErr ?? gErr);
+        const err = mErr ?? fErr ?? gErr;
+        console.error("directory load error:", {
+          source: mErr ? "profiles_directory" : fErr ? "families_directory_full" : "member_groups",
+          message: err?.message,
+          details: err?.details,
+          hint: err?.hint,
+          code: err?.code,
+        });
         setLoading(false);
         return;
       }
