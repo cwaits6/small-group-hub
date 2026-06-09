@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useSearchParams, useRouter } from "next/navigation";
+import { AuthShell } from "../_components/AuthShell";
 
 export default function SetupAccountPage() {
   const [loading, setLoading] = useState(false);
@@ -122,94 +122,126 @@ export default function SetupAccountPage() {
     router.refresh();
   };
 
+  // ── Verifying state ──
   if (verifying) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-lg">
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground text-lg">
-            Verifying your signup link...
-          </CardContent>
-        </Card>
-      </div>
+      <AuthShell
+        eyebrow="ONE MOMENT"
+        title="Verifying your"
+        em="invite"
+        kicker="Just confirming this link is good…"
+      >
+        <div className="flex items-center gap-2 text-muted-foreground font-sans text-sm py-2">
+          <svg
+            className="animate-spin h-4 w-4 text-brand-primary"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          Checking…
+        </div>
+      </AuthShell>
     );
   }
 
+  // ── Error state ──
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-lg">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-3xl text-brand-primary">Invalid Link</CardTitle>
-            <CardDescription className="text-lg">
-              {error}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Please contact your group admin for a new invitation.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <AuthShell
+        eyebrow="HMMMM"
+        title="This link doesn't"
+        em="look right"
+        kicker={error}
+      >
+        <p className="font-sans text-sm text-muted-foreground">
+          Please contact your group admin for a new invitation.
+        </p>
+      </AuthShell>
     );
   }
 
+  // ── Normal form state ──
   return (
-    <div className="container mx-auto px-4 py-12 max-w-lg">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl text-brand-primary">Welcome, {tokenData?.name}!</CardTitle>
-          <CardDescription className="text-lg">
-            Set a password to finish setting up your account.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-lg">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={tokenData?.email || ""}
-                disabled
-                className="text-lg py-6 bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-lg">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                minLength={8}
-                placeholder="At least 8 characters"
-                className="text-lg py-6"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-lg">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                required
-                minLength={8}
-                placeholder="Confirm your password"
-                className="text-lg py-6"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
-              disabled={loading}
-            >
-              {loading ? "Creating account..." : "Create Account"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      eyebrow="WELCOME, FRIEND"
+      title="Set up your"
+      em="account"
+      kicker="Almost there — pick a password so you can sign in next time."
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="email"
+            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+          >
+            Email
+          </Label>
+          <Input
+            id="email"
+            type="email"
+            value={tokenData?.email || ""}
+            disabled
+            className="h-11 bg-muted"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="password"
+            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+          >
+            Password
+          </Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={8}
+            placeholder="At least 8 characters"
+            className="h-11"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label
+            htmlFor="confirmPassword"
+            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+          >
+            Confirm Password
+          </Label>
+          <Input
+            id="confirmPassword"
+            name="confirmPassword"
+            type="password"
+            required
+            minLength={8}
+            placeholder="Confirm your password"
+            className="h-11"
+          />
+        </div>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white font-semibold"
+          disabled={loading}
+        >
+          {loading ? "Creating account…" : "Create Account"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }

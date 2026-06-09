@@ -75,7 +75,7 @@ export function Sidebar({ profile }: SidebarProps) {
 
   return (
     <aside
-      className={`hidden md:flex flex-col border-r border-emerald-100 bg-white shrink-0 transition-all duration-200 ${
+      className={`hidden md:flex flex-col border-r border-border bg-white shrink-0 transition-all duration-200 ${
         collapsed ? "w-16" : "w-60"
       }`}
     >
@@ -94,7 +94,7 @@ export function Sidebar({ profile }: SidebarProps) {
                 Pages
               </p>
             )}
-            {collapsed && <div className="border-t border-emerald-100 my-2" />}
+            {collapsed && <div className="border-t border-border my-2" />}
             {pages.map((page) => (
               <Link
                 key={page.slug}
@@ -115,7 +115,7 @@ export function Sidebar({ profile }: SidebarProps) {
                 Admin
               </p>
             )}
-            {collapsed && <div className="border-t border-emerald-100 my-2" />}
+            {collapsed && <div className="border-t border-border my-2" />}
             {adminNav
               .filter((item) => isAdmin || item.href === "/admin/pages")
               .map((item) => (
@@ -130,7 +130,7 @@ export function Sidebar({ profile }: SidebarProps) {
 
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center py-3 border-t border-emerald-100 text-slate-400 hover:text-brand-primary transition-colors"
+        className="flex items-center justify-center py-3 border-t border-border text-slate-400 hover:text-brand-primary transition-colors"
       >
         {collapsed ? (
           <ChevronRight className="h-4 w-4" />

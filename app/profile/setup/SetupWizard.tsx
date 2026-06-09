@@ -87,6 +87,149 @@ const STEP_LABELS = [
 // Component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// MemberAddForm — defined at module level so React never remounts it on parent
+// re-renders (a nested function definition would get a new identity each time).
+// ---------------------------------------------------------------------------
+
+interface MemberAddFormProps {
+  title: string;
+  form: {
+    first_name: string;
+    last_name: string;
+    birth_month: string;
+    birth_day: string;
+    birth_year: string;
+  };
+  setForm: React.Dispatch<
+    React.SetStateAction<{
+      first_name: string;
+      last_name: string;
+      birth_month: string;
+      birth_day: string;
+      birth_year: string;
+    }>
+  >;
+  relationship: FamilyMemberRelationship;
+  lastNameFallback: string;
+  onAdd: (
+    rel: FamilyMemberRelationship,
+    form: {
+      first_name: string;
+      last_name: string;
+      birth_month: string;
+      birth_day: string;
+      birth_year: string;
+    },
+  ) => boolean;
+  onAdded: () => void;
+  onCancel: () => void;
+}
+
+function MemberAddForm({
+  title,
+  form,
+  setForm,
+  relationship,
+  lastNameFallback,
+  onAdd,
+  onAdded,
+  onCancel,
+}: MemberAddFormProps) {
+  return (
+    <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+      <p className="font-medium text-sm">{title}</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-sm">First name *</Label>
+          <Input
+            value={form.first_name}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, first_name: e.target.value }))
+            }
+            placeholder="First name"
+            className="text-base py-5"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-sm">Last name</Label>
+          <Input
+            value={form.last_name}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, last_name: e.target.value }))
+            }
+            placeholder={titleCaseName(lastNameFallback) ?? ""}
+            className="text-base py-5"
+          />
+        </div>
+      </div>
+      <div>
+        <Label className="text-sm">Birthday (optional)</Label>
+        <div className="grid grid-cols-3 gap-2 mt-1">
+          <Select
+            value={form.birth_month}
+            onValueChange={(v) =>
+              setForm((f) => ({ ...f, birth_month: v ?? "" }))
+            }
+          >
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Month" />
+            </SelectTrigger>
+            <SelectContent>
+              {MONTHS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="number"
+            min="1"
+            max="31"
+            placeholder="Day"
+            value={form.birth_day}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, birth_day: e.target.value }))
+            }
+            className="text-sm py-5"
+          />
+          <Input
+            type="number"
+            min="1900"
+            max="2100"
+            placeholder="Year"
+            value={form.birth_year}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, birth_year: e.target.value }))
+            }
+            className="text-sm py-5"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+          onClick={() => {
+            if (onAdd(relationship, form)) {
+              onAdded();
+            }
+          }}
+        >
+          Add {relationship}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
 interface SetupWizardProps {
   profile: Profile;
   userEmail: string;
@@ -457,131 +600,6 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
       setSaving(false);
     }
   };
-
-  // ---------------------------------------------------------------------------
-  // Render helpers
-  // ---------------------------------------------------------------------------
-
-  function MemberAddForm({
-    title,
-    form,
-    setForm,
-    relationship,
-    onAdd,
-    onCancel,
-  }: {
-    title: string;
-    form: {
-      first_name: string;
-      last_name: string;
-      birth_month: string;
-      birth_day: string;
-      birth_year: string;
-    };
-    setForm: React.Dispatch<
-      React.SetStateAction<{
-        first_name: string;
-        last_name: string;
-        birth_month: string;
-        birth_day: string;
-        birth_year: string;
-      }>
-    >;
-    relationship: FamilyMemberRelationship;
-    onAdd: () => void;
-    onCancel: () => void;
-  }) {
-    return (
-      <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
-        <p className="font-medium text-sm">{title}</p>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label className="text-sm">First name *</Label>
-            <Input
-              value={form.first_name}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, first_name: e.target.value }))
-              }
-              placeholder="First name"
-              className="text-base py-5"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Last name</Label>
-            <Input
-              value={form.last_name}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, last_name: e.target.value }))
-              }
-              placeholder={`${titleCaseName(lastName) ?? ""}`}
-              className="text-base py-5"
-            />
-          </div>
-        </div>
-        <div>
-          <Label className="text-sm">Birthday (optional)</Label>
-          <div className="grid grid-cols-3 gap-2 mt-1">
-            <Select
-              value={form.birth_month}
-              onValueChange={(v) =>
-                setForm((f) => ({ ...f, birth_month: v ?? "" }))
-              }
-            >
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Month" />
-              </SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="number"
-              min="1"
-              max="31"
-              placeholder="Day"
-              value={form.birth_day}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, birth_day: e.target.value }))
-              }
-              className="text-sm py-5"
-            />
-            <Input
-              type="number"
-              min="1900"
-              max="2100"
-              placeholder="Year"
-              value={form.birth_year}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, birth_year: e.target.value }))
-              }
-              className="text-sm py-5"
-            />
-          </div>
-        </div>
-        <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="bg-brand-primary hover:bg-brand-primary/90 text-white"
-            onClick={() => {
-              if (addPendingMember(relationship, form)) {
-                onAdd();
-              }
-            }}
-          >
-            Add {relationship}
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   // ---------------------------------------------------------------------------
   // Render
@@ -1005,15 +1023,15 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                 )}
               </div>
             ) : (
-              <div className="rounded-lg bg-green-50 border border-green-200 p-4 flex items-center gap-3">
-                <Check className="h-5 w-5 text-green-600 shrink-0" />
+              <div className="rounded-lg bg-brand-bg-light border border-brand-primary/20 p-4 flex items-center gap-3">
+                <Check className="h-5 w-5 text-brand-primary shrink-0" />
                 <div>
-                  <p className="font-medium text-green-800">
+                  <p className="font-medium text-brand-primary">
                     {familyDeclined
                       ? `Created a new household for you`
                       : `Joined your existing household`}
                   </p>
-                  <p className="text-sm text-green-700">
+                  <p className="text-sm text-brand-primary-light">
                     {titleCaseName(lastName) ?? lastName} Family
                   </p>
                 </div>
@@ -1075,7 +1093,9 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                     form={spouseForm}
                     setForm={setSpouseForm}
                     relationship="spouse"
-                    onAdd={() => {
+                    lastNameFallback={lastName}
+                    onAdd={addPendingMember}
+                    onAdded={() => {
                       setAddSpouseOpen(false);
                       setSpouseForm({
                         first_name: "",
@@ -1127,7 +1147,9 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                     form={childForm}
                     setForm={setChildForm}
                     relationship="child"
-                    onAdd={() => {
+                    lastNameFallback={lastName}
+                    onAdd={addPendingMember}
+                    onAdded={() => {
                       setAddChildOpen(false);
                       setChildForm({
                         first_name: "",
@@ -1159,7 +1181,9 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                     form={parentForm}
                     setForm={setParentForm}
                     relationship="parent"
-                    onAdd={() => {
+                    lastNameFallback={lastName}
+                    onAdd={addPendingMember}
+                    onAdded={() => {
                       setAddParentOpen(false);
                       setParentForm({
                         first_name: "",
@@ -1191,7 +1215,9 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                     form={otherForm}
                     setForm={setOtherForm}
                     relationship="other"
-                    onAdd={() => {
+                    lastNameFallback={lastName}
+                    onAdd={addPendingMember}
+                    onAdded={() => {
                       setAddOtherOpen(false);
                       setOtherForm({
                         first_name: "",
