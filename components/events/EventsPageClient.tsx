@@ -85,7 +85,7 @@ export function EventsPageClient({
 
   return (
     <div>
-      <div className="mb-6 rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-sm md:p-6">
+      <div className="mb-6 rounded-[2rem] border border-border bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
             <div>
@@ -101,7 +101,7 @@ export function EventsPageClient({
               <>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                   nativeButton={false}
                   render={<Link href="/admin/events/new" />}
                 >
@@ -109,7 +109,7 @@ export function EventsPageClient({
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                   nativeButton={false}
                   render={<Link href="/admin/calendars" />}
                 >
@@ -122,7 +122,7 @@ export function EventsPageClient({
               <Button
                 onClick={() => setShowSubscribeMenu(!showSubscribeMenu)}
                 variant="outline"
-                className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
               >
                 <Rss className="h-4 w-4" />
                 Subscribe to Calendar
@@ -151,7 +151,7 @@ export function EventsPageClient({
                     >
                       <span
                         className="inline-block h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: cal.color ?? "#059669" }}
+                        style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
                       />
                       {cal.name}
                     </button>
@@ -197,7 +197,7 @@ export function EventsPageClient({
                 <DropdownMenuTrigger render={
                   <Button
                     variant="outline"
-                    className="h-11 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-emerald-300 hover:bg-white hover:text-brand-primary"
+                    className="h-11 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                   >
                     <span className="flex items-center gap-2">
                       <SlidersHorizontal className="h-4 w-4" />
@@ -219,7 +219,7 @@ export function EventsPageClient({
                       >
                         <span
                           className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: cal.color ?? "#059669" }}
+                          style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
                         />
                         {cal.name}
                       </DropdownMenuCheckboxItem>

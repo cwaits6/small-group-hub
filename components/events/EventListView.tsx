@@ -51,17 +51,17 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
         return (
           <div
             key={`${event.id}-${index}`}
-            className="relative overflow-visible rounded-2xl border border-emerald-100 bg-white px-4 py-4 shadow-sm transition-all hover:border-emerald-300 hover:shadow-md"
+            className="relative overflow-visible rounded-2xl border border-border bg-white px-4 py-4 shadow-sm transition-all hover:border-brand-primary/30 hover:shadow-md"
           >
             <div
               className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
-              style={{ backgroundColor: event.calendar?.color ?? "#059669" }}
+              style={{ backgroundColor: event.calendar?.color ?? "#2F6BA8" }}
             />
 
             <div className="flex flex-col gap-4 md:flex-row md:items-start">
               <div
                 className="shrink-0 flex h-16 w-16 flex-col items-center justify-center rounded-2xl text-white shadow-sm"
-                style={{ background: `linear-gradient(135deg, ${event.calendar?.color ?? "#0d4f3c"}, #059669)` }}
+                style={{ background: event.calendar?.color ?? "#2F6BA8" }}
               >
                 <span className="text-[0.65rem] font-bold tracking-widest leading-none">{month}</span>
                 <span className="text-2xl font-bold font-display leading-tight">{dayNum}</span>
@@ -80,7 +80,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                       {event.calendar && (
                         <Badge
                           variant="secondary"
-                          className="bg-emerald-50 text-brand-primary border-emerald-200"
+                          className="bg-brand-bg-light text-brand-primary border-brand-primary/20"
                         >
                           {event.calendar.name}
                         </Badge>

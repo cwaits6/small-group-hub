@@ -393,7 +393,7 @@ export default function BulkInvitePage() {
                         ) : (
                           <Badge
                             variant="outline"
-                            className="border-emerald-300 text-emerald-700 bg-emerald-50"
+                            className="border-brand-primary/30 text-brand-primary bg-brand-bg-light"
                           >
                             New
                           </Badge>
@@ -410,7 +410,7 @@ export default function BulkInvitePage() {
 
       {/* Result summary */}
       {result && (
-        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+        <div className="flex items-start gap-3 rounded-lg border border-brand-primary/20 bg-brand-bg-light p-4 text-brand-primary">
           <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium">

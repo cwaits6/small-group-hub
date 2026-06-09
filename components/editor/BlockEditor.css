@@ -46,18 +46,18 @@
 
 /* Link styling */
 .bn-editor a {
-  color: var(--color-brand-accent, #f43f5e) !important;
+  color: var(--color-brand-accent, #E8A93C) !important;
   text-decoration: underline !important;
 }
 
 .bn-editor a:hover {
-  color: var(--color-brand-accent, #f43f5e) !important;
+  color: var(--color-brand-accent, #E8A93C) !important;
   opacity: 0.8;
 }
 
 /* Focus state */
 .bn-container:focus-within {
-  border-color: var(--color-brand-primary, #0d4f3c) !important;
-  box-shadow: 0 0 0 3px rgba(13, 79, 60, 0.1) !important;
+  border-color: var(--color-brand-primary, #2F6BA8) !important;
+  box-shadow: 0 0 0 3px rgba(47, 107, 168, 0.1) !important;
 }
 

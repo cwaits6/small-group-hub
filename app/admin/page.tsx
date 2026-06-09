@@ -79,9 +79,9 @@ export default async function AdminPage() {
       icon: Megaphone,
     },
     {
-      href: "/admin/lectures/new",
-      label: "Add Lecture",
-      description: "Add a lecture recording",
+      href: "/admin/lectures",
+      label: "Manage Lectures",
+      description: "Add, edit, or manage lecture recordings and series",
       icon: BookOpen,
     },
     {

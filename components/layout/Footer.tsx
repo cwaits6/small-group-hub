@@ -15,7 +15,7 @@ export function Footer() {
               </div>
               <span className="text-2xl font-bold font-display text-white">{siteConfig.name}</span>
             </div>
-            <p className="text-emerald-200 text-base leading-relaxed">
+            <p className="text-white/70 text-base leading-relaxed">
               {siteConfig.description}
             </p>
           </div>
@@ -33,7 +33,7 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-emerald-300 hover:text-white transition-colors text-base"
+                    className="text-white/60 hover:text-white transition-colors text-base"
                   >
                     {link.label}
                   </Link>
@@ -45,19 +45,18 @@ export function Footer() {
           {/* Tagline / verse */}
           <div>
             <h4 className="text-white font-bold text-lg mb-4 font-display">Our Mission</h4>
-            <p className="text-emerald-200 text-base leading-relaxed italic">
-              &ldquo;{siteConfig.tagline}&rdquo;
+            <p className="text-white/70 text-base leading-relaxed">
+              {siteConfig.tagline}
             </p>
-            <p className="text-emerald-400 text-sm mt-2">Hebrews 3:13</p>
           </div>
         </div>
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-emerald-300 text-base">
+          <p className="text-white/60 text-base">
             &copy; {new Date().getFullYear()} {siteConfig.name} · {siteConfig.churchName}
           </p>
-          <p className="text-emerald-400 text-sm flex items-center gap-1">
-            Made with <Heart className="h-3.5 w-3.5 text-rose-400 fill-rose-400" /> for our community
+          <p className="text-white/50 text-sm flex items-center gap-1">
+            Made with <Heart className="h-3.5 w-3.5 text-brand-accent fill-brand-accent" /> for our community
           </p>
         </div>
       </div>

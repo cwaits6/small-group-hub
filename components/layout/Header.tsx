@@ -48,7 +48,7 @@ export function Header({ profile }: HeaderProps) {
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
         scrolled
-          ? "bg-white/95 backdrop-blur shadow-sm border-b border-emerald-100"
+          ? "bg-white/95 backdrop-blur shadow-sm border-b border-border"
           : "bg-white border-b border-transparent"
       }`}
     >
@@ -93,7 +93,7 @@ export function Header({ profile }: HeaderProps) {
                 variant="outline"
                 size="lg"
                 onClick={handleSignOut}
-                className="text-base border-slate-200 hover:border-rose-300 hover:text-rose-600 hover:bg-rose-50"
+                className="text-base border-slate-200 hover:border-destructive/30 hover:text-destructive hover:bg-destructive/10"
               >
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
@@ -118,7 +118,7 @@ export function Header({ profile }: HeaderProps) {
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             <span className="sr-only">Toggle menu</span>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[300px] border-l border-emerald-100">
+          <SheetContent side="right" className="w-[300px] border-l border-border">
             <div className="flex items-center gap-2 mb-8 mt-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center">
                 <span className="text-white font-bold text-sm font-display">{siteConfig.logoMonogram}</span>
@@ -145,7 +145,7 @@ export function Header({ profile }: HeaderProps) {
                   Admin
                 </Link>
               )}
-              <div className="border-t border-emerald-100 pt-4 mt-4 flex flex-col gap-3">
+              <div className="border-t border-border pt-4 mt-4 flex flex-col gap-3">
                 {profile ? (
                   <Button
                     variant="outline"
@@ -160,7 +160,7 @@ export function Header({ profile }: HeaderProps) {
                   <Button
                     variant="outline"
                     size="lg"
-                    className="w-full text-lg border-emerald-200 text-brand-primary"
+                    className="w-full text-lg border-border text-brand-primary"
                     nativeButton={false}
                     render={<Link href="/login" onClick={() => setOpen(false)} />}
                   >

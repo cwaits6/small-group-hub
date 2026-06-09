@@ -45,7 +45,7 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
     }
 
     return expanded.map((e) => {
-      const color = e.calendar?.color ?? "#059669";
+      const color = e.calendar?.color ?? "#2F6BA8";
       return {
         id: e.id,
         title: e.title,
@@ -93,20 +93,20 @@ export function EventCalendarView({ events, visibleCalendarIds, isAdmin }: Event
   }, [currentView]);
 
   return (
-    <div className="bg-white rounded-[2rem] border-2 border-emerald-100 overflow-hidden p-5 shadow-sm [&_.fc-event]:cursor-pointer">
+    <div className="bg-white rounded-[2rem] border-2 border-border overflow-hidden p-5 shadow-sm [&_.fc-event]:cursor-pointer">
       <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-4 md:p-5">
         {/* Custom navigation buttons */}
         <div className="mb-3 flex items-center gap-1.5">
           <button
             onClick={() => calendarRef.current?.getApi().prev()}
-            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-emerald-300 hover:text-brand-primary"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
             aria-label="Previous month"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => calendarRef.current?.getApi().next()}
-            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-emerald-300 hover:text-brand-primary"
+            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
             aria-label="Next month"
           >
             <ChevronRight className="h-5 w-5" />

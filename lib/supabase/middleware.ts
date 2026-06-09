@@ -31,6 +31,7 @@ export async function updateSession(request: NextRequest) {
     `img-src 'self' data: blob: https://maps.gstatic.com https://maps.googleapis.com${supabaseOrigin ? ` ${supabaseOrigin}` : ""}${isDev ? " http://127.0.0.1:* http://localhost:*" : ""}`,
     "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://vitals.vercel-insights.com https://maps.googleapis.com https://places.googleapis.com https://maps.gstatic.com blob:${isDev ? " http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*" : ""}`,
+    "frame-src 'self' https://www.google.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

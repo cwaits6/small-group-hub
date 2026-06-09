@@ -20,18 +20,16 @@ export function EventCard({ event, children }: EventCardProps) {
     date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 
   return (
-    <div className="group bg-white rounded-2xl border-2 border-emerald-100 overflow-hidden hover:border-emerald-300 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
+    <div className="group bg-white rounded-2xl border-2 border-border overflow-hidden hover:border-brand-primary/30 hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5">
       {/* Top accent bar */}
       <div
-        className="h-1.5 w-full"
-        style={{ background: "linear-gradient(90deg, #059669, #34d399)" }}
+        className="h-1.5 w-full bg-brand-primary"
       />
 
       <div className="p-6">
         <div className="flex gap-4">
           {/* Date chip */}
-          <div className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-white shadow-md"
-            style={{ background: "linear-gradient(135deg, #0d4f3c, #059669)" }}
+          <div className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-white shadow-md bg-brand-primary"
           >
             <span className="text-xs font-bold tracking-widest leading-none">{month}</span>
             <span className="text-2xl font-bold font-display leading-tight">{dayNum}</span>
