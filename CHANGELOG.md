@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/cwaits6/small-group-hub/compare/v0.8.0...v0.9.0) (2026-06-09)
+
+
+### Features
+
+* **brand:** Morning rebrand across auth, dashboard, events, and lectures ([#141](https://github.com/cwaits6/small-group-hub/issues/141)) ([9779b27](https://github.com/cwaits6/small-group-hub/commit/9779b27a477fb24c929fe3162ec2c006cbbf97f9))
+
 # [0.8.0](https://github.com/cwaits6/small-group-hub/compare/v0.7.0...v0.8.0) (2026-05-17)
 
 
