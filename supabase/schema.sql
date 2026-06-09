@@ -286,42 +286,6 @@ CREATE OR REPLACE VIEW "public"."families_directory" WITH ("security_invoker"='t
 ALTER VIEW "public"."families_directory" OWNER TO "postgres";
 
 
-CREATE OR REPLACE VIEW "public"."families_directory_full" AS
-SELECT
-    NULL::"uuid" AS "id",
-    NULL::"text" AS "family_name",
-    NULL::"text" AS "address_line1",
-    NULL::"text" AS "address_line2",
-    NULL::"text" AS "city",
-    NULL::"text" AS "state",
-    NULL::"text" AS "postal_code",
-    NULL::"text" AS "phone_home",
-    NULL::"date" AS "anniversary",
-    NULL::timestamp with time zone AS "created_at",
-    NULL::timestamp with time zone AS "updated_at",
-    NULL::"jsonb" AS "members",
-    NULL::"jsonb" AS "family_members_list";
-
-
-ALTER VIEW "public"."families_directory_full" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."family_invites" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "family_member_id" "uuid" NOT NULL,
-    "family_id" "uuid" NOT NULL,
-    "invite_email" "text" NOT NULL,
-    "token" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "sent_at" timestamp with time zone,
-    "accepted_at" timestamp with time zone,
-    "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."family_invites" OWNER TO "postgres";
-
-
 CREATE TABLE IF NOT EXISTS "public"."family_members" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "family_id" "uuid" NOT NULL,
@@ -345,63 +309,6 @@ CREATE TABLE IF NOT EXISTS "public"."family_members" (
 
 
 ALTER TABLE "public"."family_members" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."lectures" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "title" "text" NOT NULL,
-    "description" "text",
-    "video_url" "text" NOT NULL,
-    "thumbnail_url" "text",
-    "lecture_date" "date",
-    "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."lectures" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."member_groups" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "name" "text" NOT NULL,
-    "description" "text",
-    "color" "text",
-    "icon" "text",
-    "display_order" integer DEFAULT 0 NOT NULL,
-    "functional_role" "text",
-    "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "show_in_directory_filter" boolean DEFAULT true NOT NULL,
-    CONSTRAINT "member_groups_functional_role_check" CHECK (("functional_role" = ANY (ARRAY['prayer_team'::"text", 'greeter_team'::"text"])))
-);
-
-
-ALTER TABLE "public"."member_groups" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."page_content" (
-    "slug" "text" NOT NULL,
-    "title" "text" NOT NULL,
-    "body" "text" DEFAULT ''::"text" NOT NULL,
-    "updated_by" "uuid",
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."page_content" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."profile_groups" (
-    "profile_id" "uuid" NOT NULL,
-    "group_id" "uuid" NOT NULL,
-    "assigned_by" "uuid",
-    "assigned_at" timestamp with time zone DEFAULT "now"() NOT NULL
-);
-
-
-ALTER TABLE "public"."profile_groups" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
@@ -456,6 +363,153 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
 
 
 ALTER TABLE "public"."profiles" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."families_directory_full" WITH ("security_invoker"='true') AS
+ SELECT "id",
+    "family_name",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line1"
+        END AS "address_line1",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "address_line2"
+        END AS "address_line2",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "city"
+        END AS "city",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "state"
+        END AS "state",
+        CASE
+            WHEN "hide_address" THEN NULL::"text"
+            ELSE "postal_code"
+        END AS "postal_code",
+        CASE
+            WHEN "hide_phone_home" THEN NULL::"text"
+            ELSE "phone_home"
+        END AS "phone_home",
+    "anniversary",
+    "created_at",
+    "updated_at",
+    COALESCE(( SELECT "jsonb_agg"("jsonb_build_object"('id', "p"."id", 'first_name', "p"."first_name", 'last_name', "p"."last_name", 'preferred_name', "p"."preferred_name", 'avatar_url', "p"."avatar_url", 'relationship', "p"."relationship", 'is_class_member', true, 'phone_mobile',
+                CASE
+                    WHEN "p"."hide_phone_mobile" THEN NULL::"text"
+                    ELSE "p"."phone_mobile"
+                END, 'birth_month',
+                CASE
+                    WHEN "p"."hide_birthday" THEN NULL::smallint
+                    ELSE "p"."birth_month"
+                END, 'birth_day',
+                CASE
+                    WHEN "p"."hide_birthday" THEN NULL::smallint
+                    ELSE "p"."birth_day"
+                END, 'birth_year',
+                CASE
+                    WHEN ("p"."hide_birthday" AND (NOT "p"."hide_birth_year")) THEN NULL::smallint
+                    ELSE "p"."birth_year"
+                END) ORDER BY "p"."relationship") AS "jsonb_agg"
+           FROM "public"."profiles" "p"
+          WHERE (("p"."family_id" = "f"."id") AND ("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))), '[]'::"jsonb") AS "members",
+    COALESCE(( SELECT "jsonb_agg"("jsonb_build_object"('id', "fm"."id", 'first_name', "fm"."first_name", 'last_name', "fm"."last_name", 'preferred_name', "fm"."preferred_name", 'avatar_url', "fm"."avatar_url", 'relationship', "fm"."relationship", 'is_class_member', "fm"."is_class_member", 'birth_month', "fm"."birth_month", 'birth_day', "fm"."birth_day", 'birth_year', "fm"."birth_year", 'claimed_profile_id', "fm"."claimed_profile_id") ORDER BY "fm"."relationship") AS "jsonb_agg"
+           FROM "public"."family_members" "fm"
+          WHERE ("fm"."family_id" = "f"."id")), '[]'::"jsonb") AS "family_members_list"
+   FROM "public"."family_units" "f";
+
+
+ALTER VIEW "public"."families_directory_full" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."family_invites" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "family_member_id" "uuid" NOT NULL,
+    "family_id" "uuid" NOT NULL,
+    "invite_email" "text" NOT NULL,
+    "token" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "sent_at" timestamp with time zone,
+    "accepted_at" timestamp with time zone,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."family_invites" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."lecture_series" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "teacher" "text",
+    "is_archived" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."lecture_series" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."lectures" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "title" "text" NOT NULL,
+    "description" "text",
+    "video_url" "text" NOT NULL,
+    "thumbnail_url" "text",
+    "lecture_date" "date",
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "series_id" "uuid",
+    "week_number" integer,
+    "scripture_reference" "text",
+    "summary" "text"
+);
+
+
+ALTER TABLE "public"."lectures" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."member_groups" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "color" "text",
+    "icon" "text",
+    "display_order" integer DEFAULT 0 NOT NULL,
+    "functional_role" "text",
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "show_in_directory_filter" boolean DEFAULT true NOT NULL,
+    CONSTRAINT "member_groups_functional_role_check" CHECK (("functional_role" = ANY (ARRAY['prayer_team'::"text", 'greeter_team'::"text"])))
+);
+
+
+ALTER TABLE "public"."member_groups" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."page_content" (
+    "slug" "text" NOT NULL,
+    "title" "text" NOT NULL,
+    "body" "text" DEFAULT ''::"text" NOT NULL,
+    "updated_by" "uuid",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."page_content" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."profile_groups" (
+    "profile_id" "uuid" NOT NULL,
+    "group_id" "uuid" NOT NULL,
+    "assigned_by" "uuid",
+    "assigned_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."profile_groups" OWNER TO "postgres";
 
 
 CREATE OR REPLACE VIEW "public"."profiles_directory" AS
@@ -575,6 +629,11 @@ ALTER TABLE ONLY "public"."family_units"
 
 
 
+ALTER TABLE ONLY "public"."lecture_series"
+    ADD CONSTRAINT "lecture_series_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."lectures"
     ADD CONSTRAINT "lectures_pkey" PRIMARY KEY ("id");
 
@@ -660,61 +719,6 @@ CREATE INDEX "profiles_last_first_idx" ON "public"."profiles" USING "btree" ("la
 
 
 CREATE INDEX "profiles_relationship_idx" ON "public"."profiles" USING "btree" ("relationship");
-
-
-
-CREATE OR REPLACE VIEW "public"."families_directory_full" WITH ("security_invoker"='true') AS
- SELECT "f"."id",
-    "f"."family_name",
-        CASE
-            WHEN "f"."hide_address" THEN NULL::"text"
-            ELSE "f"."address_line1"
-        END AS "address_line1",
-        CASE
-            WHEN "f"."hide_address" THEN NULL::"text"
-            ELSE "f"."address_line2"
-        END AS "address_line2",
-        CASE
-            WHEN "f"."hide_address" THEN NULL::"text"
-            ELSE "f"."city"
-        END AS "city",
-        CASE
-            WHEN "f"."hide_address" THEN NULL::"text"
-            ELSE "f"."state"
-        END AS "state",
-        CASE
-            WHEN "f"."hide_address" THEN NULL::"text"
-            ELSE "f"."postal_code"
-        END AS "postal_code",
-        CASE
-            WHEN "f"."hide_phone_home" THEN NULL::"text"
-            ELSE "f"."phone_home"
-        END AS "phone_home",
-    "f"."anniversary",
-    "f"."created_at",
-    "f"."updated_at",
-    COALESCE("jsonb_agg"("jsonb_build_object"('id', "p"."id", 'first_name', "p"."first_name", 'last_name', "p"."last_name", 'preferred_name', "p"."preferred_name", 'avatar_url', "p"."avatar_url", 'relationship', "p"."relationship", 'is_class_member', true, 'phone_mobile',
-        CASE
-            WHEN "p"."hide_phone_mobile" THEN NULL::"text"
-            ELSE "p"."phone_mobile"
-        END, 'birth_month',
-        CASE
-            WHEN "p"."hide_birthday" THEN NULL::smallint
-            ELSE "p"."birth_month"
-        END, 'birth_day',
-        CASE
-            WHEN "p"."hide_birthday" THEN NULL::smallint
-            ELSE "p"."birth_day"
-        END, 'birth_year',
-        CASE
-            WHEN ("p"."hide_birthday" AND (NOT "p"."hide_birth_year")) THEN NULL::smallint
-            ELSE "p"."birth_year"
-        END) ORDER BY "p"."relationship") FILTER (WHERE (("p"."id" IS NOT NULL) AND ("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))), '[]'::"jsonb") AS "members",
-    COALESCE("jsonb_agg"("jsonb_build_object"('id', "fm"."id", 'first_name', "fm"."first_name", 'last_name', "fm"."last_name", 'preferred_name', "fm"."preferred_name", 'avatar_url', "fm"."avatar_url", 'relationship', "fm"."relationship", 'is_class_member', "fm"."is_class_member", 'birth_month', "fm"."birth_month", 'birth_day', "fm"."birth_day", 'birth_year', "fm"."birth_year", 'claimed_profile_id', "fm"."claimed_profile_id") ORDER BY "fm"."relationship") FILTER (WHERE ("fm"."id" IS NOT NULL)), '[]'::"jsonb") AS "family_members_list"
-   FROM (("public"."family_units" "f"
-     LEFT JOIN "public"."profiles" "p" ON (("f"."id" = "p"."family_id")))
-     LEFT JOIN "public"."family_members" "fm" ON (("f"."id" = "fm"."family_id")))
-  GROUP BY "f"."id";
 
 
 
@@ -884,6 +888,11 @@ ALTER TABLE ONLY "public"."lectures"
 
 
 
+ALTER TABLE ONLY "public"."lectures"
+    ADD CONSTRAINT "lectures_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "public"."lecture_series"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."member_groups"
     ADD CONSTRAINT "member_groups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
@@ -975,6 +984,10 @@ CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FO
 
 
 
+CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE USING ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR INSERT WITH CHECK ("public"."is_admin"());
 
 
@@ -1008,6 +1021,10 @@ CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR 
 
 
 CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT WITH CHECK ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT WITH CHECK ("public"."is_admin"());
 
 
 
@@ -1048,6 +1065,10 @@ CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR 
 
 
 CREATE POLICY "Admins can update profiles" ON "public"."profiles" FOR UPDATE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can update series" ON "public"."lecture_series" FOR UPDATE USING ("public"."is_admin"());
 
 
 
@@ -1173,6 +1194,10 @@ CREATE POLICY "Published announcements visible to all" ON "public"."announcement
 
 
 
+CREATE POLICY "Series visible to all" ON "public"."lecture_series" FOR SELECT USING (true);
+
+
+
 CREATE POLICY "Users can update own profile" ON "public"."profiles" FOR UPDATE USING (("auth"."uid"() = "id"));
 
 
@@ -1203,6 +1228,9 @@ ALTER TABLE "public"."family_members" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."family_units" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."lecture_series" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."lectures" ENABLE ROW LEVEL SECURITY;
@@ -1311,6 +1339,18 @@ GRANT ALL ON TABLE "public"."families_directory" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."family_members" TO "anon";
+GRANT ALL ON TABLE "public"."family_members" TO "authenticated";
+GRANT ALL ON TABLE "public"."family_members" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."profiles" TO "anon";
+GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
+GRANT ALL ON TABLE "public"."profiles" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."families_directory_full" TO "anon";
 GRANT ALL ON TABLE "public"."families_directory_full" TO "authenticated";
 GRANT ALL ON TABLE "public"."families_directory_full" TO "service_role";
@@ -1323,9 +1363,9 @@ GRANT ALL ON TABLE "public"."family_invites" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."family_members" TO "anon";
-GRANT ALL ON TABLE "public"."family_members" TO "authenticated";
-GRANT ALL ON TABLE "public"."family_members" TO "service_role";
+GRANT ALL ON TABLE "public"."lecture_series" TO "anon";
+GRANT ALL ON TABLE "public"."lecture_series" TO "authenticated";
+GRANT ALL ON TABLE "public"."lecture_series" TO "service_role";
 
 
 
@@ -1350,12 +1390,6 @@ GRANT ALL ON TABLE "public"."page_content" TO "service_role";
 GRANT ALL ON TABLE "public"."profile_groups" TO "anon";
 GRANT ALL ON TABLE "public"."profile_groups" TO "authenticated";
 GRANT ALL ON TABLE "public"."profile_groups" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."profiles" TO "anon";
-GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
-GRANT ALL ON TABLE "public"."profiles" TO "service_role";
 
 
 
