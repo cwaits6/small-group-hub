@@ -279,6 +279,7 @@ export interface HouseholdFamilyMember {
 export interface FamilyDirectoryFull {
   id: string;
   family_name: string;
+  photo_url: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
