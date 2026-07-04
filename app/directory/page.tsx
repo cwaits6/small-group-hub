@@ -11,11 +11,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
   Home,
   LayoutList,
+  Printer,
   Search,
   Tags,
 } from "lucide-react";
@@ -671,6 +673,16 @@ export default function DirectoryPage() {
               >
                 <Tags className="mr-1 h-4 w-4" />
                 Groups ({allGroups.length})
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                nativeButton={false}
+                render={<Link href="/directory/print" />}
+                aria-label="Printable directory"
+                className="ml-auto text-muted-foreground"
+              >
+                <Printer className="h-4 w-4" />
               </Button>
             </div>
           </div>
