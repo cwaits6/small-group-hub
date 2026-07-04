@@ -1,7 +1,7 @@
 import imageCompression from "browser-image-compression";
 import { createClient } from "@/lib/supabase/client";
 
-export type ImageUploadType = "avatar" | "event";
+export type ImageUploadType = "avatar" | "event" | "family";
 
 interface UploadConfig {
   bucket: "avatars" | "event-images";
@@ -23,6 +23,13 @@ const CONFIG: Record<ImageUploadType, UploadConfig> = {
     bucket: "event-images",
     maxWidthOrHeight: 1200,
     maxSizeMB: 1,
+  },
+  // Family portraits live in the avatars bucket under families/<familyId>/
+  // (see 20260704000001_family_photos.sql for the admin storage policies)
+  family: {
+    bucket: "avatars",
+    maxWidthOrHeight: 1000,
+    maxSizeMB: 0.5,
   },
 };
 

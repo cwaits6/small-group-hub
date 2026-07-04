@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { uploadImage } from "@/lib/uploadImage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Users, X } from "lucide-react";
+import { Camera, Plus, Pencil, Trash2, Users, X } from "lucide-react";
 import type { FamilyUnit, Profile, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
 import {
   titleCaseName,
@@ -139,6 +140,11 @@ export default function FamiliesPage() {
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [savingMember, setSavingMember] = useState(false);
 
+  // Family photo state (edit mode only — the path needs the family id)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -200,6 +206,7 @@ export default function FamiliesPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setPhotoUrl(null);
     setFamilyMembers([]);
     setShowMemberForm(false);
     setEditingMember(null);
@@ -210,6 +217,7 @@ export default function FamiliesPage() {
   function openEdit(family: FamilyUnit) {
     setEditing(family);
     setForm(fromFamily(family));
+    setPhotoUrl(family.photo_url);
     setShowMemberForm(false);
     setEditingMember(null);
     setMemberForm(EMPTY_MEMBER_FORM);
@@ -298,6 +306,49 @@ export default function FamiliesPage() {
     }
     toast.success("Family deleted.");
     setDialogOpen(false);
+    loadFamilies();
+  }
+
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadImage(file, "family", `families/${editing.id}/photo`);
+      const { error } = await supabase
+        .from("family_units")
+        .update({ photo_url: url })
+        .eq("id", editing.id);
+      if (error) throw error;
+      // Cache-bust so the new image shows immediately
+      setPhotoUrl(`${url}?t=${Date.now()}`);
+      toast.success("Family photo updated.");
+      loadFamilies();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to upload family photo.");
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = "";
+    }
+  }
+
+  async function handlePhotoRemove() {
+    if (!editing) return;
+    const { error } = await supabase
+      .from("family_units")
+      .update({ photo_url: null })
+      .eq("id", editing.id);
+    if (error) {
+      toast.error("Failed to remove family photo.");
+      return;
+    }
+    await supabase.storage
+      .from("avatars")
+      .remove([`families/${editing.id}/photo.jpg`]);
+    setPhotoUrl(null);
+    toast.success("Family photo removed.");
     loadFamilies();
   }
 
@@ -501,6 +552,65 @@ export default function FamiliesPage() {
                 placeholder="e.g. The Smiths"
               />
             </div>
+
+            {editing && (
+              <div className="space-y-2">
+                <Label>Family photo</Label>
+                {photoUrl ? (
+                  <div className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photoUrl}
+                      alt={`${form.family_name} family photo`}
+                      className="w-full aspect-[4/3] object-cover rounded-lg"
+                    />
+                    <div className="absolute bottom-2 right-2 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={uploadingPhoto}
+                        onClick={() => photoInputRef.current?.click()}
+                      >
+                        <Camera className="mr-1 h-4 w-4" />
+                        {uploadingPhoto ? "Uploading..." : "Replace"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={handlePhotoRemove}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Remove photo</span>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingPhoto}
+                    onClick={() => photoInputRef.current?.click()}
+                  >
+                    <Camera className="mr-1 h-4 w-4" />
+                    {uploadingPhoto ? "Uploading..." : "Upload family photo"}
+                  </Button>
+                )}
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown on the household&apos;s directory card in place of
+                  individual avatars.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="f_address1">Street address</Label>

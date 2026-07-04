@@ -52,6 +52,7 @@ export interface Profile {
 export interface FamilyUnit {
   id: string;
   family_name: string;
+  photo_url: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
@@ -102,6 +103,7 @@ export interface DirectoryProfile {
 export interface DirectoryFamily {
   id: string;
   family_name: string;
+  photo_url: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
