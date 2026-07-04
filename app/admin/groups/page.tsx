@@ -34,6 +34,7 @@ import {
   Filter,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
+import { GroupRosterDialog } from "./GroupRosterDialog";
 
 /** A curated set of lucide icon names available for group icons */
 const ICON_OPTIONS = [
@@ -85,6 +86,7 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MemberGroup | null>(null);
+  const [rosterGroup, setRosterGroup] = useState<MemberGroup | null>(null);
   const [form, setForm] = useState<GroupFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   // member counts per group for delete warning
@@ -335,6 +337,14 @@ export default function GroupsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setRosterGroup(group)}
+                    >
+                      <Users className="mr-1 h-4 w-4" />
+                      Members
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEdit(group)}
                     >
                       <Pencil className="mr-1 h-4 w-4" />
@@ -347,6 +357,14 @@ export default function GroupsPage() {
           ))}
         </div>
       )}
+
+      <GroupRosterDialog
+        group={rosterGroup}
+        onClose={() => setRosterGroup(null)}
+        onCountChange={(groupId, count) =>
+          setMemberCounts((prev) => ({ ...prev, [groupId]: count }))
+        }
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
