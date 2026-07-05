@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/cwaits6/small-group-hub/compare/v0.10.1...v0.11.0) (2026-07-05)
+
+
+### Features
+
+* **serving:** add Sunday serving scheduling ([#175](https://github.com/cwaits6/small-group-hub/issues/175)) ([b130222](https://github.com/cwaits6/small-group-hub/commit/b130222df6e5e7db66621f7d6d5e78b6735e7b29))
+
 ## [0.10.1](https://github.com/cwaits6/small-group-hub/compare/v0.10.0...v0.10.1) (2026-07-05)
 
 
