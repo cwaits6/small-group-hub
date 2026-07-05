@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Play, Users, Bell, Heart } from "lucide-react";
+import { Calendar, Play, Users, Bell, Heart, HandHelping } from "lucide-react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/config";
+import { formatServiceDate } from "@/lib/serving/sundays";
 import { RsvpSegmented } from "./RsvpSegmented";
 import type { Rsvp } from "@/lib/types";
 
@@ -211,6 +212,22 @@ export default async function DashboardPage() {
     .limit(3);
 
   const hasLectures = lectures && lectures.length > 0;
+
+  // Upcoming serving commitments for this member (inner join filters to user's rows)
+  const { data: myServings } = await supabase
+    .from("serving_signups")
+    .select("id, service_date, group_id, member_groups(id, name), serving_signup_attendees!inner(profile_id)")
+    .eq("serving_signup_attendees.profile_id", profile.id)
+    .gte("service_date", now.slice(0, 10))
+    .order("service_date", { ascending: true })
+    .limit(3);
+
+  const upcomingServings = (myServings ?? []) as Array<{
+    id: string;
+    service_date: string;
+    group_id: string;
+    member_groups: { id: string; name: string } | Array<{ id: string; name: string }> | null;
+  }>;
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
@@ -466,6 +483,41 @@ export default async function DashboardPage() {
           )}
         </div>
       </section>
+
+      {/* ── Your turn to serve ───────────────────────────────────────────── */}
+      {upcomingServings.length > 0 && (
+        <section className="px-4 pb-6 md:px-14">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <HandHelping className="h-5 w-5 text-brand-primary" />
+              <h2 className="font-sans text-sm font-semibold text-foreground uppercase tracking-wider">
+                Your turn to serve
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {upcomingServings.map((s) => (
+                <Link
+                  key={s.id}
+                  href={`/serving/${s.group_id}`}
+                  className="flex items-center justify-between gap-4 py-2 border-t border-border first:border-0 hover:text-brand-primary transition-colors"
+                >
+                  <div>
+                    <div className="font-sans text-sm font-semibold text-foreground">
+                      {(Array.isArray(s.member_groups) ? s.member_groups[0]?.name : s.member_groups?.name) ?? "Serving team"}
+                    </div>
+                    <div className="font-sans text-xs text-muted-foreground mt-0.5">
+                      {formatServiceDate(s.service_date)}
+                    </div>
+                  </div>
+                  <span className="font-sans text-xs font-semibold text-brand-primary shrink-0">
+                    View →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Bottom: Announcements + Continue Listening ───────────────────── */}
       <section

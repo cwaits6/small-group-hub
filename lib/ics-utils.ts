@@ -81,3 +81,22 @@ export function generateServingICS(input: ServingICSInput): string {
   }
   return value;
 }
+
+/** Combined feed: group events + serving signups in a single VCALENDAR. */
+export function generateCombinedICS(
+  events: Event[],
+  servingSignups: ServingICSInput[]
+): string {
+  const all: EventAttributes[] = [
+    ...events.map(eventToICSAttributes),
+    ...servingSignups.map(servingToICSAttributes),
+  ];
+  if (all.length === 0) {
+    return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Small Group Hub//EN\r\nEND:VCALENDAR\r\n";
+  }
+  const { error, value } = createEvents(all);
+  if (error || !value) {
+    throw new Error(`Failed to generate ICS: ${error?.message ?? "unknown error"}`);
+  }
+  return value;
+}

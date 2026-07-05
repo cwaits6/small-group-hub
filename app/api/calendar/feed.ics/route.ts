@@ -1,5 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import { generateMultiEventICS } from "@/lib/ics-utils";
+import { generateCombinedICS, type ServingICSInput } from "@/lib/ics-utils";
 import type { Event } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const { data: sub } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id")
+    .select("id, user_id")
     .eq("token", token)
     .single();
 
@@ -44,18 +44,34 @@ export async function GET(request: Request) {
     query = query.eq("calendar_id", calendarId);
   }
 
-  const { data: events, error } = await query;
+  const [{ data: events, error: eventsError }, { data: myServings }] =
+    await Promise.all([
+      query,
+      // Serving signups where this user is an attendee (inner join filters results)
+      supabase
+        .from("serving_signups")
+        .select("id, service_date, member_groups(name), serving_signup_attendees!inner(profile_id)")
+        .eq("serving_signup_attendees.profile_id", sub.user_id)
+        .gte("service_date", thirtyDaysAgo.slice(0, 10))
+        .order("service_date", { ascending: true }),
+    ]);
 
-  if (error) {
-    console.error("Failed to fetch events for calendar feed:", error);
+  if (eventsError) {
+    console.error("Failed to fetch events for calendar feed:", eventsError);
     return new Response("Failed to fetch events", { status: 500 });
   }
 
   const typedEvents = (events ?? []) as Event[];
 
+  const servingSignups: ServingICSInput[] = (myServings ?? []).map((s) => {
+    const mg = s.member_groups as unknown as { name: string } | Array<{ name: string }> | null;
+    const teamName = (Array.isArray(mg) ? mg[0]?.name : mg?.name) ?? "Serving";
+    return { signupId: s.id as string, serviceDate: s.service_date as string, teamName };
+  });
+
   let icsString: string;
   try {
-    icsString = generateMultiEventICS(typedEvents);
+    icsString = generateCombinedICS(typedEvents, servingSignups);
   } catch (err) {
     console.error("ICS generation failed:", err);
     return new Response("Failed to generate calendar feed", { status: 500 });

@@ -10,6 +10,7 @@ import {
   type ScheduleEntry,
 } from "@/components/serving/ServingSchedule";
 import { EmailTeamButton } from "@/components/serving/EmailTeamButton";
+import { ServingSettingsDialog } from "@/components/serving/ServingSettingsDialog";
 
 export const metadata = { title: `Serving | ${siteConfig.name}` };
 
@@ -168,14 +169,30 @@ export default async function ServingSchedulePage({
         </p>
       )}
 
-      {(isLeader || isAdmin) && settings?.enabled && (
-        <div className="flex items-center gap-2 mb-6">
-          <EmailTeamButton
-            groupId={groupId}
-            teamName={group.name}
-            openDates={sundays.filter((d) => !entries[d])}
-            memberCount={memberCount ?? 0}
-          />
+      {(isLeader || isAdmin) && (
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          {settings?.enabled && (
+            <EmailTeamButton
+              groupId={groupId}
+              teamName={group.name}
+              openDates={sundays.filter((d) => !entries[d])}
+              memberCount={memberCount ?? 0}
+            />
+          )}
+          {isAdmin && (
+            <ServingSettingsDialog
+              groupId={groupId}
+              settings={
+                settings
+                  ? {
+                      enabled: settings.enabled ?? false,
+                      reminder_days: settings.reminder_days ?? [4, 5],
+                      window_weeks: settings.window_weeks ?? 8,
+                    }
+                  : null
+              }
+            />
+          )}
         </div>
       )}
 
