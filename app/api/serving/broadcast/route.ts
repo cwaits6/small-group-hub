@@ -139,7 +139,7 @@ export async function POST(request: Request) {
       });
       sent++;
     } catch (err) {
-      console.error(`Serving broadcast to ${member.id} failed:`, err);
+      console.error("Serving broadcast failed for member:", member.id, err);
     }
   }
 
