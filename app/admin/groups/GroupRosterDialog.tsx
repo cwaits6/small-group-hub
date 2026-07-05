@@ -42,7 +42,9 @@ export function GroupRosterDialog({
 }: GroupRosterDialogProps) {
   const [profiles, setProfiles] = useState<RosterProfile[]>([]);
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  // Which group the current profiles/assigned belong to — anything else is
+  // stale data from a previously opened group and must render as loading.
+  const [loadedGroupId, setLoadedGroupId] = useState<string | null>(null);
   const [mode, setMode] = useState<"roster" | "add">("roster");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,7 +55,6 @@ export function GroupRosterDialog({
     let cancelled = false;
 
     async function load(groupId: string) {
-      setLoading(true);
       setMode("roster");
       setQuery("");
       const [{ data: members, error: mErr }, { data: rows, error: rErr }] =
@@ -73,14 +74,13 @@ export function GroupRosterDialog({
       if (cancelled) return;
       if (mErr || rErr) {
         toast.error("Failed to load roster.");
-        setLoading(false);
         return;
       }
       setProfiles((members || []) as RosterProfile[]);
       setAssigned(
         new Set((rows || []).map((r: { profile_id: string }) => r.profile_id)),
       );
-      setLoading(false);
+      setLoadedGroupId(groupId);
     }
 
     load(group.id);
@@ -88,6 +88,8 @@ export function GroupRosterDialog({
       cancelled = true;
     };
   }, [group?.id]);
+
+  const loading = !group || loadedGroupId !== group.id;
 
   const roster = useMemo(
     () => profiles.filter((p) => assigned.has(p.id)),
@@ -159,7 +161,9 @@ export function GroupRosterDialog({
             )}
             {mode === "add"
               ? `Add to ${group?.name}`
-              : `${group?.name} — ${assigned.size} member${assigned.size !== 1 ? "s" : ""}`}
+              : loading
+                ? group?.name
+                : `${group?.name} — ${assigned.size} member${assigned.size !== 1 ? "s" : ""}`}
           </DialogTitle>
         </DialogHeader>
 

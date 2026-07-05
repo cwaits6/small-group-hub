@@ -97,7 +97,8 @@ export function DirectoryPreview() {
       .sort((a, b) => a.display_order - b.display_order);
 
     let familyRow: FamilyDirectoryFull | null = null;
-    if (profile.family_id) {
+    // Unlisted profiles render the hidden state — no family card to fetch
+    if (!profile.is_unlisted && profile.family_id) {
       const { data: f } = await supabase
         .from("families_directory_full")
         .select("*")
