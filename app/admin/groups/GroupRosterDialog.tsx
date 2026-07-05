@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Search, X } from "lucide-react";
+import { ArrowLeft, Plus, Search, Star, X } from "lucide-react";
 import { setGroupMembership } from "@/lib/memberGroups";
 import { displayName, initials } from "@/lib/names";
 import type { MemberGroup, Profile } from "@/lib/types";
@@ -42,6 +42,7 @@ export function GroupRosterDialog({
 }: GroupRosterDialogProps) {
   const [profiles, setProfiles] = useState<RosterProfile[]>([]);
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
+  const [leaders, setLeaders] = useState<Set<string>>(new Set());
   // Which group the current profiles/assigned belong to — anything else is
   // stale data from a previously opened group and must render as loading.
   const [loadedGroupId, setLoadedGroupId] = useState<string | null>(null);
@@ -67,7 +68,7 @@ export function GroupRosterDialog({
             .order("first_name", { ascending: true }),
           supabase
             .from("profile_groups")
-            .select("profile_id")
+            .select("profile_id, is_leader")
             .eq("group_id", groupId),
         ]);
 
@@ -76,9 +77,11 @@ export function GroupRosterDialog({
         toast.error("Failed to load roster.");
         return;
       }
+      const memberRows = (rows || []) as { profile_id: string; is_leader: boolean }[];
       setProfiles((members || []) as RosterProfile[]);
-      setAssigned(
-        new Set((rows || []).map((r: { profile_id: string }) => r.profile_id)),
+      setAssigned(new Set(memberRows.map((r) => r.profile_id)));
+      setLeaders(
+        new Set(memberRows.filter((r) => r.is_leader).map((r) => r.profile_id)),
       );
       setLoadedGroupId(groupId);
     }
@@ -128,7 +131,35 @@ export function GroupRosterDialog({
     if (member) next.add(profile.id);
     else next.delete(profile.id);
     setAssigned(next);
+    if (!member && leaders.has(profile.id)) {
+      const nextLeaders = new Set(leaders);
+      nextLeaders.delete(profile.id);
+      setLeaders(nextLeaders);
+    }
     onCountChange(group.id, next.size);
+    setBusy(null);
+  }
+
+  async function handleLeaderChange(profile: RosterProfile, leader: boolean) {
+    if (!group) return;
+    setBusy(profile.id);
+
+    const { error } = await supabase
+      .from("profile_groups")
+      .update({ is_leader: leader })
+      .eq("profile_id", profile.id)
+      .eq("group_id", group.id);
+
+    if (error) {
+      toast.error("Failed to update leader.");
+      setBusy(null);
+      return;
+    }
+
+    const next = new Set(leaders);
+    if (leader) next.add(profile.id);
+    else next.delete(profile.id);
+    setLeaders(next);
     setBusy(null);
   }
 
@@ -219,18 +250,46 @@ export function GroupRosterDialog({
                   </Avatar>
                   <span className="flex-1 min-w-0 text-sm font-medium truncate">
                     {displayName(p)}
+                    {leaders.has(p.id) && (
+                      <span className="ml-2 text-xs font-medium uppercase tracking-wider text-brand-accent">
+                        Leader
+                      </span>
+                    )}
                   </span>
                   {mode === "roster" ? (
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      disabled={busy === p.id}
-                      onClick={() => handleChange(p, false)}
-                      aria-label={`Remove ${displayName(p)} from ${group?.name}`}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={busy === p.id}
+                        onClick={() => handleLeaderChange(p, !leaders.has(p.id))}
+                        aria-label={
+                          leaders.has(p.id)
+                            ? `Remove ${displayName(p)} as leader of ${group?.name}`
+                            : `Make ${displayName(p)} a leader of ${group?.name}`
+                        }
+                        className={
+                          leaders.has(p.id)
+                            ? "text-brand-accent hover:text-muted-foreground"
+                            : "text-muted-foreground hover:text-brand-accent"
+                        }
+                      >
+                        <Star
+                          className="h-4 w-4"
+                          fill={leaders.has(p.id) ? "currentColor" : "none"}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        disabled={busy === p.id}
+                        onClick={() => handleChange(p, false)}
+                        aria-label={`Remove ${displayName(p)} from ${group?.name}`}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant="outline"

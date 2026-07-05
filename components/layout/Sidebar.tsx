@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   MailPlus,
+  HandHelping,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Profile } from "@/lib/types";
@@ -32,6 +33,7 @@ const memberNav = [
   { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/lectures", label: "Lectures", icon: BookOpen },
   { href: "/directory", label: "Directory", icon: Users },
+  { href: "/serving", label: "Serving", icon: HandHelping },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 

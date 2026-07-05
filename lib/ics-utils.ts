@@ -51,3 +51,33 @@ export function generateMultiEventICS(events: Event[]): string {
   }
   return value;
 }
+
+export interface ServingICSInput {
+  signupId: string;
+  /** YYYY-MM-DD */
+  serviceDate: string;
+  teamName: string;
+  description?: string;
+}
+
+/** All-day calendar entry for a serving Sunday (3-element dates → VALUE=DATE). */
+export function servingToICSAttributes(input: ServingICSInput): EventAttributes {
+  const [y, m, d] = input.serviceDate.split("-").map(Number);
+  const next = new Date(y, m - 1, d + 1);
+  return {
+    uid: `serving-${input.signupId}`,
+    title: `Serving: ${input.teamName}`,
+    start: [y, m, d],
+    end: [next.getFullYear(), next.getMonth() + 1, next.getDate()],
+    status: "CONFIRMED",
+    ...(input.description ? { description: input.description } : {}),
+  };
+}
+
+export function generateServingICS(input: ServingICSInput): string {
+  const { error, value } = createEvents([servingToICSAttributes(input)]);
+  if (error || !value) {
+    throw new Error(`Failed to generate ICS: ${error?.message ?? "unknown error"}`);
+  }
+  return value;
+}
