@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
 import { GroupRosterDialog } from "./GroupRosterDialog";
+import { GroupIcon } from "@/components/directory/GroupIcon";
 
 /** A curated set of lucide icon names available for group icons */
 const ICON_OPTIONS = [
@@ -50,6 +51,23 @@ const ICON_OPTIONS = [
   { value: "shield", label: "Shield" },
   { value: "bell", label: "Bell" },
   { value: "flag", label: "Flag" },
+];
+
+// Labels include the rendered icon so both the trigger and the list preview it
+const ICON_ITEMS = ICON_OPTIONS.map((opt) => ({
+  value: opt.value,
+  label: (
+    <span className="flex items-center gap-2">
+      <GroupIcon name={opt.value} className="h-4 w-4" />
+      {opt.label}
+    </span>
+  ),
+}));
+
+const ROLE_ITEMS = [
+  { value: "none", label: "None" },
+  { value: "prayer_team", label: "Prayer Team" },
+  { value: "greeter_team", label: "Greeter Team" },
 ];
 
 interface GroupFormState {
@@ -425,16 +443,17 @@ export default function GroupsPage() {
               <div className="space-y-2">
                 <Label htmlFor="g_icon">Icon</Label>
                 <Select
+                  items={ICON_ITEMS}
                   value={form.icon}
                   onValueChange={(v) => setForm({ ...form, icon: v ?? "users" })}
                 >
-                  <SelectTrigger id="g_icon">
+                  <SelectTrigger id="g_icon" className="w-full">
                     <SelectValue placeholder="Select icon" />
                   </SelectTrigger>
                   <SelectContent>
-                    {ICON_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
+                    {ICON_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -445,6 +464,7 @@ export default function GroupsPage() {
             <div className="space-y-2">
               <Label htmlFor="g_role">Functional role</Label>
               <Select
+                items={ROLE_ITEMS}
                 value={form.functional_role}
                 onValueChange={(v) =>
                   setForm({ ...form, functional_role: v ?? "none" })
@@ -454,13 +474,16 @@ export default function GroupsPage() {
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="prayer_team">Prayer Team</SelectItem>
-                  <SelectItem value="greeter_team">Greeter Team</SelectItem>
+                  {ROLE_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Functional roles sync with scheduling booleans on the profile.
+                Optional. Linking a role means people in this group can be
+                picked when scheduling prayer or greeting for a Sunday.
               </p>
             </div>
 
