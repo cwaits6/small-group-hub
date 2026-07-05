@@ -86,6 +86,21 @@ $$;
 ALTER FUNCTION "public"."is_content_editor"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_group_leader"("_group_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  select exists (
+    select 1 from public.profile_groups
+    where profile_id = auth.uid()
+      and group_id = _group_id
+      and is_leader = true
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_group_leader"("_group_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_member"() RETURNS boolean
     LANGUAGE "sql" SECURITY DEFINER
     AS $$
@@ -508,7 +523,8 @@ CREATE TABLE IF NOT EXISTS "public"."profile_groups" (
     "profile_id" "uuid" NOT NULL,
     "group_id" "uuid" NOT NULL,
     "assigned_by" "uuid",
-    "assigned_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "assigned_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "is_leader" boolean DEFAULT false NOT NULL
 );
 
 
@@ -559,6 +575,59 @@ CREATE TABLE IF NOT EXISTS "public"."rsvps" (
 
 
 ALTER TABLE "public"."rsvps" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."serving_broadcasts" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "group_id" "uuid" NOT NULL,
+    "sent_by" "uuid",
+    "subject" "text" NOT NULL,
+    "open_dates" "date"[] DEFAULT '{}'::"date"[] NOT NULL,
+    "recipient_count" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."serving_broadcasts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."serving_signup_attendees" (
+    "signup_id" "uuid" NOT NULL,
+    "profile_id" "uuid" NOT NULL
+);
+
+
+ALTER TABLE "public"."serving_signup_attendees" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."serving_signups" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "group_id" "uuid" NOT NULL,
+    "service_date" "date" NOT NULL,
+    "family_id" "uuid",
+    "created_by" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."serving_signups" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."serving_team_settings" (
+    "group_id" "uuid" NOT NULL,
+    "enabled" boolean DEFAULT false NOT NULL,
+    "reminder_days" integer[] DEFAULT '{4,5}'::integer[] NOT NULL,
+    "reminder_method" "text" DEFAULT 'email'::"text" NOT NULL,
+    "window_weeks" integer DEFAULT 8 NOT NULL,
+    "updated_by" "uuid",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "serving_team_settings_reminder_days_check" CHECK (("reminder_days" <@ ARRAY[0, 1, 2, 3, 4, 5, 6])),
+    CONSTRAINT "serving_team_settings_reminder_method_check" CHECK (("reminder_method" = 'email'::"text")),
+    CONSTRAINT "serving_team_settings_window_weeks_check" CHECK ((("window_weeks" >= 1) AND ("window_weeks" <= 26)))
+);
+
+
+ALTER TABLE "public"."serving_team_settings" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."site_settings" (
@@ -672,6 +741,31 @@ ALTER TABLE ONLY "public"."rsvps"
 
 
 
+ALTER TABLE ONLY "public"."serving_broadcasts"
+    ADD CONSTRAINT "serving_broadcasts_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."serving_signup_attendees"
+    ADD CONSTRAINT "serving_signup_attendees_pkey" PRIMARY KEY ("signup_id", "profile_id");
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_group_id_service_date_key" UNIQUE ("group_id", "service_date");
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."serving_team_settings"
+    ADD CONSTRAINT "serving_team_settings_pkey" PRIMARY KEY ("group_id");
+
+
+
 ALTER TABLE ONLY "public"."site_settings"
     ADD CONSTRAINT "site_settings_pkey" PRIMARY KEY ("key");
 
@@ -722,6 +816,14 @@ CREATE INDEX "profiles_last_first_idx" ON "public"."profiles" USING "btree" ("la
 
 
 CREATE INDEX "profiles_relationship_idx" ON "public"."profiles" USING "btree" ("relationship");
+
+
+
+CREATE INDEX "serving_signup_attendees_profile_idx" ON "public"."serving_signup_attendees" USING "btree" ("profile_id");
+
+
+
+CREATE INDEX "serving_signups_service_date_idx" ON "public"."serving_signups" USING "btree" ("service_date");
 
 
 
@@ -946,6 +1048,51 @@ ALTER TABLE ONLY "public"."rsvps"
 
 
 
+ALTER TABLE ONLY "public"."serving_broadcasts"
+    ADD CONSTRAINT "serving_broadcasts_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_broadcasts"
+    ADD CONSTRAINT "serving_broadcasts_sent_by_fkey" FOREIGN KEY ("sent_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."serving_signup_attendees"
+    ADD CONSTRAINT "serving_signup_attendees_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_signup_attendees"
+    ADD CONSTRAINT "serving_signup_attendees_signup_id_fkey" FOREIGN KEY ("signup_id") REFERENCES "public"."serving_signups"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_team_settings"
+    ADD CONSTRAINT "serving_team_settings_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_team_settings"
+    ADD CONSTRAINT "serving_team_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."site_settings"
     ADD CONSTRAINT "site_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
 
@@ -988,6 +1135,10 @@ CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FO
 
 
 CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can delete serving settings" ON "public"."serving_team_settings" FOR DELETE USING ("public"."is_admin"());
 
 
 
@@ -1067,6 +1218,10 @@ CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR 
 
 
 
+CREATE POLICY "Admins can update profile groups" ON "public"."profile_groups" FOR UPDATE USING ("public"."is_admin"());
+
+
+
 CREATE POLICY "Admins can update profiles" ON "public"."profiles" FOR UPDATE USING ("public"."is_admin"());
 
 
@@ -1127,6 +1282,22 @@ CREATE POLICY "Household primary can update family invites" ON "public"."family_
 
 
 
+CREATE POLICY "Leaders and admins can insert serving settings" ON "public"."serving_team_settings" FOR INSERT WITH CHECK (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+
+
+
+CREATE POLICY "Leaders and admins can log serving broadcasts" ON "public"."serving_broadcasts" FOR INSERT WITH CHECK ((("sent_by" = "auth"."uid"()) AND ("public"."is_admin"() OR "public"."is_group_leader"("group_id"))));
+
+
+
+CREATE POLICY "Leaders and admins can update serving settings" ON "public"."serving_team_settings" FOR UPDATE USING (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+
+
+
+CREATE POLICY "Leaders and admins can view serving broadcasts" ON "public"."serving_broadcasts" FOR SELECT USING (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+
+
+
 CREATE POLICY "Lectures visible to all" ON "public"."lectures" FOR SELECT USING (true);
 
 
@@ -1135,7 +1306,17 @@ CREATE POLICY "Members can create own subscription token" ON "public"."calendar_
 
 
 
+CREATE POLICY "Members can create serving signups" ON "public"."serving_signups" FOR INSERT WITH CHECK ((("created_by" = "auth"."uid"()) AND ("public"."is_admin"() OR "public"."is_group_leader"("group_id") OR (EXISTS ( SELECT 1
+   FROM "public"."profile_groups" "pg"
+  WHERE (("pg"."profile_id" = "auth"."uid"()) AND ("pg"."group_id" = "serving_signups"."group_id")))))));
+
+
+
 CREATE POLICY "Members can delete own rsvp" ON "public"."rsvps" FOR DELETE USING ((("auth"."uid"() = "user_id") AND "public"."is_member"()));
+
+
+
+CREATE POLICY "Members can delete own serving signups" ON "public"."serving_signups" FOR DELETE USING ((("created_by" = "auth"."uid"()) OR "public"."is_admin"() OR "public"."is_group_leader"("group_id")));
 
 
 
@@ -1193,11 +1374,35 @@ CREATE POLICY "Members can view rsvps" ON "public"."rsvps" FOR SELECT USING ("pu
 
 
 
+CREATE POLICY "Members can view serving attendees" ON "public"."serving_signup_attendees" FOR SELECT USING ("public"."is_member"());
+
+
+
+CREATE POLICY "Members can view serving settings" ON "public"."serving_team_settings" FOR SELECT USING ("public"."is_member"());
+
+
+
+CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT USING ("public"."is_member"());
+
+
+
 CREATE POLICY "Published announcements visible to all" ON "public"."announcements" FOR SELECT USING (("is_published" = true));
 
 
 
 CREATE POLICY "Series visible to all" ON "public"."lecture_series" FOR SELECT USING (true);
+
+
+
+CREATE POLICY "Signup owners can add attendees" ON "public"."serving_signup_attendees" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM "public"."serving_signups" "s"
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = "auth"."uid"()) OR "public"."is_admin"() OR "public"."is_group_leader"("s"."group_id"))))));
+
+
+
+CREATE POLICY "Signup owners can remove attendees" ON "public"."serving_signup_attendees" FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM "public"."serving_signups" "s"
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = "auth"."uid"()) OR "public"."is_admin"() OR "public"."is_group_leader"("s"."group_id"))))));
 
 
 
@@ -1254,6 +1459,18 @@ ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."rsvps" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."serving_broadcasts" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."serving_signup_attendees" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."serving_signups" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."serving_team_settings" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."site_settings" ENABLE ROW LEVEL SECURITY;
 
 
@@ -1279,6 +1496,12 @@ GRANT ALL ON FUNCTION "public"."is_admin"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "service_role";
 
 
 
@@ -1405,6 +1628,30 @@ GRANT ALL ON TABLE "public"."profiles_directory" TO "service_role";
 GRANT ALL ON TABLE "public"."rsvps" TO "anon";
 GRANT ALL ON TABLE "public"."rsvps" TO "authenticated";
 GRANT ALL ON TABLE "public"."rsvps" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."serving_broadcasts" TO "anon";
+GRANT ALL ON TABLE "public"."serving_broadcasts" TO "authenticated";
+GRANT ALL ON TABLE "public"."serving_broadcasts" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."serving_signup_attendees" TO "anon";
+GRANT ALL ON TABLE "public"."serving_signup_attendees" TO "authenticated";
+GRANT ALL ON TABLE "public"."serving_signup_attendees" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."serving_signups" TO "anon";
+GRANT ALL ON TABLE "public"."serving_signups" TO "authenticated";
+GRANT ALL ON TABLE "public"."serving_signups" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."serving_team_settings" TO "anon";
+GRANT ALL ON TABLE "public"."serving_team_settings" TO "authenticated";
+GRANT ALL ON TABLE "public"."serving_team_settings" TO "service_role";
 
 
 
