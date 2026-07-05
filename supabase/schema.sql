@@ -243,7 +243,8 @@ CREATE TABLE IF NOT EXISTS "public"."family_units" (
     "hide_phone_home" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "anniversary" "date"
+    "anniversary" "date",
+    "photo_url" "text"
 );
 
 
@@ -253,6 +254,7 @@ ALTER TABLE "public"."family_units" OWNER TO "postgres";
 CREATE OR REPLACE VIEW "public"."families_directory" WITH ("security_invoker"='true') AS
  SELECT "id",
     "family_name",
+    "photo_url",
         CASE
             WHEN "hide_address" THEN NULL::"text"
             ELSE "address_line1"
@@ -368,6 +370,7 @@ ALTER TABLE "public"."profiles" OWNER TO "postgres";
 CREATE OR REPLACE VIEW "public"."families_directory_full" WITH ("security_invoker"='true') AS
  SELECT "id",
     "family_name",
+    "photo_url",
         CASE
             WHEN "hide_address" THEN NULL::"text"
             ELSE "address_line1"
@@ -409,7 +412,7 @@ CREATE OR REPLACE VIEW "public"."families_directory_full" WITH ("security_invoke
                     ELSE "p"."birth_day"
                 END, 'birth_year',
                 CASE
-                    WHEN ("p"."hide_birthday" AND (NOT "p"."hide_birth_year")) THEN NULL::smallint
+                    WHEN ("p"."hide_birthday" OR "p"."hide_birth_year") THEN NULL::smallint
                     ELSE "p"."birth_year"
                 END) ORDER BY "p"."relationship") AS "jsonb_agg"
            FROM "public"."profiles" "p"
@@ -778,7 +781,7 @@ CREATE OR REPLACE VIEW "public"."profiles_directory" WITH ("security_invoker"='t
             ELSE "p"."birth_day"
         END AS "birth_day",
         CASE
-            WHEN ("p"."hide_birthday" AND (NOT "p"."hide_birth_year")) THEN NULL::smallint
+            WHEN ("p"."hide_birthday" OR "p"."hide_birth_year") THEN NULL::smallint
             ELSE "p"."birth_year"
         END AS "birth_year",
         CASE
