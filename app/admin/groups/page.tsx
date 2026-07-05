@@ -64,18 +64,11 @@ const ICON_ITEMS = ICON_OPTIONS.map((opt) => ({
   ),
 }));
 
-const ROLE_ITEMS = [
-  { value: "none", label: "None" },
-  { value: "prayer_team", label: "Prayer Team" },
-  { value: "greeter_team", label: "Greeter Team" },
-];
-
 interface GroupFormState {
   name: string;
   description: string;
   color: string;
   icon: string;
-  functional_role: string;
   show_in_directory_filter: boolean;
 }
 
@@ -84,7 +77,6 @@ const EMPTY_FORM: GroupFormState = {
   description: "",
   color: "#2F6BA8",
   icon: "users",
-  functional_role: "none",
   show_in_directory_filter: true,
 };
 
@@ -94,7 +86,6 @@ function fromGroup(g: MemberGroup): GroupFormState {
     description: g.description || "",
     color: g.color || "#2F6BA8",
     icon: g.icon || "users",
-    functional_role: g.functional_role || "none",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
   };
 }
@@ -163,13 +154,13 @@ export default function GroupsPage() {
       return;
     }
 
+    // functional_role is intentionally omitted: the hidden scheduling link on
+    // the seeded groups is preserved as-is until a feature actually uses it.
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       color: form.color || null,
       icon: form.icon || null,
-      functional_role:
-        form.functional_role === "none" ? null : form.functional_role,
       show_in_directory_filter: form.show_in_directory_filter,
     };
 
@@ -297,7 +288,11 @@ export default function GroupsPage() {
       ) : (
         <div className="space-y-3">
           {groups.map((group, idx) => (
-            <Card key={group.id}>
+            <Card
+              key={group.id}
+              onClick={() => setRosterGroup(group)}
+              className="cursor-pointer transition-shadow hover:shadow-md"
+            >
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center gap-4">
                   {/* Color swatch */}
@@ -308,11 +303,6 @@ export default function GroupsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold">{group.name}</p>
-                      {group.functional_role && (
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {group.functional_role.replace("_", " ")}
-                        </Badge>
-                      )}
                       {group.show_in_directory_filter && (
                         <Badge variant="secondary" className="text-xs gap-1">
                           <Filter className="h-3 w-3" />
@@ -333,7 +323,10 @@ export default function GroupsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div
+                    className="flex items-center gap-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -459,32 +452,6 @@ export default function GroupsPage() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="g_role">Functional role</Label>
-              <Select
-                items={ROLE_ITEMS}
-                value={form.functional_role}
-                onValueChange={(v) =>
-                  setForm({ ...form, functional_role: v ?? "none" })
-                }
-              >
-                <SelectTrigger id="g_role">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLE_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Optional. Linking a role means people in this group can be
-                picked when scheduling prayer or greeting for a Sunday.
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
