@@ -24,9 +24,12 @@ export function AdminServingSetup({ groups }: AdminServingSetupProps) {
 
   async function enable(groupId: string, name: string) {
     setBusy(groupId);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("serving_team_settings")
-      .upsert({ group_id: groupId, enabled: true });
+      .upsert({ group_id: groupId, enabled: true, updated_by: user?.id });
     setBusy(null);
 
     if (error) {

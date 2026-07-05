@@ -53,21 +53,26 @@ export function ServingSchedule({
 
   async function signUp(date: string, attendeeProfileIds: string[]) {
     setBusy(true);
-    const res = await fetch("/api/serving/signups", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId, serviceDate: date, attendeeProfileIds }),
-    });
-    setBusy(false);
-    setPickerDate(null);
+    try {
+      const res = await fetch("/api/serving/signups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId, serviceDate: date, attendeeProfileIds }),
+      });
 
-    if (res.ok) {
-      toast.success(
-        `You're signed up for ${formatServiceDate(date)}! A confirmation email is on its way.`
-      );
-    } else {
-      const body = await res.json().catch(() => null);
-      toast.error(body?.error || "Something went wrong — please try again.");
+      if (res.ok) {
+        toast.success(
+          `You're signed up for ${formatServiceDate(date)}! A confirmation email is on its way.`
+        );
+      } else {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error || "Something went wrong — please try again.");
+      }
+    } catch {
+      toast.error("Something went wrong — please try again.");
+    } finally {
+      setBusy(false);
+      setPickerDate(null);
     }
     router.refresh();
   }
@@ -80,18 +85,23 @@ export function ServingSchedule({
     if (!confirm(message)) return;
 
     setBusy(true);
-    const res = await fetch("/api/serving/signups", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signupId: entry.id }),
-    });
-    setBusy(false);
+    try {
+      const res = await fetch("/api/serving/signups", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signupId: entry.id }),
+      });
 
-    if (res.ok) {
-      toast.success("Signup cancelled.");
-    } else {
-      const body = await res.json().catch(() => null);
-      toast.error(body?.error || "Failed to cancel — please try again.");
+      if (res.ok) {
+        toast.success("Signup cancelled.");
+      } else {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error || "Failed to cancel — please try again.");
+      }
+    } catch {
+      toast.error("Failed to cancel — please try again.");
+    } finally {
+      setBusy(false);
     }
     router.refresh();
   }

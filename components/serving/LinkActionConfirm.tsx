@@ -31,18 +31,23 @@ export function LinkActionConfirm({
   async function submit(includeSpouse: boolean) {
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/serving/link-action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, includeSpouse }),
-    });
-    setBusy(false);
+    try {
+      const res = await fetch("/api/serving/link-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, includeSpouse }),
+      });
 
-    if (res.ok) {
-      setDone(true);
-    } else {
-      const body = await res.json().catch(() => null);
-      setError(body?.error || "Something went wrong — please try again.");
+      if (res.ok) {
+        setDone(true);
+      } else {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || "Something went wrong — please try again.");
+      }
+    } catch {
+      setError("Something went wrong — please try again.");
+    } finally {
+      setBusy(false);
     }
   }
 

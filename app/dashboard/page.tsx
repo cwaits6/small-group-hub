@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Play, Users, Bell, Heart, HandHelping } from "lucide-react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/config";
-import { formatServiceDate } from "@/lib/serving/sundays";
+import { formatServiceDate, toDateString } from "@/lib/serving/sundays";
 import { RsvpSegmented } from "./RsvpSegmented";
 import type { Rsvp } from "@/lib/types";
 
@@ -218,7 +218,7 @@ export default async function DashboardPage() {
     .from("serving_signups")
     .select("id, service_date, group_id, member_groups(id, name), serving_signup_attendees!inner(profile_id)")
     .eq("serving_signup_attendees.profile_id", profile.id)
-    .gte("service_date", now.slice(0, 10))
+    .gte("service_date", toDateString(new Date()))
     .order("service_date", { ascending: true })
     .limit(3);
 

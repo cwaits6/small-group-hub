@@ -105,13 +105,17 @@ export async function notifyLeadersOfCancel(
       | (NamedProfile & { email: string | null })
       | null;
     if (!leader?.email || leader.id === opts.excludeProfileId) continue;
-    await sendServingCancelNoticeEmail({
-      to: leader.email,
-      leaderName: displayName(leader),
-      memberLabel: opts.memberLabel,
-      teamName: opts.groupName,
-      serviceDate: opts.serviceDate,
-      servingUrl: `${siteConfig.url}/serving/${opts.groupId}`,
-    });
+    try {
+      await sendServingCancelNoticeEmail({
+        to: leader.email,
+        leaderName: displayName(leader),
+        memberLabel: opts.memberLabel,
+        teamName: opts.groupName,
+        serviceDate: opts.serviceDate,
+        servingUrl: `${siteConfig.url}/serving/${opts.groupId}`,
+      });
+    } catch (err) {
+      console.error("Failed to send serving cancel notice to leader:", leader.id, err);
+    }
   }
 }

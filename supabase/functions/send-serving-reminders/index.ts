@@ -102,26 +102,42 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // ── Email ─────────────────────────────────────────────────────────────────────
 
-async function sendEmail(opts: { to: string; subject: string; html: string }) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
-  });
-  if (!res.ok) {
-    console.error("Resend error for", opts.to, await res.text());
+async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<boolean> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
+    });
+    if (!res.ok) {
+      console.error("Resend error for", opts.to, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Resend request failed for", opts.to, err);
+    return false;
   }
 }
 
 function wrap(inner: string): string {
   return `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px 20px;">
     ${inner}
-    <p style="font-size:14px;color:#78716c;margin-top:40px;">&mdash; The ${APP_NAME} Team</p>
+    <p style="font-size:14px;color:#78716c;margin-top:40px;">&mdash; The ${escapeHtml(APP_NAME)} Team</p>
   </div>`;
 }
 
@@ -186,6 +202,9 @@ Deno.serve(async () => {
       for (const { profiles: p } of attendees) {
         if (!p?.email) continue;
         const name = p.preferred_name || p.first_name || "Friend";
+        const safeName = escapeHtml(name);
+        const safeTeamName = escapeHtml(teamName);
+        const safeDateLabel = escapeHtml(dateLabel);
 
         let cancelUrl = `${SITE_URL}/serving/${group_id}`;
         if (canSign) {
@@ -195,18 +214,18 @@ Deno.serve(async () => {
           )}`;
         }
 
-        await sendEmail({
+        if (await sendEmail({
           to: p.email,
           subject: `Reminder: you're serving this Sunday with the ${teamName}`,
           html: wrap(`
             <h1 style="color:${BRAND_COLOR};font-size:28px;">See you Sunday!</h1>
             <p style="font-size:18px;line-height:1.6;color:#44403c;">
-              Hi ${name}, just a reminder that you&rsquo;re signed up to serve with the
-              <strong>${teamName}</strong> this Sunday.
+              Hi ${safeName}, just a reminder that you&rsquo;re signed up to serve with the
+              <strong>${safeTeamName}</strong> this Sunday.
             </p>
             <div style="background:#fef3c7;padding:20px;border-radius:8px;margin:20px 0;">
               <p style="font-size:18px;margin:0;color:#44403c;">
-                <strong>When:</strong> ${dateLabel}
+                <strong>When:</strong> ${safeDateLabel}
               </p>
             </div>
             <p style="font-size:14px;color:#78716c;">
@@ -215,8 +234,9 @@ Deno.serve(async () => {
               so someone else can cover.
             </p>
           `),
-        });
-        emailsSent++;
+        })) {
+          emailsSent++;
+        }
       }
     } else {
       // ── Open: nudge all team members ──────────────────────────────────
@@ -230,6 +250,9 @@ Deno.serve(async () => {
         if (!m?.email) continue;
 
         const name = m.preferred_name || m.first_name || "Friend";
+        const safeName = escapeHtml(name);
+        const safeTeamName = escapeHtml(teamName);
+        const safeDateLabel = escapeHtml(dateLabel);
         let signupUrl = `${SITE_URL}/serving/${group_id}`;
         if (canSign) {
           signupUrl = `${SITE_URL}/serving/go?token=${await createToken(
@@ -238,18 +261,18 @@ Deno.serve(async () => {
           )}`;
         }
 
-        await sendEmail({
+        if (await sendEmail({
           to: m.email,
           subject: `${teamName}: this Sunday still needs someone`,
           html: wrap(`
             <h1 style="color:${BRAND_COLOR};font-size:28px;">Can you take this Sunday?</h1>
             <p style="font-size:18px;line-height:1.6;color:#44403c;">
-              Hi ${name}, the <strong>${teamName}</strong> still needs a volunteer
+              Hi ${safeName}, the <strong>${safeTeamName}</strong> still needs a volunteer
               for this Sunday.
             </p>
             <table role="presentation" width="100%" style="border-bottom:1px solid #e7e5e4;">
               <tr>
-                <td style="padding:14px 0;font-size:18px;color:#44403c;">${dateLabel}</td>
+                <td style="padding:14px 0;font-size:18px;color:#44403c;">${safeDateLabel}</td>
                 <td align="right" style="padding:14px 0;">
                   <a href="${signupUrl}"
                      style="display:inline-block;background-color:${BRAND_COLOR};color:white;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:16px;white-space:nowrap;">
@@ -259,8 +282,9 @@ Deno.serve(async () => {
               </tr>
             </table>
           `),
-        });
-        emailsSent++;
+        })) {
+          emailsSent++;
+        }
       }
     }
   }

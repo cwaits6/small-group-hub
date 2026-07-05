@@ -69,10 +69,17 @@ export default async function ServingSchedulePage({
   const isMember = !!membership;
   const isLeader = membership?.is_leader === true;
 
-  const { count: memberCount } = await supabase
+  const { data: memberRows } = await supabase
     .from("profile_groups")
-    .select("profile_id", { count: "exact", head: true })
+    .select("profiles(email, role)")
     .eq("group_id", groupId);
+  const memberCount = (memberRows ?? []).filter((row) => {
+    const member = row.profiles as unknown as {
+      email: string | null;
+      role: string;
+    } | null;
+    return !!member?.email && member.role !== "pending";
+  }).length;
 
   const sundays = upcomingSundays(settings?.window_weeks ?? 8);
 

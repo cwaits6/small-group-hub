@@ -43,11 +43,15 @@ export function ServingSettingsDialog({ groupId, settings }: ServingSettingsDial
 
   async function save() {
     setSaving(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { error } = await supabase.from("serving_team_settings").upsert({
       group_id: groupId,
       enabled,
       reminder_days: reminderDays,
       window_weeks: Math.max(1, Math.min(26, windowWeeks)),
+      updated_by: user?.id,
     });
     setSaving(false);
 
@@ -95,6 +99,7 @@ export function ServingSettingsDialog({ groupId, settings }: ServingSettingsDial
                 <button
                   key={dow}
                   type="button"
+                  aria-pressed={reminderDays.includes(dow)}
                   onClick={() => toggleDay(dow)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
                     reminderDays.includes(dow)

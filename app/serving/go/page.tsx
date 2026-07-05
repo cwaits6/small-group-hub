@@ -65,17 +65,28 @@ export default async function ServingLinkPage({
     );
   }
 
-  const [{ data: profile }, { data: group }, { data: signup }] =
+  const [{ data: profile }, { data: group }, { data: settings }, { data: membership }, { data: signup }] =
     await Promise.all([
       service
         .from("profiles")
-        .select("id, first_name, preferred_name, family_id")
+        .select("id, first_name, preferred_name, family_id, role")
         .eq("id", payload.p)
         .maybeSingle(),
       service
         .from("member_groups")
         .select("id, name")
         .eq("id", payload.g)
+        .maybeSingle(),
+      service
+        .from("serving_team_settings")
+        .select("enabled")
+        .eq("group_id", payload.g)
+        .maybeSingle(),
+      service
+        .from("profile_groups")
+        .select("profile_id")
+        .eq("profile_id", payload.p)
+        .eq("group_id", payload.g)
         .maybeSingle(),
       service
         .from("serving_signups")
@@ -87,7 +98,7 @@ export default async function ServingLinkPage({
         .maybeSingle(),
     ]);
 
-  if (!profile || !group) {
+  if (!profile || profile.role === "pending" || !group || !settings?.enabled) {
     return (
       <Message
         title="This link has expired"
@@ -100,6 +111,14 @@ export default async function ServingLinkPage({
   const firstName = profile.preferred_name || profile.first_name || "Friend";
 
   if (payload.a === "signup") {
+    if (!membership) {
+      return (
+        <Message
+          title="You're no longer on this team"
+          body="This signup link is for a team you're not currently part of. Check the serving page for teams available to you."
+        />
+      );
+    }
     if (!isValidServiceDate(payload.d)) {
       return (
         <Message

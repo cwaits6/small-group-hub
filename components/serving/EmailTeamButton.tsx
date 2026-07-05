@@ -39,22 +39,27 @@ export function EmailTeamButton({
 
   async function send() {
     setSending(true);
-    const res = await fetch("/api/serving/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ groupId, message: message.trim() || undefined }),
-    });
-    setSending(false);
+    try {
+      const res = await fetch("/api/serving/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ groupId, message: message.trim() || undefined }),
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      toast.success(`Email sent to ${data.sent} team member${data.sent !== 1 ? "s" : ""}.`);
-      setOpen(false);
-      setMessage("");
-      router.refresh();
-    } else {
-      const body = await res.json().catch(() => null);
-      toast.error(body?.error || "Failed to send — please try again.");
+      if (res.ok) {
+        const data = await res.json();
+        toast.success(`Email sent to ${data.sent} team member${data.sent !== 1 ? "s" : ""}.`);
+        setOpen(false);
+        setMessage("");
+        router.refresh();
+      } else {
+        const body = await res.json().catch(() => null);
+        toast.error(body?.error || "Failed to send — please try again.");
+      }
+    } catch {
+      toast.error("Failed to send — please try again.");
+    } finally {
+      setSending(false);
     }
   }
 
