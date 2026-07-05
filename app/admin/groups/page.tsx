@@ -15,13 +15,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -35,34 +28,7 @@ import {
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
 import { GroupRosterDialog } from "./GroupRosterDialog";
-import { GroupIcon } from "@/components/directory/GroupIcon";
-
-/** A curated set of lucide icon names available for group icons */
-const ICON_OPTIONS = [
-  { value: "heart", label: "Heart" },
-  { value: "hand-helping", label: "Hand (Helping)" },
-  { value: "users", label: "Users" },
-  { value: "user", label: "User" },
-  { value: "star", label: "Star" },
-  { value: "cross", label: "Cross" },
-  { value: "book-open", label: "Book" },
-  { value: "music", label: "Music" },
-  { value: "baby", label: "Baby" },
-  { value: "shield", label: "Shield" },
-  { value: "bell", label: "Bell" },
-  { value: "flag", label: "Flag" },
-];
-
-// Labels include the rendered icon so both the trigger and the list preview it
-const ICON_ITEMS = ICON_OPTIONS.map((opt) => ({
-  value: opt.value,
-  label: (
-    <span className="flex items-center gap-2">
-      <GroupIcon name={opt.value} className="h-4 w-4" />
-      {opt.label}
-    </span>
-  ),
-}));
+import { IconPicker } from "./IconPicker";
 
 interface GroupFormState {
   name: string;
@@ -409,49 +375,35 @@ export default function GroupsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="g_color">Color</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="g_color"
-                    type="color"
-                    value={form.color}
-                    onChange={(e) =>
-                      setForm({ ...form, color: e.target.value })
-                    }
-                    className="h-9 w-9 cursor-pointer rounded border border-input"
-                  />
-                  <Input
-                    value={form.color}
-                    onChange={(e) =>
-                      setForm({ ...form, color: e.target.value })
-                    }
-                    placeholder="#2F6BA8"
-                    className="font-mono text-sm"
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="g_color">Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="g_color"
+                  type="color"
+                  value={form.color}
+                  onChange={(e) =>
+                    setForm({ ...form, color: e.target.value })
+                  }
+                  className="h-9 w-9 cursor-pointer rounded border border-input"
+                />
+                <Input
+                  value={form.color}
+                  onChange={(e) =>
+                    setForm({ ...form, color: e.target.value })
+                  }
+                  placeholder="#2F6BA8"
+                  className="font-mono text-sm w-32"
+                />
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="g_icon">Icon</Label>
-                <Select
-                  items={ICON_ITEMS}
-                  value={form.icon}
-                  onValueChange={(v) => setForm({ ...form, icon: v ?? "users" })}
-                >
-                  <SelectTrigger id="g_icon" className="w-full">
-                    <SelectValue placeholder="Select icon" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ICON_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label>Icon</Label>
+              <IconPicker
+                value={form.icon}
+                onChange={(v) => setForm({ ...form, icon: v })}
+              />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">

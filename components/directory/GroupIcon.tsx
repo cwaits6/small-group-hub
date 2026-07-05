@@ -1,43 +1,18 @@
-import {
-  Baby,
-  Bell,
-  BookOpen,
-  Cross,
-  Flag,
-  HandHelping,
-  Heart,
-  Music,
-  Shield,
-  Star,
-  User,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
+"use client";
 
-/** Icon names offered in the admin group editor, mapped to components */
-const ICONS: Record<string, LucideIcon> = {
-  heart: Heart,
-  "hand-helping": HandHelping,
-  users: Users,
-  user: User,
-  star: Star,
-  cross: Cross,
-  "book-open": BookOpen,
-  music: Music,
-  baby: Baby,
-  shield: Shield,
-  bell: Bell,
-  flag: Flag,
-};
+import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 
 interface GroupIconProps {
   name: string | null | undefined;
   className?: string;
 }
 
-/** Renders the lucide icon an admin picked for a group, or nothing */
+/**
+ * Renders the lucide icon an admin picked for a group, or nothing.
+ * Icons are lazy-loaded by name, so any of the ~1,950 lucide icons work;
+ * unknown names render nothing (DynamicIcon logs and returns null).
+ */
 export function GroupIcon({ name, className }: GroupIconProps) {
-  const Icon = name ? ICONS[name] : undefined;
-  if (!Icon) return null;
-  return <Icon className={className} />;
+  if (!name) return null;
+  return <DynamicIcon name={name as IconName} className={className} />;
 }
