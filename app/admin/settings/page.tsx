@@ -21,6 +21,7 @@ const SETTINGS_LABELS: Record<string, string> = {
   zoom_meeting_time: "Zoom Meeting Time",
   weekly_prayer_call_url: "Weekly Prayer Call URL",
   weekly_prayer_call_time: "Weekly Prayer Call Time",
+  serving_link_mode: "Serving Email Link Mode",
 };
 
 export default function SettingsPage() {
@@ -92,15 +93,29 @@ export default function SettingsPage() {
             {Object.entries(SETTINGS_LABELS).map(([key, label]) => (
               <div key={key} className="space-y-2">
                 <Label htmlFor={key} className="text-lg">{label}</Label>
-                <Input
-                  id={key}
-                  value={settings[key] || ""}
-                  onChange={(e) =>
-                    setSettings((prev) => ({ ...prev, [key]: e.target.value }))
-                  }
-                  placeholder={`Enter ${label.toLowerCase()}`}
-                  className="text-lg py-6"
-                />
+                {key === "serving_link_mode" ? (
+                  <select
+                    id={key}
+                    value={settings[key] || "signed"}
+                    onChange={(e) =>
+                      setSettings((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                  >
+                    <option value="signed">Signed links — members act without logging in (recommended)</option>
+                    <option value="login">Login required — links redirect to the login page first</option>
+                  </select>
+                ) : (
+                  <Input
+                    id={key}
+                    value={settings[key] || ""}
+                    onChange={(e) =>
+                      setSettings((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    placeholder={`Enter ${label.toLowerCase()}`}
+                    className="text-lg py-6"
+                  />
+                )}
               </div>
             ))}
 

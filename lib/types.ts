@@ -234,6 +234,48 @@ export interface ProfileGroup {
   group_id: string;
   assigned_by: string | null;
   assigned_at: string;
+  /** Leader of this group only — no global leader role */
+  is_leader: boolean;
+}
+
+/** Per-group serving signup configuration */
+export interface ServingTeamSettings {
+  group_id: string;
+  enabled: boolean;
+  /** Days of week to send reminders (0=Sunday .. 6=Saturday) */
+  reminder_days: number[];
+  reminder_method: "email";
+  /** How many upcoming Sundays to show / email about */
+  window_weeks: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+/** One covered Sunday for one serving team */
+export interface ServingSignup {
+  id: string;
+  group_id: string;
+  /** YYYY-MM-DD */
+  service_date: string;
+  family_id: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface ServingSignupAttendee {
+  signup_id: string;
+  profile_id: string;
+}
+
+/** Log entry for a leader "Email the team" send */
+export interface ServingBroadcast {
+  id: string;
+  group_id: string;
+  sent_by: string | null;
+  subject: string;
+  open_dates: string[];
+  recipient_count: number;
+  created_at: string;
 }
 
 /** Minimal group info embedded in directory views */

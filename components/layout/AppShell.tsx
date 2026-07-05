@@ -17,6 +17,7 @@ const SIDEBAR_ROUTES = [
   "/pages",
   "/admin",
   "/directory",
+  "/serving",
   "/profile",
 ];
 
