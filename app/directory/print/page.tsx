@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatPhone } from "@/lib/sanitize";
 import { displayName } from "@/lib/names";
 import { siteConfig } from "@/lib/config";
@@ -32,11 +33,11 @@ function formatAddress(a: {
   postal_code: string | null;
 }): string | null {
   if (!a.address_line1 && !a.city) return null;
+  const cityState = [a.city, a.state].filter(Boolean).join(", ");
   const line = [
     a.address_line1,
     a.address_line2,
-    [a.city, a.state].filter(Boolean).join(", ") +
-      (a.postal_code ? ` ${a.postal_code}` : ""),
+    [cityState, a.postal_code].filter(Boolean).join(" "),
   ]
     .filter(Boolean)
     .join(", ");
@@ -73,11 +74,15 @@ export default function DirectoryPrintPage() {
   const [members, setMembers] = useState<DirectoryProfile[]>([]);
   const [families, setFamilies] = useState<FamilyDirectoryFull[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const [{ data: m }, { data: f }] = await Promise.all([
+      const [
+        { data: m, error: mErr },
+        { data: f, error: fErr },
+      ] = await Promise.all([
         supabase
           .from("profiles_directory")
           .select("*")
@@ -87,6 +92,12 @@ export default function DirectoryPrintPage() {
           .select("*")
           .order("family_name", { ascending: true }),
       ]);
+      if (mErr || fErr) {
+        console.error("Failed to load directory:", mErr || fErr);
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
       setMembers((m || []) as DirectoryProfile[]);
       setFamilies((f || []) as FamilyDirectoryFull[]);
       setLoading(false);
@@ -143,19 +154,34 @@ export default function DirectoryPrintPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="container mx-auto px-4 py-12 space-y-4">
+        <p className="text-xl text-muted-foreground">
+          Couldn&apos;t load the directory. Please try again.
+        </p>
+        <Link
+          href="/directory"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to directory
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-6 py-8 max-w-3xl bg-white text-black">
       {/* Toolbar — hidden when printing */}
       <div className="flex items-center justify-between mb-8 print:hidden">
-        <Button
-          variant="ghost"
-          size="sm"
-          nativeButton={false}
-          render={<Link href="/directory" />}
+        <Link
+          href="/directory"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to directory
-        </Button>
+        </Link>
         <Button
           onClick={() => window.print()}
           className="bg-brand-primary hover:bg-brand-primary/90 text-white"

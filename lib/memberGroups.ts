@@ -45,9 +45,22 @@ export async function setGroupMembership(
       .update({ [column]: member })
       .eq("id", profileId);
     if (error) {
+      // Roll back the membership change so the roster and the denormalized
+      // role flag never disagree.
+      if (member) {
+        await supabase
+          .from("profile_groups")
+          .delete()
+          .eq("profile_id", profileId)
+          .eq("group_id", group.id);
+      } else {
+        await supabase
+          .from("profile_groups")
+          .insert({ profile_id: profileId, group_id: group.id });
+      }
       return member
-        ? `Added to ${group.name} but failed to sync role.`
-        : `Removed from ${group.name} but failed to sync role.`;
+        ? `Failed to add to ${group.name}.`
+        : `Failed to remove from ${group.name}.`;
     }
   }
 

@@ -43,6 +43,21 @@ function formatDaysUntil(days: number): string {
   return `in ${days} days`;
 }
 
+/** Compact wrapped chips — shared by the browsed-month and This Month views */
+function EntryChips({ entries }: { entries: BirthdayEntry[] }) {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-1">
+      {entries.map((entry) => (
+        <span key={entry.key} className="text-sm text-muted-foreground">
+          {entry.type === "anniversary" ? "💍" : "🎂"}{" "}
+          <span className="font-medium text-foreground">{entry.name}</span>{" "}
+          ({MONTH_NAMES[entry.month - 1]} {entry.day})
+        </span>
+      ))}
+    </div>
+  );
+}
+
 interface BirthdayWidgetProps {
   members: DirectoryProfile[];
   families: FamilyDirectoryFull[];
@@ -262,17 +277,7 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
                   {MONTH_NAMES[browseMonth - 1]}.
                 </p>
               ) : (
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {browsedEntries.map((entry) => (
-                    <span key={entry.key} className="text-sm text-muted-foreground">
-                      {entry.type === "anniversary" ? "💍" : "🎂"}{" "}
-                      <span className="font-medium text-foreground">
-                        {entry.name}
-                      </span>{" "}
-                      ({MONTH_NAMES[entry.month - 1]} {entry.day})
-                    </span>
-                  ))}
-                </div>
+                <EntryChips entries={browsedEntries} />
               )
             ) : (
               <>
@@ -319,17 +324,7 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
                   This Month
                 </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {thisMonth.map((entry) => (
-                    <span key={entry.key} className="text-sm text-muted-foreground">
-                      {entry.type === "anniversary" ? "💍" : "🎂"}{" "}
-                      <span className="font-medium text-foreground">
-                        {entry.name}
-                      </span>{" "}
-                      ({MONTH_NAMES[entry.month - 1]} {entry.day})
-                    </span>
-                  ))}
-                </div>
+                <EntryChips entries={thisMonth} />
               </div>
             )}
 

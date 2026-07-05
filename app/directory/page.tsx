@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sheet,
@@ -21,6 +21,7 @@ import {
   Search,
   Tags,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { formatPhone } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
 import { BirthdayWidget } from "@/components/directory/BirthdayWidget";
@@ -674,16 +675,16 @@ export default function DirectoryPage() {
                 <Tags className="mr-1 h-4 w-4" />
                 Groups ({allGroups.length})
               </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                nativeButton={false}
-                render={<Link href="/directory/print" />}
+              <Link
+                href="/directory/print"
                 aria-label="Printable directory"
-                className="ml-auto text-muted-foreground"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                  "ml-auto text-muted-foreground",
+                )}
               >
                 <Printer className="h-4 w-4" />
-              </Button>
+              </Link>
             </div>
           </div>
 

@@ -80,6 +80,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
         type="button"
         variant="outline"
         onClick={() => setOpen(!open)}
+        aria-expanded={open}
         className="w-full justify-between font-normal"
       >
         <span className="flex items-center gap-2">
@@ -119,6 +120,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
                   type="button"
                   title={prettyName(n)}
                   aria-label={prettyName(n)}
+                  aria-pressed={n === value}
                   onClick={() => pick(n)}
                   className={cn(
                     "flex h-9 items-center justify-center rounded-md hover:bg-accent transition-colors",

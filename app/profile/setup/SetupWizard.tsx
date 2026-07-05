@@ -782,7 +782,6 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                   placeholder="Year"
                   value={birthYear}
                   onChange={(e) => setBirthYear(e.target.value)}
-                  disabled={hideBirthYear}
                   className="text-base py-5"
                 />
               </div>
@@ -791,10 +790,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                   <Switch
                     id="hide_birth_year"
                     checked={hideBirthYear}
-                    onCheckedChange={(v) => {
-                      setHideBirthYear(v);
-                      if (v) setBirthYear("");
-                    }}
+                    onCheckedChange={setHideBirthYear}
                   />
                   <Label
                     htmlFor="hide_birth_year"

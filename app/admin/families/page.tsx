@@ -143,6 +143,7 @@ export default function FamiliesPage() {
   // Family photo state (edit mode only — the path needs the family id)
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
@@ -336,20 +337,31 @@ export default function FamiliesPage() {
 
   async function handlePhotoRemove() {
     if (!editing) return;
-    const { error } = await supabase
-      .from("family_units")
-      .update({ photo_url: null })
-      .eq("id", editing.id);
-    if (error) {
-      toast.error("Failed to remove family photo.");
-      return;
+    setRemovingPhoto(true);
+    try {
+      // Delete the file first — removing a missing object doesn't error, so
+      // a retry after a failed DB update stays safe.
+      const { error: storageError } = await supabase.storage
+        .from("avatars")
+        .remove([`families/${editing.id}/photo.jpg`]);
+      if (storageError) {
+        toast.error("Failed to remove family photo.");
+        return;
+      }
+      const { error } = await supabase
+        .from("family_units")
+        .update({ photo_url: null })
+        .eq("id", editing.id);
+      if (error) {
+        toast.error("Failed to remove family photo.");
+        return;
+      }
+      setPhotoUrl(null);
+      toast.success("Family photo removed.");
+      loadFamilies();
+    } finally {
+      setRemovingPhoto(false);
     }
-    await supabase.storage
-      .from("avatars")
-      .remove([`families/${editing.id}/photo.jpg`]);
-    setPhotoUrl(null);
-    toast.success("Family photo removed.");
-    loadFamilies();
   }
 
   function startAddMember() {
@@ -569,7 +581,7 @@ export default function FamiliesPage() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        disabled={uploadingPhoto}
+                        disabled={uploadingPhoto || removingPhoto}
                         onClick={() => photoInputRef.current?.click()}
                       >
                         <Camera className="mr-1 h-4 w-4" />
@@ -579,6 +591,7 @@ export default function FamiliesPage() {
                         type="button"
                         variant="secondary"
                         size="sm"
+                        disabled={uploadingPhoto || removingPhoto}
                         onClick={handlePhotoRemove}
                       >
                         <Trash2 className="h-4 w-4" />
