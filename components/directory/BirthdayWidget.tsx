@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { displayName, initials } from "@/lib/names";
 import type { DirectoryProfile, FamilyDirectoryFull } from "@/lib/types";
 
@@ -57,6 +57,8 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
 
   const [includeNonClassMembers, setIncludeNonClassMembers] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean | null>(null); // null = auto
+  // 1-12 when browsing a specific month; null = default upcoming view
+  const [browseMonth, setBrowseMonth] = useState<number | null>(null);
 
   const entries = useMemo<BirthdayEntry[]>(() => {
     const result: BirthdayEntry[] = [];
@@ -145,6 +147,23 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
       .sort((a, b) => a.day - b.day);
   }, [filtered, currentMonth]);
 
+  // Full list for a browsed month
+  const browsedEntries = useMemo(() => {
+    if (browseMonth === null) return [];
+    return filtered
+      .filter((e) => e.month === browseMonth)
+      .sort((a, b) => a.day - b.day);
+  }, [filtered, browseMonth]);
+
+  function stepMonth(delta: number) {
+    const base = browseMonth ?? currentMonth;
+    let next = base + delta;
+    if (next < 1) next = 12;
+    if (next > 12) next = 1;
+    setBrowseMonth(next === currentMonth ? null : next);
+    setCollapsed(false);
+  }
+
   const hasEvents = thisWeek.length > 0 || thisMonth.length > 0;
 
   // Auto-expand if there are events this week, auto-collapse otherwise.
@@ -202,6 +221,61 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
 
         {!isCollapsed && (
           <div className="space-y-4">
+            {/* Month navigator */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => stepMonth(-1)}
+                aria-label="Previous month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-28 text-center">
+                {browseMonth === null
+                  ? "Upcoming"
+                  : MONTH_NAMES[browseMonth - 1]}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => stepMonth(1)}
+                aria-label="Next month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              {browseMonth !== null && (
+                <button
+                  type="button"
+                  onClick={() => setBrowseMonth(null)}
+                  className="text-xs text-brand-primary hover:underline ml-2"
+                >
+                  Back to upcoming
+                </button>
+              )}
+            </div>
+
+            {browseMonth !== null ? (
+              browsedEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No birthdays or anniversaries in{" "}
+                  {MONTH_NAMES[browseMonth - 1]}.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {browsedEntries.map((entry) => (
+                    <span key={entry.key} className="text-sm text-muted-foreground">
+                      {entry.type === "anniversary" ? "💍" : "🎂"}{" "}
+                      <span className="font-medium text-foreground">
+                        {entry.name}
+                      </span>{" "}
+                      ({MONTH_NAMES[entry.month - 1]} {entry.day})
+                    </span>
+                  ))}
+                </div>
+              )
+            ) : (
+              <>
             {thisWeek.length > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
@@ -263,6 +337,8 @@ export function BirthdayWidget({ members, families }: BirthdayWidgetProps) {
               <p className="text-sm text-muted-foreground">
                 No birthdays or anniversaries this month.
               </p>
+            )}
+              </>
             )}
           </div>
         )}

@@ -1322,25 +1322,15 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
             <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleComplete}
-              disabled={saving}
-            >
-              {saving ? "Saving..." : "Skip & Finish"}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleComplete}
-              disabled={saving}
-              className="bg-brand-primary hover:bg-brand-primary/90 text-white flex items-center gap-2"
-            >
-              {saving ? "Saving..." : "Complete Setup"}
-              {!saving && <Check className="h-4 w-4" />}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            onClick={handleComplete}
+            disabled={saving}
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white flex items-center gap-2"
+          >
+            {saving ? "Saving..." : "Complete Setup"}
+            {!saving && <Check className="h-4 w-4" />}
+          </Button>
         )}
       </div>
     </div>

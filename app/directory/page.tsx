@@ -1,106 +1,63 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import Link from "next/link";
 import {
-  Search,
-  Phone,
-  Mail,
-  MapPin,
-  Calendar,
-  Briefcase,
+  ChevronLeft,
+  ChevronRight,
   Home,
   LayoutList,
-  Users,
-  Download,
+  Printer,
+  Search,
+  Tags,
 } from "lucide-react";
 import { formatPhone } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
 import { BirthdayWidget } from "@/components/directory/BirthdayWidget";
+import { AvatarCluster } from "@/components/directory/AvatarCluster";
+import { GroupBadge } from "@/components/directory/GroupBadge";
+import { GroupIcon } from "@/components/directory/GroupIcon";
+import { ProfileSheetContent } from "@/components/directory/ProfileSheetContent";
+import { HouseholdSheetContent } from "@/components/directory/HouseholdSheetContent";
+import { GroupSheetContent } from "@/components/directory/GroupSheetContent";
+import { formatAnniversary, relLabel } from "@/components/directory/utils";
+import type { DirectoryGroup } from "@/components/directory/types";
 import type {
   DirectoryProfile,
   FamilyDirectoryFull,
-  GroupChip,
-  HouseholdMember,
   HouseholdFamilyMember,
+  HouseholdMember,
 } from "@/lib/types";
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function formatBirthdayShort(month: number, day: number): string {
-  return `${MONTH_NAMES[month - 1]} ${day}`;
-}
-
-function formatAnniversary(iso: string): string {
-  const d = new Date(iso + "T00:00:00");
-  return d.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-/** Resolve the best address to show in the detail sheet */
-function resolveAddress(
-  member: DirectoryProfile,
-  family: FamilyDirectoryFull | null,
-) {
-  const line1 = member.address_line1 ?? family?.address_line1 ?? null;
-  const line2 = member.address_line2 ?? family?.address_line2 ?? null;
-  const city = member.city ?? family?.city ?? null;
-  const state = member.state ?? family?.state ?? null;
-  const postal = member.postal_code ?? family?.postal_code ?? null;
-  if (!line1 && !city) return null;
-  return { line1, line2, city, state, postal };
-}
-
 // ---------------------------------------------------------------------------
-// vCard download helper
-// ---------------------------------------------------------------------------
-function downloadVCard(profileId: string) {
-  window.location.href = `/api/members/${profileId}/vcard`;
-}
-
-// ---------------------------------------------------------------------------
-// Types for the detail sheet subject
+// Types for the detail sheet subject (stack-based so Back works)
 // ---------------------------------------------------------------------------
 type SheetSubject =
   | { kind: "profile"; profile: DirectoryProfile }
-  | { kind: "household"; family: FamilyDirectoryFull };
+  | { kind: "household"; family: FamilyDirectoryFull }
+  | { kind: "group"; group: DirectoryGroup };
+
+type DirectoryView = "households" | "people" | "groups";
 
 // ---------------------------------------------------------------------------
-// Relationship label helper
+// Alphabet section header — sticks below the measured search block
 // ---------------------------------------------------------------------------
-function relLabel(rel: string): string {
-  switch (rel) {
-    case "primary": return "Primary";
-    case "spouse": return "Spouse";
-    case "child": return "Child";
-    case "parent": return "Parent";
-    case "sibling": return "Sibling";
-    default: return "Other";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Alphabet section header
-// ---------------------------------------------------------------------------
-function AlphaHeader({ letter }: { letter: string }) {
+function AlphaHeader({ letter, top }: { letter: string; top: number }) {
   return (
-    <div className="sticky top-[88px] z-10 bg-background/95 backdrop-blur-sm px-1 py-1">
+    <div
+      className="sticky z-10 bg-background/95 backdrop-blur-sm px-1 py-1"
+      style={{ top }}
+    >
       <p className="text-xs font-bold uppercase text-brand-primary tracking-widest">
         {letter}
       </p>
@@ -109,428 +66,32 @@ function AlphaHeader({ letter }: { letter: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Avatar cluster — up to 3 faces
+// A–Z jump rail
 // ---------------------------------------------------------------------------
-interface AvatarClusterProps {
-  people: Array<{ avatarUrl: string | null; name: string; initials: string }>;
-}
-
-function AvatarCluster({ people }: AvatarClusterProps) {
-  const displayed = people.slice(0, 3);
+function AlphaRail({
+  letters,
+  onJump,
+}: {
+  letters: string[];
+  onJump: (letter: string) => void;
+}) {
+  if (letters.length < 5) return null;
   return (
-    <div className="flex -space-x-2">
-      {displayed.map((p, i) => (
-        <Avatar
-          key={i}
-          className="h-10 w-10 border-2 border-background"
-        >
-          {p.avatarUrl && (
-            <AvatarImage src={p.avatarUrl} alt={p.name} />
-          )}
-          <AvatarFallback className="bg-brand-primary text-white text-sm">
-            {p.initials}
-          </AvatarFallback>
-        </Avatar>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Group chip
-// ---------------------------------------------------------------------------
-function GroupBadge({ group }: { group: GroupChip }) {
-  return (
-    <span
-      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
-      style={{ backgroundColor: group.color || "#6b7280" }}
+    <nav
+      aria-label="Jump to letter"
+      className="fixed right-0.5 sm:right-2 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center"
     >
-      {group.name}
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Profile detail sheet content
-// ---------------------------------------------------------------------------
-interface ProfileSheetProps {
-  profile: DirectoryProfile;
-  family: FamilyDirectoryFull | null;
-}
-
-function ProfileSheetContent({ profile, family }: ProfileSheetProps) {
-  const address = resolveAddress(profile, family);
-  const hasBirthday = profile.birth_month && profile.birth_day;
-
-  return (
-    <div className="px-4 pb-6 space-y-3 overflow-y-auto flex-1">
-      {/* Header */}
-      <div className="flex items-center gap-4 pt-2">
-        <Avatar className="h-20 w-20 shrink-0">
-          {profile.avatar_url && (
-            <AvatarImage src={profile.avatar_url} alt={displayName(profile)} />
-          )}
-          <AvatarFallback className="bg-brand-primary text-white text-2xl">
-            {initials(profile)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="text-xl font-bold leading-tight">{displayName(profile)}</p>
-          {profile.preferred_name &&
-            profile.first_name &&
-            profile.preferred_name !== profile.first_name && (
-              <p className="text-sm text-muted-foreground">
-                ({profile.first_name} {profile.last_name})
-              </p>
-            )}
-          {profile.relationship && profile.relationship !== "primary" && (
-            <Badge variant="outline" className="text-xs mt-1 capitalize">
-              {relLabel(profile.relationship)}
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {/* Groups */}
-      {profile.groups && profile.groups.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {profile.groups.map((g) => (
-            <GroupBadge key={g.id} group={g} />
-          ))}
-        </div>
-      )}
-
-      {/* Bio */}
-      {profile.bio && (
-        <p className="text-sm italic text-muted-foreground">{profile.bio}</p>
-      )}
-
-      {/* Phones */}
-      {profile.phone_mobile && (
-        <div className="flex items-center gap-3">
-          <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`tel:${profile.phone_mobile}`}
-            className="text-base text-brand-primary hover:underline"
-          >
-            {formatPhone(profile.phone_mobile)}
-          </a>
-          <span className="text-xs text-muted-foreground">mobile</span>
-        </div>
-      )}
-      {profile.phone_home && (
-        <div className="flex items-center gap-3">
-          <Home className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`tel:${profile.phone_home}`}
-            className="text-base text-brand-primary hover:underline"
-          >
-            {formatPhone(profile.phone_home)}
-          </a>
-          <span className="text-xs text-muted-foreground">home</span>
-        </div>
-      )}
-      {!profile.phone_home && family?.phone_home && (
-        <div className="flex items-center gap-3">
-          <Home className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`tel:${family.phone_home}`}
-            className="text-base text-brand-primary hover:underline"
-          >
-            {formatPhone(family.phone_home)}
-          </a>
-          <span className="text-xs text-muted-foreground">family home</span>
-        </div>
-      )}
-      {profile.phone_work && (
-        <div className="flex items-center gap-3">
-          <Briefcase className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`tel:${profile.phone_work}`}
-            className="text-base text-brand-primary hover:underline"
-          >
-            {formatPhone(profile.phone_work)}
-          </a>
-          <span className="text-xs text-muted-foreground">work</span>
-        </div>
-      )}
-
-      {/* Email */}
-      {profile.email && (
-        <div className="flex items-center gap-3">
-          <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`mailto:${profile.email}`}
-            className="text-base text-brand-primary hover:underline break-all"
-          >
-            {profile.email}
-          </a>
-        </div>
-      )}
-
-      {/* Address */}
-      {address && (
-        <div className="flex items-start gap-3">
-          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-          <div className="text-base">
-            <p>{address.line1}</p>
-            {address.line2 && <p>{address.line2}</p>}
-            <p>
-              {address.city}
-              {address.state && `, ${address.state}`}
-              {address.postal && ` ${address.postal}`}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Birthday */}
-      {hasBirthday && (
-        <div className="flex items-center gap-3">
-          <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-base">
-            🎂{" "}
-            {formatBirthdayShort(profile.birth_month!, profile.birth_day!)}
-            {profile.birth_year ? `, ${profile.birth_year}` : ""}
-          </span>
-        </div>
-      )}
-
-      {/* Occupation */}
-      {(profile.occupation || profile.employer) && (
-        <div className="flex items-start gap-3">
-          <Briefcase className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-          <div className="text-base">
-            {profile.occupation && <p>{profile.occupation}</p>}
-            {profile.employer && (
-              <p className="text-sm text-muted-foreground">{profile.employer}</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Save to Contacts */}
-      <div className="pt-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => downloadVCard(profile.id)}
-          className="gap-2"
+      {letters.map((letter) => (
+        <button
+          key={letter}
+          type="button"
+          onClick={() => onJump(letter)}
+          className="text-[10px] leading-[14px] font-semibold text-brand-primary/70 hover:text-brand-primary px-1.5"
         >
-          <Download className="h-4 w-4" />
-          Save to Contacts
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Household detail sheet content
-// ---------------------------------------------------------------------------
-interface HouseholdSheetProps {
-  family: FamilyDirectoryFull;
-  profileMap: Record<string, DirectoryProfile>;
-}
-
-function HouseholdSheetContent({ family, profileMap }: HouseholdSheetProps) {
-  const hasSpouse =
-    family.members.some((m) => m.relationship === "spouse") ||
-    family.family_members_list.some((fm) => fm.relationship === "spouse");
-
-  // Collect birthdays this month for family members
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-
-  const birthdaysThisMonth = [
-    ...family.members
-      .filter((m) => m.birth_month === currentMonth && m.birth_day)
-      .map((m) => ({
-        name: [m.first_name, m.last_name].filter(Boolean).join(" ") || "(unnamed)",
-        day: m.birth_day!,
-      })),
-    ...family.family_members_list
-      .filter((fm) => fm.birth_month === currentMonth && fm.birth_day)
-      .map((fm) => ({
-        name: [fm.first_name, fm.last_name].filter(Boolean).join(" "),
-        day: fm.birth_day!,
-      })),
-  ].sort((a, b) => a.day - b.day);
-
-  function renderMember(m: HouseholdMember) {
-    const fullProfile = profileMap[m.id];
-    const name =
-      [m.preferred_name || m.first_name, m.last_name]
-        .filter(Boolean)
-        .join(" ") || "(unnamed)";
-    return (
-      <div key={m.id} className="flex items-center gap-3">
-        <Avatar className="h-9 w-9">
-          {m.avatar_url && (
-            <AvatarImage
-              src={m.avatar_url}
-              alt={[m.first_name, m.last_name].filter(Boolean).join(" ")}
-            />
-          )}
-          <AvatarFallback className="bg-brand-primary text-white text-sm">
-            {((m.preferred_name || m.first_name || "?").charAt(0) +
-              (m.last_name || "").charAt(0)
-            ).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium">{name}</span>
-          {m.relationship !== "primary" && (
-            <Badge variant="outline" className="ml-2 text-xs capitalize">
-              {relLabel(m.relationship)}
-            </Badge>
-          )}
-          {!m.is_class_member && (
-            <Badge variant="secondary" className="ml-1 text-xs">
-              not enrolled
-            </Badge>
-          )}
-        </div>
-        {fullProfile?.groups && fullProfile.groups.length > 0 && (
-          <div className="flex gap-1">
-            {fullProfile.groups.slice(0, 2).map((g) => (
-              <span
-                key={g.id}
-                className="inline-block w-2 h-2 rounded-full"
-                style={{ backgroundColor: g.color || "#6b7280" }}
-                title={g.name}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  function renderFamilyMember(fm: HouseholdFamilyMember) {
-    const name = [fm.first_name, fm.last_name].filter(Boolean).join(" ");
-    return (
-      <div key={fm.id} className="flex items-center gap-3">
-        <Avatar className="h-9 w-9">
-          {fm.avatar_url && (
-            <AvatarImage
-              src={fm.avatar_url}
-              alt={[fm.first_name, fm.last_name].filter(Boolean).join(" ")}
-            />
-          )}
-          <AvatarFallback className="bg-muted text-muted-foreground text-sm">
-            {((fm.first_name || "?").charAt(0) + (fm.last_name || "").charAt(0)).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1 min-w-0">
-          <span className="text-sm font-medium">{name}</span>
-          <Badge variant="outline" className="ml-2 text-xs capitalize">
-            {relLabel(fm.relationship)}
-          </Badge>
-          {!fm.is_class_member && (
-            <Badge variant="secondary" className="ml-1 text-xs">
-              not enrolled
-            </Badge>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="px-4 pb-6 space-y-4 overflow-y-auto flex-1">
-      {/* Family name header */}
-      <div className="pt-2">
-        <p className="text-xl font-bold">{family.family_name}</p>
-        {family.address_line1 && (
-          <p className="text-sm text-muted-foreground">
-            {family.address_line1}
-            {family.city && `, ${family.city}`}
-            {family.state && `, ${family.state}`}
-          </p>
-        )}
-      </div>
-
-      {/* Members */}
-      <div className="space-y-2">
-        {family.members.map((m) => renderMember(m))}
-        {family.family_members_list.map((fm) => renderFamilyMember(fm))}
-      </div>
-
-      {/* Family address */}
-      {family.address_line1 && (
-        <div className="flex items-start gap-3">
-          <MapPin className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
-          <div className="text-sm">
-            <p>{family.address_line1}</p>
-            {family.address_line2 && <p>{family.address_line2}</p>}
-            <p>
-              {family.city}
-              {family.state && `, ${family.state}`}
-              {family.postal_code && ` ${family.postal_code}`}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Family home phone */}
-      {family.phone_home && (
-        <div className="flex items-center gap-3">
-          <Home className="h-4 w-4 text-muted-foreground shrink-0" />
-          <a
-            href={`tel:${family.phone_home}`}
-            className="text-sm text-brand-primary hover:underline"
-          >
-            {formatPhone(family.phone_home)}
-          </a>
-          <span className="text-xs text-muted-foreground">home</span>
-        </div>
-      )}
-
-      {/* Birthdays this month */}
-      {birthdaysThisMonth.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-            Birthdays this month
-          </p>
-          <div className="space-y-0.5">
-            {birthdaysThisMonth.map((b, i) => (
-              <p key={i} className="text-sm">
-                🎂 {b.name} ({MONTH_NAMES[currentMonth - 1]} {b.day})
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Anniversary — only if spouse exists */}
-      {family.anniversary && hasSpouse && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm">
-            💍 Anniversary: {formatAnniversary(family.anniversary)}
-          </span>
-        </div>
-      )}
-
-      {/* Save to Contacts — primary member of the household */}
-      {(() => {
-        const primary = family.members.find((m) => m.relationship === "primary");
-        if (!primary) return null;
-        return (
-          <div className="pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => downloadVCard(primary.id)}
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Save to Contacts
-            </Button>
-          </div>
-        );
-      })()}
-    </div>
+          {letter}
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -576,9 +137,18 @@ function HouseholdRow({ family, onOpen }: HouseholdRowProps) {
       onClick={onOpen}
       className="w-full text-left flex items-start gap-4 p-3 rounded-lg hover:bg-brand-bg-light/50 transition-colors"
     >
-      {/* Avatar cluster */}
+      {/* Family photo, falling back to avatar cluster */}
       <div className="shrink-0 pt-0.5">
-        <AvatarCluster people={avatarPeople} />
+        {family.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={family.photo_url}
+            alt={`${family.family_name} family photo`}
+            className="h-12 w-16 rounded-md object-cover"
+          />
+        ) : (
+          <AvatarCluster people={avatarPeople} />
+        )}
       </div>
 
       {/* Content */}
@@ -615,7 +185,7 @@ function HouseholdRow({ family, onOpen }: HouseholdRowProps) {
                     c.last_name,
                   ]
                     .filter(Boolean)
-                    .join(" "),
+                    .join(", "),
                 )
                 .join(", ")}
             </p>
@@ -664,18 +234,75 @@ function PeopleRow({ member, onOpen }: PeopleRowProps) {
         ) : null}
       </div>
       {member.groups && member.groups.length > 0 && (
-        <div className="flex gap-1 shrink-0">
-          {member.groups.slice(0, 3).map((g) => (
-            <span
-              key={g.id}
-              className="inline-block w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: g.color || "#6b7280" }}
-              title={g.name}
-            />
+        <div className="flex gap-1 shrink-0 max-w-[45%] flex-wrap justify-end">
+          {member.groups.slice(0, 2).map((g) => (
+            <GroupBadge key={g.id} group={g} size="xs" />
           ))}
+          {member.groups.length > 2 && (
+            <span className="text-[10px] text-muted-foreground self-center">
+              +{member.groups.length - 2}
+            </span>
+          )}
         </div>
       )}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Group row (for Groups view)
+// ---------------------------------------------------------------------------
+interface GroupRowProps {
+  group: DirectoryGroup;
+  count: number;
+  onOpen: () => void;
+}
+
+function GroupRow({ group, count, onOpen }: GroupRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full text-left flex items-center gap-4 p-3 rounded-lg hover:bg-brand-bg-light/50 transition-colors"
+    >
+      <div
+        className="h-10 w-10 rounded-full flex items-center justify-center text-white shrink-0"
+        style={{ backgroundColor: group.color || "#6b7280" }}
+      >
+        <GroupIcon name={group.icon} className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-semibold">{group.name}</p>
+        {group.description && (
+          <p className="text-sm text-muted-foreground truncate">
+            {group.description}
+          </p>
+        )}
+      </div>
+      <span className="text-sm text-muted-foreground shrink-0">
+        {count} member{count !== 1 ? "s" : ""}
+      </span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Loading skeleton
+// ---------------------------------------------------------------------------
+function DirectorySkeleton() {
+  return (
+    <div className="mt-6 space-y-3" aria-hidden>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+          <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-40 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-28 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -685,12 +312,17 @@ function PeopleRow({ member, onOpen }: PeopleRowProps) {
 export default function DirectoryPage() {
   const [members, setMembers] = useState<DirectoryProfile[]>([]);
   const [families, setFamilies] = useState<FamilyDirectoryFull[]>([]);
-  const [allGroups, setAllGroups] = useState<GroupChip[]>([]);
+  const [allGroups, setAllGroups] = useState<DirectoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
-  const [view, setView] = useState<"households" | "people">("households");
-  const [sheetSubject, setSheetSubject] = useState<SheetSubject | null>(null);
+  const [view, setView] = useState<DirectoryView>("households");
+  const [sheetStack, setSheetStack] = useState<SheetSubject[]>([]);
+
+  // Measured height of the sticky search block so A–Z headers stick below it
+  const stickyRef = useRef<HTMLDivElement>(null);
+  const [stickyH, setStickyH] = useState(140);
+
   const supabase = createClient();
 
   useEffect(() => {
@@ -706,8 +338,7 @@ export default function DirectoryPage() {
           .order("family_name", { ascending: true }),
         supabase
           .from("member_groups")
-          .select("id, name, color, icon")
-          .eq("show_in_directory_filter", true)
+          .select("id, name, color, icon, description, show_in_directory_filter")
           .order("display_order"),
       ]);
 
@@ -726,11 +357,34 @@ export default function DirectoryPage() {
 
       setMembers((m || []) as DirectoryProfile[]);
       setFamilies((f || []) as FamilyDirectoryFull[]);
-      setAllGroups((g || []) as GroupChip[]);
+      setAllGroups((g || []) as DirectoryGroup[]);
       setLoading(false);
     }
     load();
   }, []);
+
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const measure = () => setStickyH(el.offsetHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // Sheet stack helpers
+  const sheetSubject = sheetStack[sheetStack.length - 1] ?? null;
+  const pushSheet = (subject: SheetSubject) =>
+    setSheetStack((prev) => [...prev, subject]);
+  const popSheet = () => setSheetStack((prev) => prev.slice(0, -1));
+  const closeSheet = () => setSheetStack([]);
+
+  // Groups shown as filter chips
+  const filterGroups = useMemo(
+    () => allGroups.filter((g) => g.show_in_directory_filter),
+    [allGroups],
+  );
 
   // Build a lookup map: profileId → DirectoryProfile
   const profileMap = useMemo(() => {
@@ -746,6 +400,17 @@ export default function DirectoryPage() {
     return map;
   }, [families]);
 
+  // Roster per group, derived from listed members' group chips
+  const groupRosters = useMemo(() => {
+    const map: Record<string, DirectoryProfile[]> = {};
+    for (const m of members) {
+      for (const g of m.groups || []) {
+        (map[g.id] ??= []).push(m);
+      }
+    }
+    return map;
+  }, [members]);
+
   // Filter members by search + group
   const filteredMembers = useMemo(() => {
     let list = members;
@@ -758,17 +423,38 @@ export default function DirectoryPage() {
 
     if (query.trim()) {
       const q = query.trim().toLowerCase();
+      const qDigits = q.replace(/\D/g, "");
       list = list.filter((m) => {
-        const haystack = [m.first_name, m.last_name, m.preferred_name, m.email]
+        const familyName = m.family_id
+          ? familyMap[m.family_id]?.family_name
+          : null;
+        const haystack = [
+          m.first_name,
+          m.last_name,
+          m.preferred_name,
+          m.email,
+          m.occupation,
+          m.employer,
+          m.city,
+          familyName,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
-        return haystack.includes(q);
+        if (haystack.includes(q)) return true;
+        if (qDigits.length >= 3) {
+          const phones = [m.phone_mobile, m.phone_home, m.phone_work]
+            .filter(Boolean)
+            .join("")
+            .replace(/\D/g, "");
+          if (phones.includes(qDigits)) return true;
+        }
+        return false;
       });
     }
 
     return list;
-  }, [members, query, activeGroup]);
+  }, [members, query, activeGroup, familyMap]);
 
   // Filter families for Households view — show a family if any of its members match
   const filteredFamilies = useMemo(() => {
@@ -839,21 +525,43 @@ export default function DirectoryPage() {
     return sections;
   }, [filteredMembers]);
 
-  // Resolve the family for the detail sheet
+  const sectionLetters = useMemo(() => {
+    if (view === "households") return Object.keys(householdSections).sort();
+    if (view === "people") return Object.keys(peopleSections).sort();
+    return [];
+  }, [view, householdSections, peopleSections]);
+
+  function handleChipClick(groupId: string | null) {
+    const next = groupId === activeGroup ? null : groupId;
+    setActiveGroup(next);
+    // A group filter is a person-level question — households would show
+    // whole families where only one member matches, so switch to People.
+    if (next && view === "households") setView("people");
+  }
+
+  function jumpToLetter(letter: string) {
+    document
+      .getElementById(`dir-section-${letter}`)
+      ?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Resolve the family for the profile detail sheet
   const sheetFamily =
     sheetSubject?.kind === "profile" && sheetSubject.profile.family_id
       ? (familyMap[sheetSubject.profile.family_id] ?? null)
-      : sheetSubject?.kind === "household"
-        ? sheetSubject.family
-        : null;
+      : null;
 
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-12">
-        <p className="text-xl text-muted-foreground">Loading directory...</p>
-      </div>
-    );
-  }
+  const sheetTitle =
+    sheetSubject?.kind === "profile"
+      ? displayName(sheetSubject.profile)
+      : sheetSubject?.kind === "household"
+        ? sheetSubject.family.family_name
+        : sheetSubject?.kind === "group"
+          ? sheetSubject.group.name
+          : "";
+
+  const householdCount =
+    Object.values(householdSections).reduce((n, s) => n + s.length, 0);
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -864,211 +572,291 @@ export default function DirectoryPage() {
         Browse and connect with other members in your class.
       </p>
 
-      {/* Birthday / Anniversary Widget */}
-      <BirthdayWidget members={members} families={families} />
+      {loading ? (
+        <DirectorySkeleton />
+      ) : (
+        <>
+          {/* Birthday / Anniversary Widget */}
+          <BirthdayWidget members={members} families={families} />
 
-      {/* Sticky search + filter area */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm pb-3 pt-1">
-        {/* Search bar */}
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search by name or email..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-10 text-base py-5"
-          />
-        </div>
+          {/* Sticky search + filter area */}
+          <div
+            ref={stickyRef}
+            className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm pb-3 pt-1"
+          >
+            {/* Search bar */}
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search name, phone, city, occupation..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-10 text-base py-5"
+              />
+            </div>
 
-        {/* Group filter chips */}
-        {allGroups.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setActiveGroup(null)}
-              className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                activeGroup === null
-                  ? "bg-brand-primary text-white border-brand-primary"
-                  : "border-border text-muted-foreground hover:border-brand-primary"
-              }`}
-            >
-              All
-            </button>
-            {allGroups.map((g) => (
-              <button
-                key={g.id}
-                type="button"
-                onClick={() =>
-                  setActiveGroup(activeGroup === g.id ? null : g.id)
-                }
-                className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-                  activeGroup === g.id
-                    ? "text-white border-transparent"
-                    : "border-border text-muted-foreground hover:border-current"
-                }`}
-                style={
-                  activeGroup === g.id
-                    ? { backgroundColor: g.color || "#6b7280" }
-                    : {}
+            {/* Group filter chips (not shown in Groups view) */}
+            {filterGroups.length > 0 && view !== "groups" && (
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => handleChipClick(null)}
+                  className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                    activeGroup === null
+                      ? "bg-brand-primary text-white border-brand-primary"
+                      : "border-border text-muted-foreground hover:border-brand-primary"
+                  }`}
+                >
+                  All
+                </button>
+                {filterGroups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => handleChipClick(g.id)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-sm font-medium border transition-colors inline-flex items-center gap-1 ${
+                      activeGroup === g.id
+                        ? "text-white border-transparent"
+                        : "border-border text-muted-foreground hover:border-current"
+                    }`}
+                    style={
+                      activeGroup === g.id
+                        ? { backgroundColor: g.color || "#6b7280" }
+                        : {}
+                    }
+                  >
+                    <GroupIcon name={g.icon} className="h-3.5 w-3.5" />
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* View toggle */}
+            <div className="flex gap-2 mt-3">
+              <Button
+                variant={view === "households" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setView("households")}
+                className={
+                  view === "households"
+                    ? "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    : ""
                 }
               >
-                {g.name}
-              </button>
-            ))}
+                <Home className="mr-1 h-4 w-4" />
+                Households ({householdCount})
+              </Button>
+              <Button
+                variant={view === "people" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setView("people")}
+                className={
+                  view === "people"
+                    ? "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    : ""
+                }
+              >
+                <LayoutList className="mr-1 h-4 w-4" />
+                People ({filteredMembers.length})
+              </Button>
+              <Button
+                variant={view === "groups" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setView("groups")}
+                className={
+                  view === "groups"
+                    ? "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    : ""
+                }
+              >
+                <Tags className="mr-1 h-4 w-4" />
+                Groups ({allGroups.length})
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                nativeButton={false}
+                render={<Link href="/directory/print" />}
+                aria-label="Printable directory"
+                className="ml-auto text-muted-foreground"
+              >
+                <Printer className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        )}
 
-        {/* View toggle */}
-        <div className="flex gap-2 mt-3">
-          <Button
-            variant={view === "households" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("households")}
-            className={
-              view === "households"
-                ? "bg-brand-primary text-white hover:bg-brand-primary/90"
-                : ""
-            }
-          >
-            <Home className="mr-1 h-4 w-4" />
-            Households
-          </Button>
-          <Button
-            variant={view === "people" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setView("people")}
-            className={
-              view === "people"
-                ? "bg-brand-primary text-white hover:bg-brand-primary/90"
-                : ""
-            }
-          >
-            <LayoutList className="mr-1 h-4 w-4" />
-            People ({filteredMembers.length})
-          </Button>
-        </div>
-      </div>
+          {/* A–Z jump rail */}
+          {view !== "groups" && (
+            <AlphaRail letters={sectionLetters} onJump={jumpToLetter} />
+          )}
 
-      {/* ============================================================
-          HOUSEHOLDS VIEW
-          ============================================================ */}
-      {view === "households" && (
-        <div className="mt-4">
-          {Object.keys(householdSections).length === 0 ? (
-            <p className="text-base text-muted-foreground text-center py-8">
-              No members match your search.
-            </p>
-          ) : (
-            Object.keys(householdSections)
-              .sort()
-              .map((letter) => (
-                <div key={letter}>
-                  <AlphaHeader letter={letter} />
-                  <div className="divide-y">
-                    {householdSections[letter].map((entry) => {
-                      if (entry.kind === "family") {
-                        return (
-                          <HouseholdRow
-                            key={`fam-${entry.family.id}`}
-                            family={entry.family}
+          {/* ============================================================
+              HOUSEHOLDS VIEW
+              ============================================================ */}
+          {view === "households" && (
+            <div className="mt-4">
+              {Object.keys(householdSections).length === 0 ? (
+                <p className="text-base text-muted-foreground text-center py-8">
+                  No members match your search.
+                </p>
+              ) : (
+                Object.keys(householdSections)
+                  .sort()
+                  .map((letter) => (
+                    <div
+                      key={letter}
+                      id={`dir-section-${letter}`}
+                      style={{ scrollMarginTop: stickyH + 8 }}
+                    >
+                      <AlphaHeader letter={letter} top={stickyH} />
+                      <div className="divide-y">
+                        {householdSections[letter].map((entry) => {
+                          if (entry.kind === "family") {
+                            return (
+                              <HouseholdRow
+                                key={`fam-${entry.family.id}`}
+                                family={entry.family}
+                                onOpen={() =>
+                                  pushSheet({
+                                    kind: "household",
+                                    family: entry.family,
+                                  })
+                                }
+                              />
+                            );
+                          } else {
+                            return (
+                              <div
+                                key={`solo-${entry.member.id}`}
+                                className="py-0.5"
+                              >
+                                <PeopleRow
+                                  member={entry.member}
+                                  onOpen={() =>
+                                    pushSheet({
+                                      kind: "profile",
+                                      profile: entry.member,
+                                    })
+                                  }
+                                />
+                              </div>
+                            );
+                          }
+                        })}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          )}
+
+          {/* ============================================================
+              PEOPLE VIEW
+              ============================================================ */}
+          {view === "people" && (
+            <div className="mt-4">
+              {Object.keys(peopleSections).length === 0 ? (
+                <p className="text-base text-muted-foreground text-center py-8">
+                  No members match your search.
+                </p>
+              ) : (
+                Object.keys(peopleSections)
+                  .sort()
+                  .map((letter) => (
+                    <div
+                      key={letter}
+                      id={`dir-section-${letter}`}
+                      style={{ scrollMarginTop: stickyH + 8 }}
+                    >
+                      <AlphaHeader letter={letter} top={stickyH} />
+                      <div className="divide-y">
+                        {peopleSections[letter].map((m) => (
+                          <PeopleRow
+                            key={m.id}
+                            member={m}
                             onOpen={() =>
-                              setSheetSubject({
-                                kind: "household",
-                                family: entry.family,
-                              })
+                              pushSheet({ kind: "profile", profile: m })
                             }
                           />
-                        );
-                      } else {
-                        return (
-                          <div
-                            key={`solo-${entry.member.id}`}
-                            className="py-0.5"
-                          >
-                            <PeopleRow
-                              member={entry.member}
-                              onOpen={() =>
-                                setSheetSubject({
-                                  kind: "profile",
-                                  profile: entry.member,
-                                })
-                              }
-                            />
-                          </div>
-                        );
-                      }
-                    })}
-                  </div>
-                </div>
-              ))
+                        ))}
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
           )}
-        </div>
+
+          {/* ============================================================
+              GROUPS VIEW
+              ============================================================ */}
+          {view === "groups" && (
+            <div className="mt-4">
+              {allGroups.length === 0 ? (
+                <p className="text-base text-muted-foreground text-center py-8">
+                  No groups have been created yet.
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {allGroups.map((g) => (
+                    <GroupRow
+                      key={g.id}
+                      group={g}
+                      count={(groupRosters[g.id] || []).length}
+                      onOpen={() => pushSheet({ kind: "group", group: g })}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* ============================================================
-          PEOPLE VIEW
+          DETAIL SHEET (stack-based: household → member, group → member)
           ============================================================ */}
-      {view === "people" && (
-        <div className="mt-4">
-          {Object.keys(peopleSections).length === 0 ? (
-            <p className="text-base text-muted-foreground text-center py-8">
-              No members match your search.
-            </p>
-          ) : (
-            Object.keys(peopleSections)
-              .sort()
-              .map((letter) => (
-                <div key={letter}>
-                  <AlphaHeader letter={letter} />
-                  <div className="divide-y">
-                    {peopleSections[letter].map((m) => (
-                      <PeopleRow
-                        key={m.id}
-                        member={m}
-                        onOpen={() =>
-                          setSheetSubject({ kind: "profile", profile: m })
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))
-          )}
-        </div>
-      )}
-
-      {/* ============================================================
-          DETAIL SHEET
-          ============================================================ */}
-      <Sheet
-        open={!!sheetSubject}
-        onOpenChange={(o) => !o && setSheetSubject(null)}
-      >
+      <Sheet open={!!sheetSubject} onOpenChange={(o) => !o && closeSheet()}>
         <SheetContent
           side="right"
           className="w-full sm:max-w-md flex flex-col overflow-hidden p-0"
         >
           <SheetHeader className="px-4 pt-4 pb-3 border-b shrink-0">
-            <SheetTitle>
-              {sheetSubject?.kind === "profile"
-                ? displayName(sheetSubject.profile)
-                : sheetSubject?.kind === "household"
-                  ? sheetSubject.family.family_name
-                  : ""}
-            </SheetTitle>
+            <div className="flex items-center gap-2">
+              {sheetStack.length > 1 && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={popSheet}
+                  aria-label="Back"
+                  className="-ml-2 shrink-0"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              )}
+              <SheetTitle className="truncate">{sheetTitle}</SheetTitle>
+            </div>
           </SheetHeader>
 
           {sheetSubject?.kind === "profile" && (
             <ProfileSheetContent
               profile={sheetSubject.profile}
-              family={sheetFamily as FamilyDirectoryFull | null}
+              family={sheetFamily}
             />
           )}
           {sheetSubject?.kind === "household" && (
             <HouseholdSheetContent
               family={sheetSubject.family}
               profileMap={profileMap}
+              onOpenProfile={(p) => pushSheet({ kind: "profile", profile: p })}
+            />
+          )}
+          {sheetSubject?.kind === "group" && (
+            <GroupSheetContent
+              group={sheetSubject.group}
+              members={groupRosters[sheetSubject.group.id] || []}
+              onOpenProfile={(p) => pushSheet({ kind: "profile", profile: p })}
             />
           )}
         </SheetContent>

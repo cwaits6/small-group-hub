@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { setGroupMembership } from "@/lib/memberGroups";
 import type { MemberGroup } from "@/lib/types";
 
 interface MemberGroupsSectionProps {
@@ -57,87 +58,20 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
   async function handleToggle(group: MemberGroup, checked: boolean) {
     setToggling(group.id);
 
-    if (checked) {
-      // Assign member to group
-      const { error } = await supabase.from("profile_groups").insert({
-        profile_id: profileId,
-        group_id: group.id,
-      });
-      if (error) {
-        toast.error(`Failed to add to ${group.name}.`);
-        setToggling(null);
-        return;
-      }
-
-      // Sync functional role boolean if applicable
-      if (group.functional_role === "prayer_team") {
-        const { error: roleErr } = await supabase
-          .from("profiles")
-          .update({ is_prayer_team: true })
-          .eq("id", profileId);
-        if (roleErr) {
-          toast.error(`Added to ${group.name} but failed to sync role.`);
-          setToggling(null);
-          return;
-        }
-      } else if (group.functional_role === "greeter_team") {
-        const { error: roleErr } = await supabase
-          .from("profiles")
-          .update({ is_greeter_team: true })
-          .eq("id", profileId);
-        if (roleErr) {
-          toast.error(`Added to ${group.name} but failed to sync role.`);
-          setToggling(null);
-          return;
-        }
-      }
-
-      setAssigned((prev) => new Set([...prev, group.id]));
-      toast.success(`Added to ${group.name}.`);
-    } else {
-      // Remove member from group
-      const { error } = await supabase
-        .from("profile_groups")
-        .delete()
-        .eq("profile_id", profileId)
-        .eq("group_id", group.id);
-      if (error) {
-        toast.error(`Failed to remove from ${group.name}.`);
-        setToggling(null);
-        return;
-      }
-
-      // Sync functional role boolean if applicable
-      if (group.functional_role === "prayer_team") {
-        const { error: roleErr } = await supabase
-          .from("profiles")
-          .update({ is_prayer_team: false })
-          .eq("id", profileId);
-        if (roleErr) {
-          toast.error(`Removed from ${group.name} but failed to sync role.`);
-          setToggling(null);
-          return;
-        }
-      } else if (group.functional_role === "greeter_team") {
-        const { error: roleErr } = await supabase
-          .from("profiles")
-          .update({ is_greeter_team: false })
-          .eq("id", profileId);
-        if (roleErr) {
-          toast.error(`Removed from ${group.name} but failed to sync role.`);
-          setToggling(null);
-          return;
-        }
-      }
-
-      setAssigned((prev) => {
-        const next = new Set(prev);
-        next.delete(group.id);
-        return next;
-      });
-      toast.success(`Removed from ${group.name}.`);
+    const errorMessage = await setGroupMembership(profileId, group, checked);
+    if (errorMessage) {
+      toast.error(errorMessage);
+      setToggling(null);
+      return;
     }
 
+    setAssigned((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(group.id);
+      else next.delete(group.id);
+      return next;
+    });
+    toast.success(checked ? `Added to ${group.name}.` : `Removed from ${group.name}.`);
     setToggling(null);
   }
 

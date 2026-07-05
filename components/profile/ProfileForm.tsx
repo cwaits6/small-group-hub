@@ -73,6 +73,7 @@ interface FormState {
   hide_email: boolean;
   hide_address: boolean;
   hide_birthday: boolean;
+  hide_birth_year: boolean;
   hide_anniversary: boolean;
   hide_occupation: boolean;
 }
@@ -106,6 +107,7 @@ function initialState(profile: Profile): FormState {
     hide_email: profile.hide_email ?? false,
     hide_address: profile.hide_address ?? false,
     hide_birthday: profile.hide_birthday ?? false,
+    hide_birth_year: profile.hide_birth_year ?? false,
     hide_anniversary: profile.hide_anniversary ?? false,
     hide_occupation: profile.hide_occupation ?? false,
   };
@@ -289,6 +291,7 @@ export function ProfileForm({
       hide_email: state.hide_email,
       hide_address: state.hide_address,
       hide_birthday: state.hide_birthday,
+      hide_birth_year: state.hide_birth_year,
       hide_anniversary: state.hide_anniversary,
       hide_occupation: state.hide_occupation,
     };
@@ -808,6 +811,10 @@ export function ProfileForm({
                 { key: "hide_phone_work" as const, label: "Hide work phone" },
                 { key: "hide_address" as const, label: "Hide address" },
                 { key: "hide_birthday" as const, label: "Hide birthday" },
+                {
+                  key: "hide_birth_year" as const,
+                  label: "Hide birth year (show month/day only)",
+                },
                 { key: "hide_anniversary" as const, label: "Hide anniversary" },
                 { key: "hide_occupation" as const, label: "Hide occupation / employer" },
               ].map(({ key, label }) => (

@@ -15,13 +15,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -34,29 +27,14 @@ import {
   Filter,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
-
-/** A curated set of lucide icon names available for group icons */
-const ICON_OPTIONS = [
-  { value: "heart", label: "Heart" },
-  { value: "hand-helping", label: "Hand (Helping)" },
-  { value: "users", label: "Users" },
-  { value: "user", label: "User" },
-  { value: "star", label: "Star" },
-  { value: "cross", label: "Cross" },
-  { value: "book-open", label: "Book" },
-  { value: "music", label: "Music" },
-  { value: "baby", label: "Baby" },
-  { value: "shield", label: "Shield" },
-  { value: "bell", label: "Bell" },
-  { value: "flag", label: "Flag" },
-];
+import { GroupRosterDialog } from "./GroupRosterDialog";
+import { IconPicker } from "./IconPicker";
 
 interface GroupFormState {
   name: string;
   description: string;
   color: string;
   icon: string;
-  functional_role: string;
   show_in_directory_filter: boolean;
 }
 
@@ -65,7 +43,6 @@ const EMPTY_FORM: GroupFormState = {
   description: "",
   color: "#2F6BA8",
   icon: "users",
-  functional_role: "none",
   show_in_directory_filter: true,
 };
 
@@ -75,7 +52,6 @@ function fromGroup(g: MemberGroup): GroupFormState {
     description: g.description || "",
     color: g.color || "#2F6BA8",
     icon: g.icon || "users",
-    functional_role: g.functional_role || "none",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
   };
 }
@@ -85,6 +61,7 @@ export default function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MemberGroup | null>(null);
+  const [rosterGroup, setRosterGroup] = useState<MemberGroup | null>(null);
   const [form, setForm] = useState<GroupFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   // member counts per group for delete warning
@@ -143,13 +120,13 @@ export default function GroupsPage() {
       return;
     }
 
+    // functional_role is intentionally omitted: the hidden scheduling link on
+    // the seeded groups is preserved as-is until a feature actually uses it.
     const payload = {
       name: form.name.trim(),
       description: form.description.trim() || null,
       color: form.color || null,
       icon: form.icon || null,
-      functional_role:
-        form.functional_role === "none" ? null : form.functional_role,
       show_in_directory_filter: form.show_in_directory_filter,
     };
 
@@ -277,7 +254,11 @@ export default function GroupsPage() {
       ) : (
         <div className="space-y-3">
           {groups.map((group, idx) => (
-            <Card key={group.id}>
+            <Card
+              key={group.id}
+              onClick={() => setRosterGroup(group)}
+              className="cursor-pointer transition-shadow hover:shadow-md"
+            >
               <CardContent className="pt-5 pb-5">
                 <div className="flex items-center gap-4">
                   {/* Color swatch */}
@@ -288,11 +269,6 @@ export default function GroupsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold">{group.name}</p>
-                      {group.functional_role && (
-                        <Badge variant="outline" className="text-xs capitalize">
-                          {group.functional_role.replace("_", " ")}
-                        </Badge>
-                      )}
                       {group.show_in_directory_filter && (
                         <Badge variant="secondary" className="text-xs gap-1">
                           <Filter className="h-3 w-3" />
@@ -313,7 +289,10 @@ export default function GroupsPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div
+                    className="flex items-center gap-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -335,6 +314,14 @@ export default function GroupsPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setRosterGroup(group)}
+                    >
+                      <Users className="mr-1 h-4 w-4" />
+                      Members
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => openEdit(group)}
                     >
                       <Pencil className="mr-1 h-4 w-4" />
@@ -347,6 +334,14 @@ export default function GroupsPage() {
           ))}
         </div>
       )}
+
+      <GroupRosterDialog
+        group={rosterGroup}
+        onClose={() => setRosterGroup(null)}
+        onCountChange={(groupId, count) =>
+          setMemberCounts((prev) => ({ ...prev, [groupId]: count }))
+        }
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
@@ -380,70 +375,35 @@ export default function GroupsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="g_color">Color</Label>
-                <div className="flex items-center gap-2">
-                  <input
-                    id="g_color"
-                    type="color"
-                    value={form.color}
-                    onChange={(e) =>
-                      setForm({ ...form, color: e.target.value })
-                    }
-                    className="h-9 w-9 cursor-pointer rounded border border-input"
-                  />
-                  <Input
-                    value={form.color}
-                    onChange={(e) =>
-                      setForm({ ...form, color: e.target.value })
-                    }
-                    placeholder="#2F6BA8"
-                    className="font-mono text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="g_icon">Icon</Label>
-                <Select
-                  value={form.icon}
-                  onValueChange={(v) => setForm({ ...form, icon: v ?? "users" })}
-                >
-                  <SelectTrigger id="g_icon">
-                    <SelectValue placeholder="Select icon" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ICON_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <Label htmlFor="g_color">Color</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  id="g_color"
+                  type="color"
+                  value={form.color}
+                  onChange={(e) =>
+                    setForm({ ...form, color: e.target.value })
+                  }
+                  className="h-9 w-9 cursor-pointer rounded border border-input"
+                />
+                <Input
+                  value={form.color}
+                  onChange={(e) =>
+                    setForm({ ...form, color: e.target.value })
+                  }
+                  placeholder="#2F6BA8"
+                  className="font-mono text-sm w-32"
+                />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="g_role">Functional role</Label>
-              <Select
-                value={form.functional_role}
-                onValueChange={(v) =>
-                  setForm({ ...form, functional_role: v ?? "none" })
-                }
-              >
-                <SelectTrigger id="g_role">
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="prayer_team">Prayer Team</SelectItem>
-                  <SelectItem value="greeter_team">Greeter Team</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Functional roles sync with scheduling booleans on the profile.
-              </p>
+              <Label>Icon</Label>
+              <IconPicker
+                value={form.icon}
+                onChange={(v) => setForm({ ...form, icon: v })}
+              />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
