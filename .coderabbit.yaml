@@ -19,7 +19,6 @@ reviews:
     - "!.next/**"
     - "!package-lock.json"
     - "!CHANGELOG.md"
-    - "!supabase/migrations/**"
     - "!public/**"
     - "!next-env.d.ts"
 
