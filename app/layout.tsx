@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
@@ -86,6 +87,7 @@ export default async function RootLayout({
         <Footer />
         <Toaster />
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
