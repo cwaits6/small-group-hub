@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/cwaits6/small-group-hub/compare/v0.9.0...v0.10.0) (2026-07-05)
+
+
+### Features
+
+* **directory:** directory UX polish — groups view, family photos, printable directory, birthday browsing ([#173](https://github.com/cwaits6/small-group-hub/issues/173)) ([8b7efba](https://github.com/cwaits6/small-group-hub/commit/8b7efbaed7f393a3e85e08c5a901ad77dfc59573))
+
 # [0.9.0](https://github.com/cwaits6/small-group-hub/compare/v0.8.0...v0.9.0) (2026-06-09)
 
 
