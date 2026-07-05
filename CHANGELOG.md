@@ -1,3 +1,10 @@
+## [0.10.1](https://github.com/cwaits6/small-group-hub/compare/v0.10.0...v0.10.1) (2026-07-05)
+
+
+### Bug Fixes
+
+* **directory:** address review findings from directory UX release ([#174](https://github.com/cwaits6/small-group-hub/issues/174)) ([760896b](https://github.com/cwaits6/small-group-hub/commit/760896b3b414c5432fda32f8289563db61b1866a))
+
 # [0.10.0](https://github.com/cwaits6/small-group-hub/compare/v0.9.0...v0.10.0) (2026-07-05)
 
 
