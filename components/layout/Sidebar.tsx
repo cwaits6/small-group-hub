@@ -17,6 +17,7 @@ import {
   ChevronRight,
   MailPlus,
   HandHelping,
+  BarChart2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Profile } from "@/lib/types";
@@ -44,6 +45,7 @@ const adminNav = [
   { href: "/admin/groups", label: "Groups", icon: Users },
   { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
   { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
+  { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 

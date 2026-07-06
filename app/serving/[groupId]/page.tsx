@@ -4,11 +4,12 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 import { signupDisplayName } from "@/lib/serving/display";
-import { upcomingSundays } from "@/lib/serving/sundays";
+import { upcomingSundays, pastSundaysUntil } from "@/lib/serving/sundays";
 import {
   ServingSchedule,
   type ScheduleEntry,
 } from "@/components/serving/ServingSchedule";
+import { ServingHistory, type HistoryEntry } from "@/components/serving/ServingHistory";
 import { EmailTeamButton } from "@/components/serving/EmailTeamButton";
 import { ServingSettingsDialog } from "@/components/serving/ServingSettingsDialog";
 
@@ -126,6 +127,59 @@ export default async function ServingSchedulePage({
     };
   }
 
+  // Past signups for history section
+  const { data: pastSignupRows } = await supabase
+    .from("serving_signups")
+    .select(
+      "id, service_date, created_by, family_id, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
+    )
+    .eq("group_id", groupId)
+    .lt("service_date", sundays[0])
+    .order("service_date", { ascending: false });
+
+  const pastSignupMap = new Map<string, ScheduleEntry>();
+  const pastFamilyIds = [
+    ...new Set(
+      (pastSignupRows ?? [])
+        .filter((s) => (s.serving_signup_attendees?.length ?? 0) > 1 && s.family_id)
+        .map((s) => s.family_id as string)
+    ),
+  ];
+  if (pastFamilyIds.length > 0) {
+    const { data: pastFamilies } = await supabase
+      .from("family_units")
+      .select("id, family_name")
+      .in("id", pastFamilyIds);
+    for (const f of pastFamilies ?? []) familyNames.set(f.id, f.family_name);
+  }
+  for (const s of pastSignupRows ?? []) {
+    const attendees = (s.serving_signup_attendees ?? [])
+      .map((a) => a.profiles as unknown as AttendeeProfile)
+      .filter(Boolean);
+    pastSignupMap.set(s.service_date, {
+      id: s.id,
+      date: s.service_date,
+      createdBy: s.created_by ?? "",
+      attendeeIds: attendees.map((a) => a.id),
+      label: signupDisplayName(
+        attendees,
+        s.family_id ? (familyNames.get(s.family_id) ?? null) : null
+      ),
+    });
+  }
+
+  // All past Sundays from earliest signup to last week
+  const earliestPast =
+    pastSignupRows && pastSignupRows.length > 0
+      ? pastSignupRows[pastSignupRows.length - 1].service_date
+      : null;
+  const historyEntries: HistoryEntry[] = earliestPast
+    ? pastSundaysUntil(earliestPast).map((date) => ({
+        date,
+        entry: pastSignupMap.get(date) ?? null,
+      }))
+    : [];
+
   // Spouse option for the attendee picker ("just me" / "me & spouse")
   let spouse: { id: string; name: string } | null = null;
   if (profile.family_id) {
@@ -213,6 +267,10 @@ export default async function ServingSchedulePage({
         canSignUp={isMember || isLeader || isAdmin}
         canManage={isLeader || isAdmin}
       />
+
+      {historyEntries.length > 0 && (
+        <ServingHistory entries={historyEntries} />
+      )}
     </div>
   );
 }

@@ -1,18 +1,29 @@
 // Supabase Edge Function: send-serving-reminders
-// Runs daily via pg_cron. For each enabled serving team where today is a
-// reminder day, emails attendees if the next Sunday is covered, or nudges
-// all team members if it's still open.
 //
-// pg_cron setup (run once in Supabase SQL editor — never by CI):
+// Two modes, two pg_cron entries (run once in Supabase SQL editor — never CI):
 //
+//   -- Daily: remind attendees of covered Sundays (Sat by default)
 //   select cron.schedule(
-//     'send-serving-reminders',
+//     'send-serving-reminders-daily',
 //     '0 8 * * *',
 //     $$
 //       select net.http_post(
 //         url := '<SUPABASE_PROJECT_URL>/functions/v1/send-serving-reminders',
 //         headers := '{"Authorization":"Bearer <SERVICE_ROLE_KEY>","Content-Type":"application/json"}'::jsonb,
-//         body := '{}'::jsonb
+//         body := '{"mode":"daily"}'::jsonb
+//       );
+//     $$
+//   );
+//
+//   -- Monthly: broadcast open Sundays to the whole team on the 1st
+//   select cron.schedule(
+//     'send-serving-monthly-broadcast',
+//     '0 8 1 * *',
+//     $$
+//       select net.http_post(
+//         url := '<SUPABASE_PROJECT_URL>/functions/v1/send-serving-reminders',
+//         headers := '{"Authorization":"Bearer <SERVICE_ROLE_KEY>","Content-Type":"application/json"}'::jsonb,
+//         body := '{"mode":"monthly"}'::jsonb
 //       );
 //     $$
 //   );
@@ -85,12 +96,23 @@ function toDateStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** The next calendar Sunday from `from`, or today if today is a Sunday. */
 function nextSunday(from: Date = new Date()): string {
   const d = new Date(from);
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
   return toDateStr(d);
+}
+
+function upcomingSundays(weeks: number, from: Date = new Date()): string[] {
+  const d = new Date(from);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  const result: string[] = [];
+  for (let i = 0; i < weeks; i++) {
+    result.push(toDateStr(d));
+    d.setDate(d.getDate() + 7);
+  }
+  return result;
 }
 
 function formatDate(dateStr: string): string {
@@ -141,39 +163,38 @@ function wrap(inner: string): string {
   </div>`;
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Shared: resolve link mode ─────────────────────────────────────────────────
 
-Deno.serve(async () => {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
-  const todayDow = new Date().getDay(); // 0=Sun … 6=Sat
-
-  // Teams where today is a configured reminder day
-  const { data: teamSettings } = await supabase
-    .from("serving_team_settings")
-    .select("group_id, window_weeks, reminder_days")
-    .eq("enabled", true)
-    .contains("reminder_days", [todayDow]);
-
-  if (!teamSettings?.length) {
-    return new Response(
-      JSON.stringify({ message: "No reminders to send today" }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Whether signed links are in use for this installation
-  const { data: lmSetting } = await supabase
+async function resolveCanSign(supabase: ReturnType<typeof createClient>): Promise<boolean> {
+  const { data } = await supabase
     .from("site_settings")
     .select("value")
     .eq("key", "serving_link_mode")
     .maybeSingle();
-  const linkMode = (lmSetting?.value ?? SERVING_LINK_MODE) === "login" ? "login" : "signed";
-  const canSign = linkMode === "signed" && !!SERVING_LINK_SECRET;
+  const mode = (data?.value ?? SERVING_LINK_MODE) === "login" ? "login" : "signed";
+  return mode === "signed" && !!SERVING_LINK_SECRET;
+}
 
-  let emailsSent = 0;
+// ── Daily mode: remind attendees of the next covered Sunday ──────────────────
+
+async function runDaily(
+  supabase: ReturnType<typeof createClient>,
+  canSign: boolean
+): Promise<number> {
+  const todayDow = new Date().getDay();
+
+  // Only process teams whose reminder_days include today
+  const { data: teamSettings } = await supabase
+    .from("serving_team_settings")
+    .select("group_id")
+    .eq("enabled", true)
+    .contains("reminder_days", [todayDow]);
+
+  if (!teamSettings?.length) return 0;
+
+  let sent = 0;
 
   for (const { group_id } of teamSettings) {
-    // Group name
     const { data: group } = await supabase
       .from("member_groups")
       .select("name")
@@ -183,9 +204,7 @@ Deno.serve(async () => {
     const teamName = group.name as string;
 
     const sunday = nextSunday();
-    const dateLabel = formatDate(sunday);
 
-    // Is this Sunday covered?
     const { data: signup } = await supabase
       .from("serving_signups")
       .select("id, serving_signup_attendees(profiles(id, first_name, preferred_name, email))")
@@ -193,86 +212,117 @@ Deno.serve(async () => {
       .eq("service_date", sunday)
       .maybeSingle();
 
-    if (signup) {
-      // ── Covered: remind each attendee ─────────────────────────────────
-      const attendees = (signup.serving_signup_attendees ?? []) as Array<{
-        profiles: { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
-      }>;
+    if (!signup) continue; // open Sunday — no reminder to send
 
-      for (const { profiles: p } of attendees) {
-        if (!p?.email) continue;
-        const name = p.preferred_name || p.first_name || "Friend";
-        const safeName = escapeHtml(name);
-        const safeTeamName = escapeHtml(teamName);
-        const safeDateLabel = escapeHtml(dateLabel);
+    const attendees = (signup.serving_signup_attendees ?? []) as Array<{
+      profiles: { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
+    }>;
 
-        let cancelUrl = `${SITE_URL}/serving/${group_id}`;
-        if (canSign) {
-          cancelUrl = `${SITE_URL}/serving/go?token=${await createToken(
-            { a: "cancel", g: group_id, d: sunday, p: p.id },
-            SERVING_LINK_SECRET!
-          )}`;
-        }
+    for (const { profiles: p } of attendees) {
+      if (!p?.email) continue;
+      const name = escapeHtml(p.preferred_name || p.first_name || "Friend");
+      const safeTeam = escapeHtml(teamName);
+      const dateLabel = escapeHtml(formatDate(sunday));
 
-        if (await sendEmail({
-          to: p.email,
-          subject: `Reminder: you're serving this Sunday with the ${teamName}`,
-          html: wrap(`
-            <h1 style="color:${BRAND_COLOR};font-size:28px;">See you Sunday!</h1>
-            <p style="font-size:18px;line-height:1.6;color:#44403c;">
-              Hi ${safeName}, just a reminder that you&rsquo;re signed up to serve with the
-              <strong>${safeTeamName}</strong> this Sunday.
-            </p>
-            <div style="background:#fef3c7;padding:20px;border-radius:8px;margin:20px 0;">
-              <p style="font-size:18px;margin:0;color:#44403c;">
-                <strong>When:</strong> ${safeDateLabel}
-              </p>
-            </div>
-            <p style="font-size:14px;color:#78716c;">
-              Can&rsquo;t make it?
-              <a href="${cancelUrl}" style="color:${BRAND_COLOR};">Click here to cancel</a>
-              so someone else can cover.
-            </p>
-          `),
-        })) {
-          emailsSent++;
-        }
+      let cancelUrl = `${SITE_URL}/serving/${group_id}`;
+      if (canSign) {
+        cancelUrl = `${SITE_URL}/serving/go?token=${await createToken(
+          { a: "cancel", g: group_id, d: sunday, p: p.id },
+          SERVING_LINK_SECRET!
+        )}`;
       }
-    } else {
-      // ── Open: nudge all team members ──────────────────────────────────
-      const { data: members } = await supabase
-        .from("profile_groups")
-        .select("profiles(id, first_name, preferred_name, email)")
-        .eq("group_id", group_id);
 
-      for (const row of members ?? []) {
-        const m = row.profiles as { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
-        if (!m?.email) continue;
-
-        const name = m.preferred_name || m.first_name || "Friend";
-        const safeName = escapeHtml(name);
-        const safeTeamName = escapeHtml(teamName);
-        const safeDateLabel = escapeHtml(dateLabel);
-        let signupUrl = `${SITE_URL}/serving/${group_id}`;
-        if (canSign) {
-          signupUrl = `${SITE_URL}/serving/go?token=${await createToken(
-            { a: "signup", g: group_id, d: sunday, p: m.id },
-            SERVING_LINK_SECRET!
-          )}`;
-        }
-
-        if (await sendEmail({
-          to: m.email,
-          subject: `${teamName}: this Sunday still needs someone`,
-          html: wrap(`
-            <h1 style="color:${BRAND_COLOR};font-size:28px;">Can you take this Sunday?</h1>
-            <p style="font-size:18px;line-height:1.6;color:#44403c;">
-              Hi ${safeName}, the <strong>${safeTeamName}</strong> still needs a volunteer
-              for this Sunday.
+      if (await sendEmail({
+        to: p.email,
+        subject: `Reminder: you're serving this Sunday with the ${teamName}`,
+        html: wrap(`
+          <h1 style="color:${BRAND_COLOR};font-size:28px;">See you Sunday!</h1>
+          <p style="font-size:18px;line-height:1.6;color:#44403c;">
+            Hi ${name}, just a reminder that you&rsquo;re signed up to serve with the
+            <strong>${safeTeam}</strong> this Sunday.
+          </p>
+          <div style="background:#fef3c7;padding:20px;border-radius:8px;margin:20px 0;">
+            <p style="font-size:18px;margin:0;color:#44403c;">
+              <strong>When:</strong> ${dateLabel}
             </p>
+          </div>
+          <p style="font-size:14px;color:#78716c;">
+            Can&rsquo;t make it?
+            <a href="${cancelUrl}" style="color:${BRAND_COLOR};">Click here to cancel</a>
+            so someone else can cover.
+          </p>
+        `),
+      })) sent++;
+    }
+  }
+
+  return sent;
+}
+
+// ── Monthly mode: broadcast open Sundays to the whole team ───────────────────
+
+async function runMonthly(
+  supabase: ReturnType<typeof createClient>,
+  canSign: boolean
+): Promise<number> {
+  const { data: teamSettings } = await supabase
+    .from("serving_team_settings")
+    .select("group_id, window_weeks")
+    .eq("enabled", true);
+
+  if (!teamSettings?.length) return 0;
+
+  let sent = 0;
+
+  for (const { group_id, window_weeks } of teamSettings) {
+    const { data: group } = await supabase
+      .from("member_groups")
+      .select("name")
+      .eq("id", group_id)
+      .single();
+    if (!group) continue;
+    const teamName = group.name as string;
+
+    const sundays = upcomingSundays(window_weeks ?? 8);
+
+    // Find which Sundays are already covered
+    const { data: signups } = await supabase
+      .from("serving_signups")
+      .select("service_date")
+      .eq("group_id", group_id)
+      .in("service_date", sundays);
+
+    const covered = new Set((signups ?? []).map((s) => s.service_date as string));
+    const openDates = sundays.filter((d) => !covered.has(d));
+
+    if (!openDates.length) continue; // all covered — nothing to broadcast
+
+    // Get all team members
+    const { data: members } = await supabase
+      .from("profile_groups")
+      .select("profiles(id, first_name, preferred_name, email)")
+      .eq("group_id", group_id);
+
+    for (const row of members ?? []) {
+      const m = row.profiles as { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
+      if (!m?.email) continue;
+
+      const name = escapeHtml(m.preferred_name || m.first_name || "Friend");
+      const safeTeam = escapeHtml(teamName);
+
+      const rows = await Promise.all(
+        openDates.map(async (date) => {
+          let signupUrl = `${SITE_URL}/serving/${group_id}`;
+          if (canSign) {
+            signupUrl = `${SITE_URL}/serving/go?token=${await createToken(
+              { a: "signup", g: group_id, d: date, p: m.id },
+              SERVING_LINK_SECRET!
+            )}`;
+          }
+          return `
             <table role="presentation" width="100%" style="border-bottom:1px solid #e7e5e4;">
               <tr>
-                <td style="padding:14px 0;font-size:18px;color:#44403c;">${safeDateLabel}</td>
+                <td style="padding:14px 0;font-size:18px;color:#44403c;">${escapeHtml(formatDate(date))}</td>
                 <td align="right" style="padding:14px 0;">
                   <a href="${signupUrl}"
                      style="display:inline-block;background-color:${BRAND_COLOR};color:white;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:16px;white-space:nowrap;">
@@ -280,17 +330,60 @@ Deno.serve(async () => {
                   </a>
                 </td>
               </tr>
-            </table>
-          `),
-        })) {
-          emailsSent++;
-        }
-      }
+            </table>`;
+        })
+      );
+
+      if (await sendEmail({
+        to: m.email,
+        subject: `${teamName}: open Sundays for the coming weeks`,
+        html: wrap(`
+          <h1 style="color:${BRAND_COLOR};font-size:28px;">Can you take a Sunday?</h1>
+          <p style="font-size:18px;line-height:1.6;color:#44403c;">
+            Hi ${name}, here are the upcoming Sundays for the <strong>${safeTeam}</strong>
+            that still need a volunteer. Tap a button and you&rsquo;re signed up.
+          </p>
+          ${rows.join("")}
+          <p style="font-size:14px;color:#78716c;margin-top:24px;">
+            Want to see the full schedule?
+            <a href="${SITE_URL}/serving/${group_id}" style="color:${BRAND_COLOR};">View the team page</a>
+          </p>
+        `),
+      })) sent++;
     }
+
+    // Log broadcast
+    await supabase.from("serving_broadcasts").insert({
+      group_id,
+      sent_by: null, // automated — no user
+      message: `Monthly auto-broadcast: ${openDates.length} open Sunday(s)`,
+    });
   }
 
+  return sent;
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+Deno.serve(async (req) => {
+  let mode = "daily";
+  try {
+    const body = await req.json();
+    if (body?.mode === "monthly") mode = "monthly";
+  } catch {
+    // no body or bad JSON — default to daily
+  }
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+  const canSign = await resolveCanSign(supabase);
+
+  const sent =
+    mode === "monthly"
+      ? await runMonthly(supabase, canSign)
+      : await runDaily(supabase, canSign);
+
   return new Response(
-    JSON.stringify({ message: `Sent ${emailsSent} reminder emails` }),
+    JSON.stringify({ mode, message: `Sent ${sent} emails` }),
     { headers: { "Content-Type": "application/json" } }
   );
 });
