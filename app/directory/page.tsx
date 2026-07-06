@@ -324,7 +324,7 @@ export default function DirectoryPage() {
   const stickyRef = useRef<HTMLDivElement>(null);
   const [stickyH, setStickyH] = useState(140);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -362,7 +362,7 @@ export default function DirectoryPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const el = stickyRef.current;

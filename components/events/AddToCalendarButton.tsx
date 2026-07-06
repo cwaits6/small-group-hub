@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { AddToCalendarButton as AtcButton } from "add-to-calendar-button-react";
 
 interface AddToCalendarButtonProps {
@@ -101,11 +101,11 @@ export function AddToCalendarButton({
   compact,
   instance,
 }: AddToCalendarButtonProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   const startDate = new Date(startTime);
   const parsedEndTime = endTime ? new Date(endTime) : null;

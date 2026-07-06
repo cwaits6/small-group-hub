@@ -5,7 +5,7 @@ import "@blocknote/shadcn/style.css";
 import "./BlockEditor.css";
 import { BlockNoteEditor, type Block, type PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/shadcn";
-import { useMemo } from "react";
+import { useState } from "react";
 
 interface BlockEditorProps {
   initialContent?: PartialBlock[];
@@ -18,11 +18,11 @@ export default function BlockEditor({
   onChange,
   editable = true,
 }: BlockEditorProps) {
-  const editor = useMemo(() => {
-    return BlockNoteEditor.create({
+  const [editor] = useState(() =>
+    BlockNoteEditor.create({
       initialContent: initialContent?.length ? initialContent : undefined,
-    });
-  }, []);
+    }),
+  );
 
   return (
     <BlockNoteView

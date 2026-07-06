@@ -88,11 +88,6 @@ export function NewEventForm() {
   const [endTime, setEndTime] = useState(() => addHour(initialStartTime));
 
   useEffect(() => {
-    setStartTime(initialStartTime);
-    setEndTime(addHour(initialStartTime));
-  }, [initialStartTime]);
-
-  useEffect(() => {
     supabase
       .from("event_calendars")
       .select("*")

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
-import { siteConfig } from "@/lib/config";
 import { ArrowRight } from "lucide-react";
 import { Christicon } from "@christicons/react";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export default function EditEventPage() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   // Occurrence param is set when navigating from a specific recurring occurrence.
   const rawOccurrence = searchParams.get("occurrence");
@@ -79,7 +79,7 @@ export default function EditEventPage() {
       setIsLoading(false);
     }
     load();
-  }, [params.id]);
+  }, [occurrenceISO, params.id, router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

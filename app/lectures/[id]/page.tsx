@@ -178,6 +178,7 @@ export default async function LectureDetailPage({
             className="group block relative aspect-video rounded-2xl overflow-hidden border border-border"
           >
             {thumbnail ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Lecture thumbnails can be arbitrary stored URLs.
               <img src={thumbnail} alt={lecture.title} className="w-full h-full object-cover" />
             ) : (
               <div

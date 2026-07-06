@@ -75,7 +75,7 @@ export default function DirectoryPrintPage() {
   const [families, setFamilies] = useState<FamilyDirectoryFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -103,7 +103,7 @@ export default function DirectoryPrintPage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [supabase]);
 
   const profileMap = useMemo(() => {
     const map: Record<string, DirectoryProfile> = {};

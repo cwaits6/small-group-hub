@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ function NewLecturePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedSeries = searchParams.get("series") ?? "";
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     supabase
@@ -32,7 +32,7 @@ function NewLecturePage() {
       .select("id, name, teacher")
       .order("created_at", { ascending: false })
       .then(({ data }) => setSeriesList(data ?? []));
-  }, []);
+  }, [supabase]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

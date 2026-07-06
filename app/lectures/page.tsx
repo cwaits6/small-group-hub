@@ -317,6 +317,7 @@ function FeaturedCard({
         className="group relative aspect-video rounded-xl overflow-hidden block"
       >
         {thumbnail ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Lecture thumbnails can be arbitrary stored URLs.
           <img
             src={thumbnail}
             alt={lecture.title}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,9 @@ export default function MembersPage() {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     const [{ data: reqs }, { data: mems }] = await Promise.all([
       supabase
@@ -45,7 +41,11 @@ export default function MembersPage() {
     setRequests(reqs || []);
     setMembers(mems || []);
     setLoading(false);
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   async function handleRequest(id: string, action: "approved" | "denied") {
     if (action === "approved") {

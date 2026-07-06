@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 

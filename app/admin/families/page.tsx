@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { uploadImage } from "@/lib/uploadImage";
@@ -146,13 +146,9 @@ export default function FamiliesPage() {
   const [removingPhoto, setRemovingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    loadFamilies();
-  }, []);
-
-  async function loadFamilies() {
+  const loadFamilies = useCallback(async () => {
     setLoading(true);
     const { data: familyData, error: familyErr } = await supabase
       .from("family_units")
@@ -188,7 +184,11 @@ export default function FamiliesPage() {
       })),
     );
     setLoading(false);
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    loadFamilies();
+  }, [loadFamilies]);
 
   async function loadFamilyMembers(familyId: string) {
     const { data, error } = await supabase
@@ -322,8 +322,8 @@ export default function FamiliesPage() {
         .update({ photo_url: url })
         .eq("id", editing.id);
       if (error) throw error;
-      // Cache-bust so the new image shows immediately
-      setPhotoUrl(`${url}?t=${Date.now()}`);
+      // Cache-bust so the new image shows immediately.
+      setPhotoUrl(`${url}?t=${file.lastModified}`);
       toast.success("Family photo updated.");
       loadFamilies();
     } catch (err) {

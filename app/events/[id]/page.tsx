@@ -171,14 +171,6 @@ export default async function EventDetailPage({
   const endDate = displayEndTime ? new Date(displayEndTime) : null;
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-  const fullDate = startDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: "America/New_York",
-  });
-
   // Short date for meta strip
   const shortDate = startDate.toLocaleDateString("en-US", {
     weekday: "short",

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>cwaits6/renovate-config"
+  ],
+  "lockFileMaintenance": {
+    "automergeSchedule": ["at any time"]
+  },
+  "packageRules": [
+    // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
+    // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
+    {
+      "description": "Keep ESLint on v9 until eslint-plugin-react supports ESLint 10",
+      "matchPackageNames": ["eslint"],
+      "allowedVersions": "<10.0.0"
+    },
+    // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
+    // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
+    {
+      "description": "Group all non-major npm dependency updates into a single PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "non-major dependencies"
+    }
+  ]
+}
