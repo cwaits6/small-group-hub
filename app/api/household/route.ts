@@ -17,7 +17,7 @@ async function getHouseholdContext(supabase: Awaited<ReturnType<typeof createCli
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, family_id, setup_completed")
+    .select("role, family_id, setup_completed, relationship")
     .eq("id", user.id)
     .single();
 
@@ -54,6 +54,13 @@ export async function PATCH(request: Request) {
   const supabase = await createClient();
   const ctx = await getHouseholdContext(supabase);
   if (!ctx) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!["primary", "spouse"].includes(ctx.profile.relationship ?? "")) {
+    return NextResponse.json(
+      { error: "Only the household primary or spouse can update household info." },
+      { status: 403 },
+    );
+  }
 
   let body: Record<string, unknown>;
   try {

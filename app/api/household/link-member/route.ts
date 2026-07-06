@@ -47,9 +47,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { profile_id } = body;
+  const { profile_id, relationship } = body;
   if (!profile_id || typeof profile_id !== "string") {
     return NextResponse.json({ error: "profile_id is required" }, { status: 400 });
+  }
+
+  const validRelationships = ["primary", "spouse", "child", "parent", "sibling", "other"];
+  if (relationship && !validRelationships.includes(relationship as string)) {
+    return NextResponse.json({ error: "Invalid relationship value." }, { status: 400 });
   }
 
   // Can't link yourself
@@ -83,7 +88,10 @@ export async function POST(request: Request) {
   const service = await createServiceClient();
   const { error } = await service
     .from("profiles")
-    .update({ family_id: currentProfile.family_id })
+    .update({
+      family_id: currentProfile.family_id,
+      ...(relationship ? { relationship } : {}),
+    })
     .eq("id", profile_id);
 
   if (error) {
@@ -92,6 +100,6 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    data: { profile_id, family_id: currentProfile.family_id },
+    data: { profile_id, family_id: currentProfile.family_id, relationship: relationship ?? null },
   });
 }

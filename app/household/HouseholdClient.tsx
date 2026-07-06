@@ -19,6 +19,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Pencil, Plus, Trash2, User, UserPlus } from "lucide-react";
 import {
@@ -29,7 +36,16 @@ import {
   titleCaseCity,
 } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
-import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
+import type { Profile, FamilyUnit, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
+
+const LINK_RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
+  { value: "spouse", label: "Spouse" },
+  { value: "primary", label: "Primary" },
+  { value: "child", label: "Child (adult)" },
+  { value: "parent", label: "Parent" },
+  { value: "sibling", label: "Sibling" },
+  { value: "other", label: "Other" },
+];
 
 interface HouseholdInfo {
   family_name: string;
@@ -97,6 +113,7 @@ export function HouseholdClient({
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [linkingId, setLinkingId] = useState<string | null>(null);
+  const [linkRelationship, setLinkRelationship] = useState<FamilyMemberRelationship>("spouse");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const canEditSpouseProfiles =
@@ -183,21 +200,22 @@ export function HouseholdClient({
     const res = await fetch("/api/household/link-member", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile_id: profileId }),
+      body: JSON.stringify({ profile_id: profileId, relationship: linkRelationship }),
     });
 
     setLinkingId(null);
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      toast.error(body.error ?? "Failed to link member.");
+      toast.error(body.error ?? "Failed to add member to household.");
       return;
     }
 
-    toast.success("Member added to your household. They can now edit their own profile.");
+    toast.success("Member added to your household.");
     setAddDialogOpen(false);
     setSearchQuery("");
     setSearchResults([]);
+    setLinkRelationship("spouse");
     router.refresh();
   }
 
@@ -456,20 +474,31 @@ export function HouseholdClient({
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Family Members Without Accounts</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              render={<Link href="/household/member/fm/new" />}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Add member
-            </Button>
+            {canEditSpouseProfiles && (
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<Link href="/household/member/fm/new" />}
+              >
+                <Plus className="mr-1 h-4 w-4" />
+                Add member
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Children, parents, and others who don&apos;t have their own account.
+            Children, parents, and others who don&apos;t have their own account. If someone
+            already has an account in the app, use{" "}
+            <button
+              type="button"
+              onClick={() => setAddDialogOpen(true)}
+              className="underline underline-offset-2 text-foreground hover:text-brand-primary"
+            >
+              Link member
+            </button>{" "}
+            instead.
           </p>
 
           {familyMembers.map((fm) => (
@@ -539,11 +568,31 @@ export function HouseholdClient({
           </DialogHeader>
 
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="link-relationship" className="text-sm font-medium">
+                Their relationship to your household
+              </Label>
+              <Select
+                value={linkRelationship}
+                onValueChange={(v) => setLinkRelationship(v as FamilyMemberRelationship)}
+              >
+                <SelectTrigger id="link-relationship">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LINK_RELATIONSHIPS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Input
               placeholder="Search by name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              autoFocus
             />
 
             {searchLoading && (

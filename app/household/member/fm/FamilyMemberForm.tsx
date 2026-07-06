@@ -73,6 +73,7 @@ export function FamilyMemberForm({ member }: Props) {
   const displayFirst = preferredName || firstName || "Member";
   const displayLast = lastName;
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "?";
+  const currentYear = new Date().getFullYear();
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -109,6 +110,23 @@ export function FamilyMemberForm({ member }: Props) {
       return;
     }
 
+    // Basic date sanity checks
+    const dayNum = birthDay ? Number(birthDay) : null;
+    const monthNum = birthMonth ? Number(birthMonth) : null;
+    const yearNum = birthYear ? Number(birthYear) : null;
+    if (dayNum !== null && (dayNum < 1 || dayNum > 31)) {
+      toast.error("Birthday day must be between 1 and 31.");
+      return;
+    }
+    if (yearNum !== null && (yearNum < 1900 || yearNum > currentYear)) {
+      toast.error(`Birthday year must be between 1900 and ${currentYear}.`);
+      return;
+    }
+    if ((monthNum !== null) !== (dayNum !== null)) {
+      toast.error("Please provide both a month and a day for the birthday.");
+      return;
+    }
+
     setSaving(true);
 
     const payload = {
@@ -139,7 +157,11 @@ export function FamilyMemberForm({ member }: Props) {
       return;
     }
 
-    toast.success(isNew ? "Family member added." : "Family member updated.");
+    if (isNew) {
+      toast.success("Family member added. You can add a photo by editing them from the household page.");
+    } else {
+      toast.success("Family member updated.");
+    }
     router.push("/household");
   }
 
@@ -297,7 +319,7 @@ export function FamilyMemberForm({ member }: Props) {
                 id="birth_year"
                 type="number"
                 min="1900"
-                max="2100"
+                max={currentYear}
                 value={birthYear}
                 onChange={(e) => setBirthYear(e.target.value)}
                 placeholder="Year"

@@ -1,12 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ProfileForm } from "@/components/profile/ProfileForm";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 import { displayName } from "@/lib/names";
-import type { Profile, FamilyUnit } from "@/lib/types";
+import type { Profile } from "@/lib/types";
+import { HouseholdMemberEditClient } from "../HouseholdMemberEditClient";
 
 export const metadata = { title: `Edit Household Member | ${siteConfig.name}` };
 
@@ -78,11 +78,7 @@ export default async function HouseholdMemberEditPage({ params }: Props) {
         Editing profile for <strong>{displayName(targetProfile)}</strong>.
       </p>
 
-      <ProfileForm
-        profile={targetProfile}
-        families={[] as FamilyUnit[]}
-        isAdmin={false}
-      />
+      <HouseholdMemberEditClient profile={targetProfile} />
     </div>
   );
 }

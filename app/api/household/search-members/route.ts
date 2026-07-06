@@ -40,18 +40,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: [] });
   }
 
-  // Search profiles without a household, matching first or last name
+  // Escape PostgREST filter special characters to prevent malformed queries
+  const safe = q.replace(/[,()]/g, "");
+
+  // Search profiles without a household, matching first or last name.
+  // We select hide_email so we can respect the member's privacy setting
+  // before displaying their email in the UI.
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, preferred_name, avatar_url, email")
+    .select("id, first_name, last_name, preferred_name, avatar_url, email, hide_email")
     .is("family_id", null)
     .neq("id", user.id)
     .in("role", ["member", "content_editor", "admin"])
     .eq("setup_completed", true)
-    .or(`first_name.ilike.%${q}%,last_name.ilike.%${q}%,preferred_name.ilike.%${q}%`)
+    .or(`first_name.ilike.%${safe}%,last_name.ilike.%${safe}%,preferred_name.ilike.%${safe}%`)
     .order("first_name")
     .limit(10);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+
+  // Mask email for members who have opted out of showing it
+  const results = (data ?? []).map(({ hide_email, email, ...rest }) => ({
+    ...rest,
+    email: hide_email ? null : email,
+  }));
+
+  return NextResponse.json({ data: results });
 }

@@ -14,7 +14,7 @@ async function getMemberContext(supabase: Awaited<ReturnType<typeof createClient
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, family_id, setup_completed")
+    .select("role, family_id, setup_completed, relationship")
     .eq("id", user.id)
     .single();
 
@@ -107,6 +107,13 @@ export async function DELETE(_request: Request, { params }: RouteParams) {
   const supabase = await createClient();
   const ctx = await getMemberContext(supabase);
   if (!ctx) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!["primary", "spouse"].includes(ctx.profile.relationship ?? "")) {
+    return NextResponse.json(
+      { error: "Only the household primary or spouse can remove family members." },
+      { status: 403 },
+    );
+  }
 
   // Verify the family member belongs to the current user's household
   const { data: existing } = await supabase
