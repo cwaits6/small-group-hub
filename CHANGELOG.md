@@ -1,3 +1,10 @@
+## [0.11.1](https://github.com/cwaits6/small-group-hub/compare/v0.11.0...v0.11.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* **serving:** membership-gated visibility, spouse picker, and broadcast fixes ([#178](https://github.com/cwaits6/small-group-hub/issues/178)) ([dfe6cf0](https://github.com/cwaits6/small-group-hub/commit/dfe6cf0271c90bbc847eb1d3ca095669adcd8a14))
+
 # [0.11.0](https://github.com/cwaits6/small-group-hub/compare/v0.10.1...v0.11.0) (2026-07-05)
 
 
