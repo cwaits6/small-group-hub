@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { DirectoryPreview } from "@/components/profile/DirectoryPreview";
+import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/config";
+import { Home } from "lucide-react";
 import type { Profile, FamilyUnit } from "@/lib/types";
 
 export const metadata = { title: `My Profile | ${siteConfig.name}` };
@@ -50,6 +53,23 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileForm profile={profile} families={families} isAdmin={false} />
+
+      {profile.family_id && (
+        <div className="mt-8 pt-6 border-t">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/household" />}
+            className="w-full sm:w-auto"
+          >
+            <Home className="mr-2 h-4 w-4" />
+            Manage Household
+          </Button>
+          <p className="text-sm text-muted-foreground mt-2">
+            Update your household&apos;s address, home phone, and family members.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
