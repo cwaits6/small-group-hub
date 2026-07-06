@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,13 +67,9 @@ export default function GroupsPage() {
   // member counts per group for delete warning
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  useEffect(() => {
-    loadGroups();
-  }, []);
-
-  async function loadGroups() {
+  const loadGroups = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("member_groups")
@@ -100,7 +96,11 @@ export default function GroupsPage() {
     setMemberCounts(countMap);
 
     setLoading(false);
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
 
   function openCreate() {
     setEditing(null);

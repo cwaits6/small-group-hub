@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export default function EditAnnouncementPage() {
   const blocksRef = useRef<Block[]>([]);
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -46,7 +46,7 @@ export default function EditAnnouncementPage() {
       }
     }
     load();
-  }, [params.id]);
+  }, [params.id, supabase]);
 
   const parsedContent = (): PartialBlock[] | undefined => {
     if (!announcement?.content) return undefined;

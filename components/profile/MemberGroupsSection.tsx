@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -25,7 +25,7 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -53,7 +53,7 @@ export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
       setLoading(false);
     }
     load();
-  }, [profileId]);
+  }, [profileId, supabase]);
 
   async function handleToggle(group: MemberGroup, checked: boolean) {
     setToggling(group.id);

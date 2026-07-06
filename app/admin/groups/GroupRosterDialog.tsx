@@ -49,10 +49,11 @@ export function GroupRosterDialog({
   const [mode, setMode] = useState<"roster" | "add">("roster");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const groupId = group?.id;
 
   useEffect(() => {
-    if (!group) return;
+    if (!groupId) return;
     let cancelled = false;
 
     async function load(groupId: string) {
@@ -86,11 +87,11 @@ export function GroupRosterDialog({
       setLoadedGroupId(groupId);
     }
 
-    load(group.id);
+    load(groupId);
     return () => {
       cancelled = true;
     };
-  }, [group?.id]);
+  }, [groupId, supabase]);
 
   const loading = !group || loadedGroupId !== group.id;
 

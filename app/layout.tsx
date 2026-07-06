@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AppShell } from "@/components/layout/AppShell";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
 import "./globals.css";
@@ -45,8 +45,6 @@ export default async function RootLayout({
   // Skip the getUser() call entirely when there are no auth cookies.
   // This avoids noisy "Invalid Refresh Token" errors for unauthenticated visitors.
   const cookieStore = await cookies();
-  const headerStore = await headers();
-  const nonce = headerStore.get("x-nonce") ?? "";
   const hasAuthCookie = cookieStore.getAll().some((c) => c.name.includes("auth-token"));
 
   let profile = null;

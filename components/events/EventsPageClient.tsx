@@ -33,7 +33,6 @@ interface EventsPageClientProps {
 
 export function EventsPageClient({
   allEvents,
-  upcomingEvents,
   calendars,
   userRsvps,
   userId,

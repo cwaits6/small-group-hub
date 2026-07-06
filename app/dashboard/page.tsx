@@ -193,7 +193,7 @@ export default async function DashboardPage() {
     .select("id", { count: "exact", head: true })
     .neq("role", "pending");
 
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+  const thirtyDaysAgo = new Date(new Date(now).getTime() - 30 * 86400000).toISOString();
   const { count: announcementCount } = await supabase
     .from("announcements")
     .select("id", { count: "exact", head: true })

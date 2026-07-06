@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { MapPin, Clock } from "lucide-react";
 import type { Event } from "@/lib/types";

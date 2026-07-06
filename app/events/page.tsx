@@ -36,7 +36,7 @@ export default async function EventsPage() {
   // Include non-recurring events whose start_time falls in the window, AND
   // recurring anchors whose series overlaps the window (start_time <= windowEnd
   // and the series hasn't ended before the window start).
-  let allEventsQuery = supabase
+  const allEventsQuery = supabase
     .from("events")
     .select("*, calendar:event_calendars(*)")
     .lte("start_time", oneYearAhead)
@@ -50,7 +50,7 @@ export default async function EventsPage() {
   // Fetch upcoming events for list view.
   // Include non-recurring events starting from now, AND recurring anchors whose
   // series hasn't ended yet (recurrence_until IS NULL or >= now).
-  let upcomingEventsQuery = supabase
+  const upcomingEventsQuery = supabase
     .from("events")
     .select("*, calendar:event_calendars(*)")
     .or(

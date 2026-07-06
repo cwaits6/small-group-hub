@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ export default function EditPageContentPage() {
   const isDirtyRef = useRef(false);
   const router = useRouter();
   const params = useParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const slug = params.slug as string;
   const isNew = slug === "new";
   const isContentEditor = userRole === "content_editor";
@@ -55,7 +55,7 @@ export default function EditPageContentPage() {
       setInitialLoading(false);
     }
     load();
-  }, [slug, isNew]);
+  }, [slug, isNew, supabase]);
 
   const parsedInitialContent = (): PartialBlock[] | undefined => {
     if (!page?.body) return undefined;
@@ -78,7 +78,7 @@ export default function EditPageContentPage() {
       ? JSON.stringify(blocksRef.current)
       : (page?.body ?? "[]");
 
-    let newSlug = isNew
+    const newSlug = isNew
       ? title
           .toLowerCase()
           .replace(/[^a-z0-9-]/g, "-")

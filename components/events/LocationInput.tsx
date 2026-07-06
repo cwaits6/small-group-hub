@@ -35,7 +35,10 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
   const containerRef = useRef<HTMLDivElement>(null);
   const elRef = useRef<HTMLElement | null>(null);
   const onChangeRef = useRef(onChange);
-  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const readShadowInput = (el: HTMLElement | null) => {
     const shadow = (el as { shadowRoot?: ShadowRoot | null } | null)?.shadowRoot;
@@ -46,6 +49,7 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
   useEffect(() => {
     let cancelled = false;
     let attempts = 0;
+    const container = containerRef.current;
 
     async function init() {
       while (!window.google?.maps) {
@@ -56,7 +60,7 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
 
       await window.google!.maps!.importLibrary("places");
 
-      if (cancelled || elRef.current || !containerRef.current) return;
+      if (cancelled || elRef.current || !container) return;
       if (!window.google?.maps?.places?.PlaceAutocompleteElement) return;
 
       const el = new window.google.maps.places.PlaceAutocompleteElement();
@@ -129,7 +133,7 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
         });
       };
 
-      containerRef.current.appendChild(el);
+      container.appendChild(el);
 
       // The new Places widget uses gmp-select. Keep gmp-placeselect as a compatibility fallback.
       el.addEventListener("gmp-select", handleSelect);
@@ -155,10 +159,6 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
         input.addEventListener("input", syncInputValue);
         input.addEventListener("change", syncInputValue);
 
-        if (input.value !== value) {
-          input.value = value;
-        }
-
         (el as any)._shadowCleanup = () => {
           input.removeEventListener("input", syncInputValue);
           input.removeEventListener("change", syncInputValue);
@@ -180,7 +180,7 @@ export function LocationInput({ value, onChange, id, name }: LocationInputProps)
       const el = elRef.current;
       if (el) {
         (el as any)._cleanup?.();
-        if (containerRef.current?.contains(el)) containerRef.current.removeChild(el);
+        if (container?.contains(el)) container.removeChild(el);
       }
       elRef.current = null;
     };
