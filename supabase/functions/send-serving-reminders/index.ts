@@ -275,6 +275,7 @@ async function runMonthly(
   let sent = 0;
 
   for (const { group_id, window_weeks } of teamSettings) {
+    let teamSent = 0;
     const { data: group } = await supabase
       .from("member_groups")
       .select("name")
@@ -349,7 +350,7 @@ async function runMonthly(
             <a href="${SITE_URL}/serving/${group_id}" style="color:${BRAND_COLOR};">View the team page</a>
           </p>
         `),
-      })) sent++;
+      })) { sent++; teamSent++; }
     }
 
     // Log broadcast (service key bypasses RLS; sent_by = null marks automated)
@@ -358,7 +359,7 @@ async function runMonthly(
       sent_by: null,
       subject: `${teamName}: monthly open-Sunday broadcast`,
       open_dates: openDates,
-      recipient_count: sent,
+      recipient_count: teamSent,
     });
   }
 
