@@ -17,6 +17,7 @@ import {
   ChevronRight,
   MailPlus,
   HandHelping,
+  BarChart2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Profile } from "@/lib/types";
@@ -25,6 +26,7 @@ import { createClient } from "@/lib/supabase/client";
 
 interface SidebarProps {
   profile: Profile;
+  hasServingAccess: boolean;
 }
 
 const memberNav = [
@@ -44,10 +46,11 @@ const adminNav = [
   { href: "/admin/groups", label: "Groups", icon: Users },
   { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
   { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
+  { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 
-export function Sidebar({ profile }: SidebarProps) {
+export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [pages, setPages] = useState<PageContent[]>([]);
@@ -82,12 +85,14 @@ export function Sidebar({ profile }: SidebarProps) {
       }`}
     >
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {memberNav.map((item) => (
-          <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-            <item.icon className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </Link>
-        ))}
+        {memberNav
+          .filter((item) => item.href !== "/serving" || hasServingAccess)
+          .map((item) => (
+            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </Link>
+          ))}
 
         {pages.length > 0 && (
           <>

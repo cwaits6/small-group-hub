@@ -80,11 +80,18 @@ export function EmailTeamButton({
             <DialogTitle>Email the {teamName}</DialogTitle>
           </DialogHeader>
 
-          <p className="text-sm text-muted-foreground">
-            Everyone on the team ({memberCount} member{memberCount !== 1 ? "s" : ""})
-            will get an email listing the open Sundays below, each with a
-            one-tap signup button.
-          </p>
+          {memberCount === 0 ? (
+            <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              No team members found. Add members to this group in{" "}
+              <strong>Admin → Groups</strong> first.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Everyone on the team ({memberCount} member{memberCount !== 1 ? "s" : ""})
+              will get an email listing the open Sundays below, each with a
+              one-tap signup button.
+            </p>
+          )}
 
           <ul className="text-sm list-disc pl-5 space-y-0.5 max-h-40 overflow-y-auto">
             {openDates.map((d) => (
@@ -114,7 +121,7 @@ export function EmailTeamButton({
               Cancel
             </Button>
             <Button
-              disabled={sending}
+              disabled={sending || memberCount === 0}
               onClick={send}
               className="bg-brand-primary hover:bg-brand-primary/90 text-white"
             >

@@ -64,3 +64,26 @@ export function daysUntilService(dateStr: string, from: Date = new Date()): numb
   const target = new Date(dateStr + "T00:00:00");
   return Math.round((target.getTime() - today.getTime()) / 86400000);
 }
+
+/**
+ * All past Sundays from `from` (inclusive) up to but not including today,
+ * returned newest-first. Returns empty array if `from` is today or in the future.
+ */
+export function pastSundaysUntil(from: string, until: Date = new Date()): string[] {
+  const end = new Date(until);
+  end.setHours(0, 0, 0, 0);
+  // Roll back to last Sunday (exclusive of today if today is Sunday)
+  const dow = end.getDay();
+  end.setDate(end.getDate() - (dow === 0 ? 7 : dow));
+
+  const start = new Date(from + "T00:00:00");
+  if (end < start) return [];
+
+  const result: string[] = [];
+  const d = new Date(end);
+  while (d >= start) {
+    result.push(toDateString(d));
+    d.setDate(d.getDate() - 7);
+  }
+  return result;
+}
