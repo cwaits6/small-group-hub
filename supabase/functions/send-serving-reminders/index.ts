@@ -352,11 +352,13 @@ async function runMonthly(
       })) sent++;
     }
 
-    // Log broadcast
+    // Log broadcast (service key bypasses RLS; sent_by = null marks automated)
     await supabase.from("serving_broadcasts").insert({
       group_id,
-      sent_by: null, // automated — no user
-      message: `Monthly auto-broadcast: ${openDates.length} open Sunday(s)`,
+      sent_by: null,
+      subject: `${teamName}: monthly open-Sunday broadcast`,
+      open_dates: openDates,
+      recipient_count: sent,
     });
   }
 

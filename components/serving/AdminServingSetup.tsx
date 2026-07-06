@@ -33,7 +33,7 @@ export function AdminServingSetup({ groups }: AdminServingSetupProps) {
     setBusy(null);
 
     if (error) {
-      toast.error(`Failed to enable serving for ${name}.`);
+      toast.error(`Failed to enable serving for ${name}: ${error.message}`);
       return;
     }
     toast.success(`Serving signups enabled for ${name}.`);

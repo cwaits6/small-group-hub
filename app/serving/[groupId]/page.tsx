@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -69,6 +69,8 @@ export default async function ServingSchedulePage({
 
   const isMember = !!membership;
   const isLeader = membership?.is_leader === true;
+
+  if (!isMember && !isLeader && !isAdmin) redirect("/serving");
 
   const { data: memberRows } = await supabase
     .from("profile_groups")
@@ -180,10 +182,12 @@ export default async function ServingSchedulePage({
       }))
     : [];
 
-  // Spouse option for the attendee picker ("just me" / "me & spouse")
+  // Spouse option for the attendee picker ("just me" / "me & spouse").
+  // Uses the service client so pending profiles (spouse never logged in) are visible.
   let spouse: { id: string; name: string } | null = null;
   if (profile.family_id) {
-    const { data: spouseRow } = await supabase
+    const service = await createServiceClient();
+    const { data: spouseRow } = await service
       .from("profiles")
       .select("id, first_name, last_name, preferred_name")
       .eq("family_id", profile.family_id)

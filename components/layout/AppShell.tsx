@@ -6,6 +6,7 @@ import type { Profile } from "@/lib/types";
 
 interface AppShellProps {
   profile: Profile | null;
+  hasServingAccess: boolean;
   children: React.ReactNode;
 }
 
@@ -21,7 +22,7 @@ const SIDEBAR_ROUTES = [
   "/profile",
 ];
 
-export function AppShell({ profile, children }: AppShellProps) {
+export function AppShell({ profile, hasServingAccess, children }: AppShellProps) {
   const pathname = usePathname();
   const isMember =
     profile && ["member", "content_editor", "admin"].includes(profile.role);
@@ -34,7 +35,7 @@ export function AppShell({ profile, children }: AppShellProps) {
 
   return (
     <div className="flex flex-1">
-      <Sidebar profile={profile!} />
+      <Sidebar profile={profile!} hasServingAccess={hasServingAccess} />
       <main className="flex-1 overflow-y-auto">{children}</main>
     </div>
   );

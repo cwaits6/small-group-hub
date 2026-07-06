@@ -42,11 +42,11 @@ export default async function ServingPage() {
       .eq("profile_id", user.id),
   ]);
 
-  const teams = ((settingsRows ?? []) as SettingsWithGroup[]).filter(
-    (s) => s.member_groups
-  );
   const membershipMap = new Map(
     (memberships ?? []).map((m) => [m.group_id, m.is_leader as boolean])
+  );
+  const teams = ((settingsRows ?? []) as SettingsWithGroup[]).filter(
+    (s) => s.member_groups && (isAdmin || membershipMap.has(s.group_id))
   );
 
   // Coverage counts for each team's upcoming window

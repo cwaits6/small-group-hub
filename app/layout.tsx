@@ -50,16 +50,27 @@ export default async function RootLayout({
   const hasAuthCookie = cookieStore.getAll().some((c) => c.name.includes("auth-token"));
 
   let profile = null;
+  let hasServingAccess = false;
   if (hasAuthCookie) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      const [{ data }, { data: groupData }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("profile_groups").select("group_id").eq("profile_id", user.id),
+      ]);
       profile = data;
+
+      if (profile?.role === "admin") {
+        hasServingAccess = true;
+      } else if (groupData?.length) {
+        const { count } = await supabase
+          .from("serving_team_settings")
+          .select("group_id", { count: "exact", head: true })
+          .eq("enabled", true)
+          .in("group_id", groupData.map((g) => g.group_id as string));
+        hasServingAccess = (count ?? 0) > 0;
+      }
     }
   }
 
@@ -83,7 +94,7 @@ export default async function RootLayout({
       </head>
       <body className={`${cormorant.variable} ${interTight.variable} ${jetbrainsMono.variable} antialiased min-h-screen flex flex-col`}>
         <Header profile={profile} />
-        <AppShell profile={profile}>{children}</AppShell>
+        <AppShell profile={profile} hasServingAccess={hasServingAccess}>{children}</AppShell>
         <Footer />
         <Toaster />
         <Analytics />
