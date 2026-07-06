@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,14 +12,15 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2, User, X } from "lucide-react";
+import { Pencil, Plus, Trash2, User, UserPlus } from "lucide-react";
 import {
   formatPhone,
   formatPhoneAsYouType,
@@ -27,30 +29,7 @@ import {
   titleCaseCity,
 } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
-import type { Profile, FamilyUnit, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
-
-const MONTHS = [
-  { value: "1", label: "January" },
-  { value: "2", label: "February" },
-  { value: "3", label: "March" },
-  { value: "4", label: "April" },
-  { value: "5", label: "May" },
-  { value: "6", label: "June" },
-  { value: "7", label: "July" },
-  { value: "8", label: "August" },
-  { value: "9", label: "September" },
-  { value: "10", label: "October" },
-  { value: "11", label: "November" },
-  { value: "12", label: "December" },
-];
-
-const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
-  { value: "child", label: "Child" },
-  { value: "spouse", label: "Spouse" },
-  { value: "parent", label: "Parent" },
-  { value: "sibling", label: "Sibling" },
-  { value: "other", label: "Other" },
-];
+import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 
 interface HouseholdInfo {
   family_name: string;
@@ -65,29 +44,23 @@ interface HouseholdInfo {
   hide_phone_home: boolean;
 }
 
-interface MemberFormState {
+interface SearchResult {
+  id: string;
   first_name: string;
-  last_name: string;
-  relationship: FamilyMemberRelationship;
-  birth_month: string;
-  birth_day: string;
-  birth_year: string;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
+  email: string | null;
 }
-
-const EMPTY_MEMBER_FORM: MemberFormState = {
-  first_name: "",
-  last_name: "",
-  relationship: "child",
-  birth_month: "",
-  birth_day: "",
-  birth_year: "",
-};
 
 interface HouseholdClientProps {
   currentProfile: Profile;
   family: FamilyUnit;
   initialFamilyMembers: FamilyMember[];
-  householdProfiles: Pick<Profile, "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url" | "email">[];
+  householdProfiles: Pick<
+    Profile,
+    "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url" | "email"
+  >[];
 }
 
 function fromFamily(f: FamilyUnit): HouseholdInfo {
@@ -111,14 +84,24 @@ export function HouseholdClient({
   initialFamilyMembers,
   householdProfiles,
 }: HouseholdClientProps) {
+  const router = useRouter();
   const [info, setInfo] = useState<HouseholdInfo>(fromFamily(family));
   const [savingInfo, setSavingInfo] = useState(false);
-
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(initialFamilyMembers);
-  const [showMemberForm, setShowMemberForm] = useState(false);
-  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
-  const [memberForm, setMemberForm] = useState<MemberFormState>(EMPTY_MEMBER_FORM);
-  const [savingMember, setSavingMember] = useState(false);
+
+  // "Add member" dialog
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // "Link existing account" search within the dialog
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [linkingId, setLinkingId] = useState<string | null>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const canEditSpouseProfiles =
+    currentProfile.relationship === "primary" ||
+    currentProfile.relationship === "spouse";
 
   // ---- Household info ----
   async function handleSaveInfo(e: React.FormEvent) {
@@ -153,81 +136,7 @@ export function HouseholdClient({
     toast.success("Household info updated.");
   }
 
-  // ---- Family members ----
-  const loadMembers = useCallback(async () => {
-    const res = await fetch("/api/household/members");
-    if (!res.ok) return;
-    const body = await res.json();
-    setFamilyMembers(body.data ?? []);
-  }, []);
-
-  function startAddMember() {
-    setEditingMember(null);
-    setMemberForm(EMPTY_MEMBER_FORM);
-    setShowMemberForm(true);
-  }
-
-  function startEditMember(fm: FamilyMember) {
-    setEditingMember(fm);
-    setMemberForm({
-      first_name: fm.first_name,
-      last_name: fm.last_name ?? "",
-      relationship: fm.relationship,
-      birth_month: fm.birth_month?.toString() ?? "",
-      birth_day: fm.birth_day?.toString() ?? "",
-      birth_year: fm.birth_year?.toString() ?? "",
-    });
-    setShowMemberForm(true);
-  }
-
-  function cancelMemberForm() {
-    setShowMemberForm(false);
-    setEditingMember(null);
-    setMemberForm(EMPTY_MEMBER_FORM);
-  }
-
-  async function handleSaveMember() {
-    const firstName = titleCaseName(memberForm.first_name);
-    if (!firstName) {
-      toast.error("First name is required.");
-      return;
-    }
-
-    setSavingMember(true);
-
-    const payload = {
-      first_name: firstName,
-      last_name: titleCaseName(memberForm.last_name) || null,
-      relationship: memberForm.relationship,
-      birth_month: memberForm.birth_month ? Number(memberForm.birth_month) : null,
-      birth_day: memberForm.birth_day ? Number(memberForm.birth_day) : null,
-      birth_year: memberForm.birth_year ? Number(memberForm.birth_year) : null,
-    };
-
-    const url = editingMember
-      ? `/api/household/members/${editingMember.id}`
-      : "/api/household/members";
-    const method = editingMember ? "PATCH" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setSavingMember(false);
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      toast.error(body.error ?? "Failed to save family member.");
-      return;
-    }
-
-    toast.success(editingMember ? "Family member updated." : "Family member added.");
-    cancelMemberForm();
-    loadMembers();
-  }
-
+  // ---- Non-auth family member delete ----
   async function handleDeleteMember(fm: FamilyMember) {
     if (!confirm(`Remove ${fm.first_name} from this household?`)) return;
 
@@ -237,12 +146,60 @@ export function HouseholdClient({
       return;
     }
     toast.success("Family member removed.");
-    loadMembers();
+    setFamilyMembers((prev) => prev.filter((m) => m.id !== fm.id));
   }
 
-  const canEditSpouseProfiles =
-    currentProfile.relationship === "primary" ||
-    currentProfile.relationship === "spouse";
+  // ---- Link existing account ----
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    searchTimeout.current = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        const res = await fetch(
+          `/api/household/search-members?q=${encodeURIComponent(searchQuery)}`,
+        );
+        if (res.ok) {
+          const body = await res.json();
+          setSearchResults(body.data ?? []);
+        }
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
+  }, [searchQuery]);
+
+  async function handleLinkMember(profileId: string) {
+    setLinkingId(profileId);
+
+    const res = await fetch("/api/household/link-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile_id: profileId }),
+    });
+
+    setLinkingId(null);
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      toast.error(body.error ?? "Failed to link member.");
+      return;
+    }
+
+    toast.success("Member added to your household. They can now edit their own profile.");
+    setAddDialogOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    router.refresh();
+  }
 
   return (
     <div className="space-y-8">
@@ -414,7 +371,15 @@ export function HouseholdClient({
       {/* ---- Enrolled Members ---- */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Enrolled Members</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl">Members with Accounts</CardTitle>
+            {canEditSpouseProfiles && (
+              <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(true)}>
+                <UserPlus className="mr-1 h-4 w-4" />
+                Link member
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Current user */}
@@ -470,7 +435,7 @@ export function HouseholdClient({
                   render={<Link href={`/household/member/${p.id}`} />}
                 >
                   <Pencil className="mr-1 h-4 w-4" />
-                  Edit
+                  Edit profile
                 </Button>
               ) : (
                 <span className="text-xs text-muted-foreground">Contact admin to edit</span>
@@ -480,7 +445,7 @@ export function HouseholdClient({
 
           {householdProfiles.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              No other enrolled members in this household.
+              No other enrolled members in this household yet.
             </p>
           )}
         </CardContent>
@@ -490,18 +455,21 @@ export function HouseholdClient({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-xl">Family Members</CardTitle>
-            {!showMemberForm && (
-              <Button variant="outline" size="sm" onClick={startAddMember}>
-                <Plus className="mr-1 h-4 w-4" />
-                Add member
-              </Button>
-            )}
+            <CardTitle className="text-xl">Family Members Without Accounts</CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/household/member/fm/new" />}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Add member
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Children, parents, and other household members who don&apos;t have their own account.
+            Children, parents, and others who don&apos;t have their own account.
           </p>
 
           {familyMembers.map((fm) => (
@@ -510,32 +478,36 @@ export function HouseholdClient({
               className="flex items-center justify-between bg-muted/40 rounded-md px-3 py-2"
             >
               <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </div>
+                <Avatar className="h-9 w-9">
+                  {fm.avatar_url && (
+                    <AvatarImage
+                      src={fm.avatar_url}
+                      alt={fm.preferred_name || fm.first_name}
+                    />
+                  )}
+                  <AvatarFallback className="bg-muted">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <span className="text-sm font-medium">
-                    {fm.first_name}
+                    {fm.preferred_name || fm.first_name}
                     {fm.last_name && ` ${fm.last_name}`}
                   </span>
                   <Badge variant="outline" className="ml-2 text-xs capitalize">
                     {fm.relationship}
                   </Badge>
-                  {fm.birth_month && fm.birth_day && (
-                    <span className="text-xs text-muted-foreground ml-2">
-                      · {MONTHS[fm.birth_month - 1]?.label} {fm.birth_day}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="flex gap-1">
                 <Button
                   variant="ghost"
-                  size="icon-sm"
-                  onClick={() => startEditMember(fm)}
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={`/household/member/fm/${fm.id}`} />}
                 >
-                  <Pencil className="h-4 w-4" />
-                  <span className="sr-only">Edit</span>
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  Edit
                 </Button>
                 <Button
                   variant="ghost"
@@ -549,123 +521,81 @@ export function HouseholdClient({
             </div>
           ))}
 
-          {familyMembers.length === 0 && !showMemberForm && (
+          {familyMembers.length === 0 && (
             <p className="text-sm text-muted-foreground">No additional family members yet.</p>
-          )}
-
-          {/* Add / Edit member inline form */}
-          {showMemberForm && (
-            <div className="border rounded-lg p-4 space-y-4 bg-muted/20">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">
-                  {editingMember ? "Edit family member" : "Add family member"}
-                </p>
-                <Button variant="ghost" size="icon-sm" onClick={cancelMemberForm}>
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Cancel</span>
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="fm_first" className="text-sm">First name</Label>
-                  <Input
-                    id="fm_first"
-                    value={memberForm.first_name}
-                    onChange={(e) => setMemberForm({ ...memberForm, first_name: e.target.value })}
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="fm_last" className="text-sm">Last name</Label>
-                  <Input
-                    id="fm_last"
-                    value={memberForm.last_name}
-                    onChange={(e) => setMemberForm({ ...memberForm, last_name: e.target.value })}
-                    className="h-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="fm_rel" className="text-sm">Relationship</Label>
-                <Select
-                  value={memberForm.relationship}
-                  onValueChange={(v) =>
-                    setMemberForm({ ...memberForm, relationship: v as FamilyMemberRelationship })
-                  }
-                >
-                  <SelectTrigger id="fm_rel">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {RELATIONSHIPS.map((r) => (
-                      <SelectItem key={r.value} value={r.value}>
-                        {r.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label className="text-sm">Birthday (optional)</Label>
-                <div className="grid grid-cols-3 gap-2 mt-1">
-                  <Select
-                    value={memberForm.birth_month}
-                    onValueChange={(v) =>
-                      setMemberForm({ ...memberForm, birth_month: v ?? "" })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="Day"
-                    value={memberForm.birth_day}
-                    onChange={(e) => setMemberForm({ ...memberForm, birth_day: e.target.value })}
-                  />
-                  <Input
-                    type="number"
-                    min="1900"
-                    max="2100"
-                    placeholder="Year"
-                    value={memberForm.birth_year}
-                    onChange={(e) =>
-                      setMemberForm({ ...memberForm, birth_year: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={cancelMemberForm}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={savingMember}
-                  onClick={handleSaveMember}
-                  className="bg-brand-primary hover:bg-brand-primary/90 text-white"
-                >
-                  {savingMember ? "Saving..." : editingMember ? "Update" : "Add"}
-                </Button>
-              </div>
-            </div>
           )}
         </CardContent>
       </Card>
+
+      {/* ---- Link existing account dialog ---- */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link an existing account</DialogTitle>
+            <DialogDescription>
+              Search for a member who already has an account but hasn&apos;t been assigned to a
+              household yet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <Input
+              placeholder="Search by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+
+            {searchLoading && (
+              <p className="text-sm text-muted-foreground text-center py-2">Searching...</p>
+            )}
+
+            {!searchLoading && searchResults.length === 0 && searchQuery.length >= 2 && (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                No unassigned members found.
+              </p>
+            )}
+
+            {searchResults.map((r) => (
+              <div
+                key={r.id}
+                className="flex items-center justify-between rounded-md border px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    {r.avatar_url && <AvatarImage src={r.avatar_url} alt={r.first_name} />}
+                    <AvatarFallback className="text-xs bg-brand-primary text-white">
+                      {`${r.first_name.charAt(0)}${(r.last_name ?? "").charAt(0)}`.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {r.preferred_name || r.first_name} {r.last_name}
+                    </p>
+                    {r.email && (
+                      <p className="text-xs text-muted-foreground">{r.email}</p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={linkingId === r.id}
+                  onClick={() => handleLinkMember(r.id)}
+                  className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+                >
+                  {linkingId === r.id ? "Linking..." : "Add"}
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter showCloseButton>
+            <p className="text-xs text-muted-foreground mr-auto">
+              Only shows members with no household assigned.
+            </p>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -55,7 +55,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { first_name, last_name, relationship, birth_month, birth_day, birth_year } = body;
+  const {
+    first_name,
+    last_name,
+    preferred_name,
+    relationship,
+    birth_month,
+    birth_day,
+    birth_year,
+    is_class_member,
+  } = body;
 
   const firstName = titleCaseName(String(first_name ?? ""));
   if (!firstName) return NextResponse.json({ error: "first_name is required" }, { status: 400 });
@@ -67,10 +76,12 @@ export async function POST(request: Request) {
       family_id: ctx.profile.family_id,
       first_name: firstName,
       last_name: titleCaseName(String(last_name ?? "")) || null,
+      preferred_name: titleCaseName(String(preferred_name ?? "")) || null,
       relationship,
       birth_month: birth_month ? Number(birth_month) : null,
       birth_day: birth_day ? Number(birth_day) : null,
       birth_year: birth_year ? Number(birth_year) : null,
+      is_class_member: is_class_member ? Boolean(is_class_member) : false,
     })
     .select()
     .single();
