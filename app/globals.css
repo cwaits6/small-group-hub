@@ -151,4 +151,15 @@
     line-height: 1.35;
     font-weight: 600;
   }
+  /* Tailwind v4 resets buttons to cursor: default; restore pointer on
+     anything clickable so hover always signals interactivity. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  label[for],
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
 }

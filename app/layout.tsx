@@ -91,7 +91,7 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${cormorant.variable} ${interTight.variable} ${jetbrainsMono.variable} antialiased min-h-screen flex flex-col`}>
-        <Header profile={profile} />
+        <Header profile={profile} hasServingAccess={hasServingAccess} />
         <AppShell profile={profile} hasServingAccess={hasServingAccess}>{children}</AppShell>
         <Footer />
         <Toaster />

@@ -1,82 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Calendar,
-  CalendarDays,
-  Megaphone,
-  BookOpen,
-  FileText,
-  Settings,
-  Users,
-  UserCircle,
-  Home,
-  ChevronLeft,
-  ChevronRight,
-  MailPlus,
-  HandHelping,
-  BarChart2,
-} from "lucide-react";
-import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import type { Profile } from "@/lib/types";
-import type { PageContent } from "@/lib/types";
-import { createClient } from "@/lib/supabase/client";
+import { SidebarNav } from "./SidebarNav";
 
 interface SidebarProps {
   profile: Profile;
   hasServingAccess: boolean;
 }
 
-const memberNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/events", label: "Calendar", icon: Calendar },
-  { href: "/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/lectures", label: "Lectures", icon: BookOpen },
-  { href: "/directory", label: "Directory", icon: Users },
-  { href: "/serving", label: "Serving", icon: HandHelping },
-  { href: "/profile", label: "My Profile", icon: UserCircle },
-];
-
-const adminNav = [
-  { href: "/admin", label: "Admin", icon: Settings },
-  { href: "/admin/members", label: "Members", icon: Users },
-  { href: "/admin/families", label: "Families", icon: Home },
-  { href: "/admin/groups", label: "Groups", icon: Users },
-  { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
-  { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
-  { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
-  { href: "/admin/pages", label: "Manage Pages", icon: FileText },
-];
-
 export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
-  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [pages, setPages] = useState<PageContent[]>([]);
-  const isAdmin = profile.role === "admin";
-  const isEditor = profile.role === "content_editor" || isAdmin;
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("page_content")
-      .select("slug, title")
-      .order("title")
-      .then(({ data }) => {
-        if (data) setPages(data as PageContent[]);
-      });
-  }, [pathname]);
-
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
-
-  const linkClass = (href: string) =>
-    `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive(href)
-        ? "bg-brand-bg-light text-brand-primary"
-        : "text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light/50"
-    }`;
 
   return (
     <aside
@@ -84,65 +19,28 @@ export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
         collapsed ? "w-16" : "w-60"
       }`}
     >
-      <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {memberNav
-          .filter((item) => item.href !== "/serving" || hasServingAccess)
-          .map((item) => (
-            <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          ))}
-
-        {pages.length > 0 && (
-          <>
-            {!collapsed && (
-              <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
-                Pages
-              </p>
-            )}
-            {collapsed && <div className="border-t border-border my-2" />}
-            {pages.map((page) => (
-              <Link
-                key={page.slug}
-                href={`/pages/${page.slug}`}
-                className={linkClass(`/pages/${page.slug}`)}
-              >
-                <FileText className="h-5 w-5 shrink-0" />
-                {!collapsed && <span className="truncate">{page.title}</span>}
-              </Link>
-            ))}
-          </>
-        )}
-
-        {isEditor && (
-          <>
-            {!collapsed && (
-              <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
-                Admin
-              </p>
-            )}
-            {collapsed && <div className="border-t border-border my-2" />}
-            {adminNav
-              .filter((item) => isAdmin || item.href === "/admin/pages")
-              .map((item) => (
-                <Link key={item.href} href={item.href} className={linkClass(item.href)}>
-                  <item.icon className="h-5 w-5 shrink-0" />
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              ))}
-          </>
-        )}
+      <nav
+        aria-label="Main navigation"
+        className="flex-1 overflow-y-auto py-4 px-2 space-y-1"
+      >
+        <SidebarNav
+          profile={profile}
+          hasServingAccess={hasServingAccess}
+          collapsed={collapsed}
+        />
       </nav>
 
       <button
         onClick={() => setCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         className="flex items-center justify-center py-3 border-t border-border text-slate-400 hover:text-brand-primary transition-colors"
       >
         {collapsed ? (
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         ) : (
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         )}
       </button>
     </aside>
