@@ -23,6 +23,44 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
+CREATE OR REPLACE FUNCTION "public"."current_family_id"() RETURNS "uuid"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    AS $$
+  select family_id from public.profiles where id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "public"."current_family_id"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_profile_email"("profile_id" "uuid") RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select email
+  from public.profiles
+  where id = profile_id
+    and family_id = public.current_family_id();
+$$;
+
+
+ALTER FUNCTION "public"."get_profile_email"("profile_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_profile_role"("profile_id" "uuid") RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select role
+  from public.profiles
+  where id = profile_id
+    and family_id = public.current_family_id();
+$$;
+
+
+ALTER FUNCTION "public"."get_profile_role"("profile_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -1270,6 +1308,34 @@ CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR U
 
 
 
+CREATE POLICY "Household leaders can delete own household family members" ON "public"."family_members" FOR DELETE USING ((("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "self"
+  WHERE (("self"."id" = "auth"."uid"()) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))));
+
+
+
+CREATE POLICY "Household leaders can insert own household family members" ON "public"."family_members" FOR INSERT WITH CHECK ((("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "self"
+  WHERE (("self"."id" = "auth"."uid"()) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))));
+
+
+
+CREATE POLICY "Household leaders can update household member profiles" ON "public"."profiles" FOR UPDATE USING ((("auth"."uid"() <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = "public"."current_family_id"()) AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "self"
+  WHERE (("self"."id" = "auth"."uid"()) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])) AND ("self"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"]))))))) WITH CHECK ((("family_id" = "public"."current_family_id"()) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id")))));
+
+
+
+CREATE POLICY "Household leaders can update own household family members" ON "public"."family_members" FOR UPDATE USING ((("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+   FROM "public"."profiles" "self"
+  WHERE (("self"."id" = "auth"."uid"()) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))));
+
+
+
+CREATE POLICY "Household members can view each other's full profiles" ON "public"."profiles" FOR SELECT USING ((("family_id" IS NOT NULL) AND ("family_id" = "public"."current_family_id"()) AND ("auth"."uid"() <> "id") AND "public"."is_member"()));
+
+
+
 CREATE POLICY "Household primary can insert family invites" ON "public"."family_invites" FOR INSERT WITH CHECK (("public"."is_member"() AND ("family_id" IN ( SELECT "profiles"."family_id"
    FROM "public"."profiles"
   WHERE (("profiles"."id" = "auth"."uid"()) AND ("profiles"."family_id" IS NOT NULL))))));
@@ -1324,9 +1390,7 @@ CREATE POLICY "Members can insert own rsvp" ON "public"."rsvps" FOR INSERT WITH 
 
 
 
-CREATE POLICY "Members can manage their own family members" ON "public"."family_members" FOR UPDATE USING (("public"."is_member"() AND ("family_id" IN ( SELECT "profiles"."family_id"
-   FROM "public"."profiles"
-  WHERE ("profiles"."id" = "auth"."uid"())))));
+CREATE POLICY "Members can update own family unit" ON "public"."family_units" FOR UPDATE USING ((("id" = "public"."current_family_id"()) AND "public"."is_member"()));
 
 
 
@@ -1478,6 +1542,24 @@ GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."current_family_id"() TO "anon";
+GRANT ALL ON FUNCTION "public"."current_family_id"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_family_id"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "service_role";
 
 
 
