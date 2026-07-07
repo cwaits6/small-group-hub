@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/cwaits6/small-group-hub/compare/v0.11.1...v0.12.0) (2026-07-07)
+
+
+### Features
+
+* **household:** spouse/primary self-service household management ([#180](https://github.com/cwaits6/small-group-hub/issues/180)) ([7fe4a52](https://github.com/cwaits6/small-group-hub/commit/7fe4a52d4475b9c9ad4f0b477022d9340569aacb))
+
 ## [0.11.1](https://github.com/cwaits6/small-group-hub/compare/v0.11.0...v0.11.1) (2026-07-06)
 
 
