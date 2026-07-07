@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { usePathname, useRouter } from "next/navigation";
 import { SidebarNav } from "./SidebarNav";
 import { SIDEBAR_ROUTES } from "./AppShell";
+import { useSidebar } from "./SidebarContext";
 import type { Profile } from "@/lib/types";
 
 interface HeaderProps {
@@ -21,6 +22,7 @@ interface HeaderProps {
 export function Header({ profile, hasServingAccess }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { collapsed, setCollapsed } = useSidebar();
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -58,18 +60,29 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? "bg-white/95 backdrop-blur shadow-sm border-b border-border"
-          : "bg-white border-b border-transparent"
+      className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
+        scrolled ? "bg-white/95 backdrop-blur shadow-sm" : "bg-white"
       }`}
     >
       {/* Top accent bar */}
       <div className="h-1 w-full bg-gradient-to-r from-brand-primary-light via-brand-primary to-brand-accent" />
 
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+      <div className="flex h-16 w-full items-center justify-between px-4">
         <div className="flex items-center gap-1">
-          {/* Menu button opens the navigation pane as a drawer */}
+          {/* Desktop: menu button collapses/expands the sidebar pane */}
+          {hasDesktopSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!collapsed}
+              className="hidden md:inline-flex text-slate-700"
+            >
+              <Menu className="h-6 w-6" aria-hidden="true" />
+            </Button>
+          )}
+          {/* Mobile (or no sidebar): menu button opens the nav drawer */}
           {profile && isMember && (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger

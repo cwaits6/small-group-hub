@@ -1,9 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
 import type { Profile } from "@/lib/types";
 import { SidebarNav } from "./SidebarNav";
+import { useSidebar } from "./SidebarContext";
 
 interface SidebarProps {
   profile: Profile;
@@ -11,7 +10,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const { collapsed } = useSidebar();
 
   return (
     <aside
@@ -29,20 +28,6 @@ export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
           collapsed={collapsed}
         />
       </nav>
-
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="flex items-center justify-center py-3 border-t border-border text-slate-400 hover:text-brand-primary transition-colors"
-      >
-        {collapsed ? (
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-        )}
-      </button>
     </aside>
   );
 }
