@@ -84,19 +84,32 @@ export async function POST(request: Request) {
     );
   }
 
-  // Use service client to bypass RLS for the cross-profile family_id update
+  // Use service client to bypass RLS for the cross-profile family_id update.
+  // The .is("family_id", null) predicate closes the TOCTOU window: if another
+  // request assigned this person to a household between the check above and this
+  // write, the update will match 0 rows and we return 409 rather than silently
+  // overwriting.
   const service = await createServiceClient();
-  const { error } = await service
+  const { data: updated, error } = await service
     .from("profiles")
     .update({
       family_id: currentProfile.family_id,
       ...(relationship ? { relationship } : {}),
     })
-    .eq("id", profile_id);
+    .eq("id", profile_id)
+    .is("family_id", null)
+    .select("id");
 
   if (error) {
     console.error("link-member error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (!updated || updated.length === 0) {
+    return NextResponse.json(
+      { error: "This member was assigned to a household by someone else just now. Refresh and try again." },
+      { status: 409 },
+    );
   }
 
   return NextResponse.json({

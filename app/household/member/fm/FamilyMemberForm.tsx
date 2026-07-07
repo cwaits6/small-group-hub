@@ -79,6 +79,7 @@ export function FamilyMemberForm({ member }: Props) {
     const file = e.target.files?.[0];
     if (!file || !member) return; // avatar upload only works after creation (member.id needed)
 
+    const previousAvatarUrl = avatarUrl;
     setUploadingAvatar(true);
     try {
       const url = await uploadImage(file, "avatar", `family-members/${member.id}/avatar`);
@@ -94,6 +95,7 @@ export function FamilyMemberForm({ member }: Props) {
       toast.success("Photo updated.");
     } catch (err) {
       console.error(err);
+      setAvatarUrl(previousAvatarUrl);
       toast.error("Failed to upload photo.");
     } finally {
       setUploadingAvatar(false);

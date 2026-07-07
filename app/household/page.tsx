@@ -49,10 +49,10 @@ export default async function HouseholdPage() {
     // Fetch other enrolled members in the household using the new RLS policy
     supabase
       .from("profiles")
-      .select("id, first_name, last_name, preferred_name, relationship, role, avatar_url, email")
+      .select("id, first_name, last_name, preferred_name, relationship, role, avatar_url")
       .eq("family_id", profile.family_id)
       .neq("id", user.id)
-      .returns<Pick<Profile, "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url" | "email">[]>(),
+      .returns<Pick<Profile, "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url">[]>(),
   ]);
 
   if (!family) redirect("/profile");

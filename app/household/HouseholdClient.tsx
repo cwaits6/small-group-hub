@@ -75,7 +75,7 @@ interface HouseholdClientProps {
   initialFamilyMembers: FamilyMember[];
   householdProfiles: Pick<
     Profile,
-    "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url" | "email"
+    "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url"
   >[];
 }
 

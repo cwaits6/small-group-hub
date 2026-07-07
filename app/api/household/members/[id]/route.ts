@@ -37,6 +37,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const ctx = await getMemberContext(supabase);
   if (!ctx) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
+  if (!["primary", "spouse"].includes(ctx.profile.relationship ?? "")) {
+    return NextResponse.json(
+      { error: "Only the household primary or spouse can edit family members." },
+      { status: 403 },
+    );
+  }
+
   // Verify the family member belongs to the current user's household
   const { data: existing } = await supabase
     .from("family_members")
