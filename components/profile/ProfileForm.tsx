@@ -40,6 +40,13 @@ interface ProfileFormProps {
   families: FamilyUnit[];
   /** Admin mode allows editing family assignment + ignores privacy enforcement on save */
   isAdmin?: boolean;
+  /**
+   * When true, skips the birthday and visible-contact requirements.
+   * Used when a household primary/spouse edits another member's profile —
+   * the person being edited may have an incomplete profile that they will
+   * fill in themselves.
+   */
+  relaxValidation?: boolean;
   /** Called after successful save so parent can refresh/redirect */
   onSaved?: () => void;
 }
@@ -132,6 +139,7 @@ export function ProfileForm({
   profile,
   families,
   isAdmin = false,
+  relaxValidation = false,
   onSaved,
 }: ProfileFormProps) {
   const [state, setState] = useState<FormState>(initialState(profile));
@@ -199,7 +207,7 @@ export function ProfileForm({
       setSaving(false);
       return;
     }
-    if (!state.birth_month || !state.birth_day) {
+    if (!relaxValidation && (!state.birth_month || !state.birth_day)) {
       toast.error("Birthday month and day are required.");
       setSaving(false);
       return;
@@ -211,7 +219,7 @@ export function ProfileForm({
       (state.phone_work && !state.hide_phone_work)
     );
     const hasVisibleEmail = !!state.email && !state.hide_email;
-    if (!hasPhone && !hasVisibleEmail) {
+    if (!relaxValidation && !hasPhone && !hasVisibleEmail) {
       toast.error(
         "Please provide at least one phone number, or keep your email visible so others can reach you.",
       );
@@ -355,7 +363,9 @@ export function ProfileForm({
               <p className="text-sm text-muted-foreground">
                 {uploadingAvatar
                   ? "Uploading photo..."
-                  : "Click the camera icon to update your photo."}
+                  : relaxValidation
+                    ? "Click the camera icon to update their photo."
+                    : "Click the camera icon to update your photo."}
               </p>
             </div>
           </div>
@@ -363,13 +373,12 @@ export function ProfileForm({
       </Card>
 
       <Tabs defaultValue="personal">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${isAdmin ? "grid-cols-5" : "grid-cols-4"}`}>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="address">Address</TabsTrigger>
           {isAdmin && <TabsTrigger value="family">Family</TabsTrigger>}
           <TabsTrigger value="privacy">Privacy</TabsTrigger>
-          {!isAdmin && <div />}
         </TabsList>
 
         {/* =========================================================
@@ -753,7 +762,12 @@ export function ProfileForm({
                     }
                   >
                     <SelectTrigger className="text-base py-5">
-                      <SelectValue placeholder="No family assigned" />
+                      <SelectValue placeholder="No family assigned">
+                        {(v: string | null | undefined) => {
+                          if (!v || v === "none") return "No family assigned";
+                          return families.find((f) => f.id === v)?.family_name ?? "(Unknown family)";
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">— No family —</SelectItem>
