@@ -17,10 +17,11 @@ import {
   HandHelping,
   BarChart2,
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import type { Profile } from "@/lib/types";
-import type { PageContent } from "@/lib/types";
+import { useState, useEffect, type ComponentType } from "react";
+import type { PageContent, Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+
+type PageLink = Pick<PageContent, "slug" | "title">;
 
 interface SidebarNavProps {
   profile: Profile;
@@ -57,7 +58,7 @@ export function SidebarNav({
   onNavigate,
 }: SidebarNavProps) {
   const pathname = usePathname();
-  const [pages, setPages] = useState<PageContent[]>([]);
+  const [pages, setPages] = useState<PageLink[]>([]);
   const isAdmin = profile.role === "admin";
   const isEditor = profile.role === "content_editor" || isAdmin;
 
@@ -67,8 +68,12 @@ export function SidebarNav({
       .from("page_content")
       .select("slug, title")
       .order("title")
-      .then(({ data }) => {
-        if (data) setPages(data as PageContent[]);
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to load pages for navigation:", error.message);
+          return;
+        }
+        if (data) setPages(data);
       });
   }, [pathname]);
 
@@ -83,7 +88,7 @@ export function SidebarNav({
     }`;
 
   const renderLink = (
-    item: { href: string; label: string; icon: React.ComponentType<{ className?: string }>; exact?: boolean },
+    item: { href: string; label: string; icon: ComponentType<{ className?: string }>; exact?: boolean },
   ) => {
     const active = isActive(item.href, item.exact);
     return (

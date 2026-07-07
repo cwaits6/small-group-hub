@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { Menu, X, LogOut } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { siteConfig } from "@/lib/config";
@@ -37,7 +38,11 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
 
   const handleSignOut = async () => {
     setOpen(false);
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast.error("Sign out failed — please try again.");
+      return;
+    }
     router.push("/");
     router.refresh();
   };
@@ -65,7 +70,7 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-1">
           {/* Menu button opens the navigation pane as a drawer */}
-          {isMember && (
+          {profile && isMember && (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger
                 render={
@@ -105,7 +110,7 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
                     className="flex-1 space-y-1"
                   >
                     <SidebarNav
-                      profile={profile!}
+                      profile={profile}
                       hasServingAccess={hasServingAccess}
                       onNavigate={() => setOpen(false)}
                     />

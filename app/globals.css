@@ -153,8 +153,8 @@
   }
   /* Tailwind v4 resets buttons to cursor: default; restore pointer on
      anything clickable so hover always signals interactivity. */
-  button:not(:disabled),
-  [role="button"]:not(:disabled),
+  button:not(:disabled):not([aria-disabled="true"]),
+  [role="button"]:not(:disabled):not([aria-disabled="true"]),
   input[type="submit"]:not(:disabled),
   input[type="button"]:not(:disabled),
   label[for],
