@@ -174,13 +174,32 @@ export default async function DashboardPage() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // Donation URL
-  const { data: donationSetting } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", "donation_url")
-    .single();
-  const donationUrl = donationSetting?.value ?? null;
+  // Give tile — live funds, gated by the admin toggle. UTC date to match
+  // the retirement filtering on /give and /admin/giving.
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: giveTileSetting }, { data: liveFunds, count: liveFundCount }] =
+    await Promise.all([
+      supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "giving_dashboard_tile")
+        .maybeSingle(),
+      supabase
+        .from("giving_funds")
+        .select("name", { count: "exact" })
+        .eq("is_active", true)
+        .or(`retire_on.is.null,retire_on.gte.${today}`)
+        .order("display_order")
+        .order("created_at")
+        .limit(1),
+    ]);
+  const showGiveTile =
+    (giveTileSetting?.value ?? "on") === "on" &&
+    (liveFundCount ?? 0) > 0;
+  const giveTileSubtitle =
+    liveFundCount === 1 && liveFunds?.[0]
+      ? liveFunds[0].name
+      : `${liveFundCount} funds collecting`;
 
   // Counts for quick-actions
   const { count: eventCount } = await supabase
@@ -460,26 +479,24 @@ export default async function DashboardPage() {
             </div>
           </Link>
 
-          {/* Give — only if donationUrl exists */}
-          {donationUrl && (
-            <a
-              href={donationUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+          {/* Give — only when funds are collecting and the admin tile is on */}
+          {showGiveTile && (
+            <Link
+              href="/give"
               className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
             >
               <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
                 <Heart className="h-5 w-5 text-brand-primary" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="font-sans text-sm font-semibold text-foreground">
                   Give
                 </div>
-                <div className="font-sans text-xs text-muted-foreground mt-0.5">
-                  Tithe online
+                <div className="font-sans text-xs text-muted-foreground mt-0.5 truncate">
+                  {giveTileSubtitle}
                 </div>
               </div>
-            </a>
+            </Link>
           )}
         </div>
       </section>

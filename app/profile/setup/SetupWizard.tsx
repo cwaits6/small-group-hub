@@ -167,6 +167,7 @@ function MemberAddForm({
         <Label className="text-sm">Birthday (optional)</Label>
         <div className="grid grid-cols-3 gap-2 mt-1">
           <Select
+            items={MONTHS}
             value={form.birth_month}
             onValueChange={(v) =>
               setForm((f) => ({ ...f, birth_month: v ?? "" }))
@@ -752,6 +753,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
               </p>
               <div className="grid grid-cols-3 gap-3">
                 <Select
+                  items={MONTHS}
                   value={birthMonth}
                   onValueChange={(v) => setBirthMonth(v ?? "")}
                 >

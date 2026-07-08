@@ -14,8 +14,6 @@ interface SettingsMap {
 
 const SETTINGS_LABELS: Record<string, string> = {
   site_name: "Site Name",
-  donation_url: "Donation URL",
-  venmo_url: "Venmo URL",
   directory_app_url: "Directory App URL",
   weekly_zoom_url: "Weekly Zoom URL",
   zoom_meeting_time: "Zoom Meeting Time",

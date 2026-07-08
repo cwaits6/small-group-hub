@@ -864,6 +864,7 @@ export default function FamiliesPage() {
                           Relationship
                         </Label>
                         <Select
+                          items={RELATIONSHIPS}
                           value={memberForm.relationship}
                           onValueChange={(v) =>
                             setMemberForm({
@@ -889,6 +890,7 @@ export default function FamiliesPage() {
                         <Label className="text-xs">Birthday (optional)</Label>
                         <div className="grid grid-cols-3 gap-2 mt-1">
                           <Select
+                            items={MONTHS}
                             value={memberForm.birth_month}
                             onValueChange={(v) =>
                               setMemberForm({ ...memberForm, birth_month: v ?? "" })
