@@ -1,20 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
 import { ArrowRight } from "lucide-react";
 import { Christicon } from "@christicons/react";
 
-export default async function HomePage() {
-  const supabase = await createClient();
-
-  const { data: donationSetting } = await supabase
-    .from("site_settings")
-    .select("value")
-    .eq("key", "donation_url")
-    .single();
-
-  const donationUrl = donationSetting?.value;
-
+export default function HomePage() {
   return (
     <div>
       {/* ── Hero ── */}
@@ -126,29 +115,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Donation CTA ── */}
-      {donationUrl && (
-        <section className="py-20 relative overflow-hidden bg-brand-primary">
-          <div className="relative container mx-auto px-4 text-center">
-            <Christicon name="heart" size={48} title="Heart" className="text-brand-accent mx-auto mb-5 block" />
-            <h2 className="font-serif text-4xl md:text-5xl font-medium text-white mb-4">
-              Support Our Ministry
-            </h2>
-            <p className="text-xl text-white/80 mb-10 max-w-lg mx-auto">
-              Your generosity helps us continue doing what we love — gathering, studying, and encouraging together.
-            </p>
-            <Button
-              size="lg"
-              className="text-base px-10 py-6 font-bold shadow-xl hover:shadow-2xl transition-all bg-brand-accent hover:bg-brand-accent/90 text-foreground"
-              nativeButton={false}
-              render={<a href={donationUrl} target="_blank" rel="noopener noreferrer" />}
-            >
-              <Christicon name="heart" size={20} title="Heart" className="mr-2" />
-              Give Now
-            </Button>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

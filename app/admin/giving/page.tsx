@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/config";
 import { displayName } from "@/lib/names";
 import { PAYMENT_METHODS } from "@/lib/giving/methods";
-import { ManageModeToggle } from "@/components/giving/ManageModeToggle";
-import { givingStewardsCanManage } from "@/lib/giving/server";
+import { GivingSettings } from "@/components/giving/GivingSettings";
+import { getGivingSettings } from "@/lib/giving/server";
 import type { GivingFund, GivingFundMethod } from "@/lib/types";
 
 export const metadata = { title: `Giving | Admin | ${siteConfig.name}` };
@@ -42,7 +42,7 @@ export default async function AdminGivingPage() {
     .single();
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  const [{ data: fundRows }, { data: methodRows }, stewardsCanManage] =
+  const [{ data: fundRows }, { data: methodRows }, givingSettings] =
     await Promise.all([
       supabase
         .from("giving_funds")
@@ -52,7 +52,7 @@ export default async function AdminGivingPage() {
         .order("is_active", { ascending: false })
         .order("created_at", { ascending: false }),
       supabase.from("giving_fund_methods").select("fund_id, method"),
-      givingStewardsCanManage(supabase),
+      getGivingSettings(supabase),
     ]);
 
   const funds = (fundRows ?? []) as FundRow[];
@@ -87,7 +87,10 @@ export default async function AdminGivingPage() {
       </div>
 
       <div className="mb-8">
-        <ManageModeToggle stewardsCanManage={stewardsCanManage} />
+        <GivingSettings
+          stewardsCanManage={givingSettings.stewardsCanManage}
+          dashboardTile={givingSettings.dashboardTile}
+        />
       </div>
 
       {funds.length > 0 ? (

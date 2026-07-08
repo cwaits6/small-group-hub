@@ -15,6 +15,22 @@ export async function givingStewardsCanManage(
   return (data?.value ?? "stewards") === "stewards";
 }
 
+/** Both giving settings in one query, for the admin page */
+export async function getGivingSettings(supabase: SupabaseClient): Promise<{
+  stewardsCanManage: boolean;
+  dashboardTile: boolean;
+}> {
+  const { data } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .in("key", ["giving_manage_mode", "giving_dashboard_tile"]);
+  const map = new Map((data ?? []).map((s) => [s.key, s.value]));
+  return {
+    stewardsCanManage: (map.get("giving_manage_mode") ?? "stewards") === "stewards",
+    dashboardTile: (map.get("giving_dashboard_tile") ?? "on") === "on",
+  };
+}
+
 /** Member picker options + everyone's payment handles, for the fund form */
 export async function loadFundFormData(supabase: SupabaseClient): Promise<{
   members: MemberOption[];
