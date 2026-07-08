@@ -472,6 +472,7 @@ export function ProfileForm({
                 </p>
                 <div className="grid grid-cols-3 gap-3">
                   <Select
+                    items={MONTHS}
                     value={state.birth_month}
                     onValueChange={(v) => update("birth_month", v ?? "")}
                   >

@@ -262,6 +262,7 @@ export function FamilyMemberForm({ member }: Props) {
               Relationship <span className="text-destructive" aria-hidden>*</span>
             </Label>
             <Select
+              items={RELATIONSHIPS}
               value={relationship}
               onValueChange={(v) => setRelationship(v as FamilyMemberRelationship)}
             >
@@ -289,7 +290,7 @@ export function FamilyMemberForm({ member }: Props) {
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label className="text-base">Month</Label>
-              <Select value={birthMonth} onValueChange={(v) => setBirthMonth(v ?? "")}>
+              <Select items={MONTHS} value={birthMonth} onValueChange={(v) => setBirthMonth(v ?? "")}>
                 <SelectTrigger className="text-base py-5">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
