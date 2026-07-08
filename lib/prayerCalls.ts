@@ -83,6 +83,10 @@ function eventFields(draft: SessionDraft, calendarId: string | null) {
  * sessions get theirs updated (or re-created if an admin deleted the event
  * from the calendar directly).
  *
+ * Mutates each draft's `id`/`event_id` as rows are created, so on partial
+ * failure the caller can carry the assigned ids back into its edit state and
+ * a retry updates the already-written rows instead of inserting duplicates.
+ *
  * @returns an error message to show the user, or null on success
  */
 export async function savePrayerCallSessions(
@@ -127,6 +131,7 @@ export async function savePrayerCallSessions(
         .single();
       eventId = data?.id ?? null;
     }
+    draft.event_id = eventId;
 
     const row = {
       weekday: draft.weekday,
@@ -139,10 +144,23 @@ export async function savePrayerCallSessions(
       event_id: eventId,
       display_order: draft.display_order,
     };
-    const { error } = draft.id
-      ? await supabase.from("prayer_call_sessions").update(row).eq("id", draft.id)
-      : await supabase.from("prayer_call_sessions").insert(row);
-    if (error) return "Couldn't save the call details. Please try again.";
+    if (draft.id) {
+      const { error } = await supabase
+        .from("prayer_call_sessions")
+        .update(row)
+        .eq("id", draft.id);
+      if (error) return "Couldn't save the call details. Please try again.";
+    } else {
+      const { data, error } = await supabase
+        .from("prayer_call_sessions")
+        .insert(row)
+        .select("id")
+        .single();
+      if (error || !data) {
+        return "Couldn't save the call details. Please try again.";
+      }
+      draft.id = data.id;
+    }
   }
 
   return null;

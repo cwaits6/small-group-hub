@@ -114,8 +114,12 @@ export function timeAgo(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
-  return new Date(iso).toLocaleDateString("en-US", {
+  const date = new Date(iso);
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    ...(date.getFullYear() !== new Date().getFullYear()
+      ? { year: "numeric" }
+      : {}),
   });
 }

@@ -133,6 +133,18 @@ export function PrayerCallCard({
     setSaving(false);
 
     if (errMsg || fetchError) {
+      // Carry the ids of rows that did get written back into the drafts, so
+      // retrying updates them instead of inserting duplicates.
+      setDrafts((cur) =>
+        cur
+          ? cur.map((d) => {
+              const i = kept.indexOf(d);
+              if (i === -1) return d;
+              const saved = sessionDrafts[i];
+              return { ...d, id: saved.id, event_id: saved.event_id };
+            })
+          : cur
+      );
       toast.error(errMsg ?? "Couldn't save the call details. Please try again.");
       return;
     }

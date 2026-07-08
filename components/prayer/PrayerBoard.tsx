@@ -67,6 +67,7 @@ export function PrayerBoard({
   const [status, setStatus] = useState<StatusFilter>("All");
   const [category, setCategory] = useState<PrayerCategory | null>(null);
   const [query, setQuery] = useState("");
+  const [prayPending, setPrayPending] = useState<Set<string>>(new Set());
 
   const handlePost = async (draft: {
     body: string;
@@ -112,7 +113,11 @@ export function PrayerBoard({
       prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
     );
 
+  // One write per request at a time — a double-click would otherwise reuse
+  // stale row data and let the count drift from the database.
   const handlePray = async (row: PrayerWallRow) => {
+    if (prayPending.has(row.id)) return;
+    setPrayPending((prev) => new Set(prev).add(row.id));
     const supabase = createClient();
     const praying = !row.i_am_praying;
     patchRequest(row.id, {
@@ -135,6 +140,11 @@ export function PrayerBoard({
       });
       toast.error("Couldn't save that. Please try again.");
     }
+    setPrayPending((prev) => {
+      const next = new Set(prev);
+      next.delete(row.id);
+      return next;
+    });
   };
 
   const handleToggleAnswered = async (row: PrayerWallRow) => {
@@ -282,6 +292,7 @@ export function PrayerBoard({
             <PrayerCard
               key={r.id}
               row={r}
+              prayPending={prayPending.has(r.id)}
               onPray={() => handlePray(r)}
               onToggleAnswered={() => handleToggleAnswered(r)}
             />

@@ -23,24 +23,35 @@ export default async function PrayerPage() {
   if (!profile || profile.role === "pending") redirect("/dashboard");
   const isAdmin = profile.role === "admin";
 
-  const [{ data: requests }, { data: sessions }, { members }, { data: calSetting }] =
-    await Promise.all([
-      supabase
-        .from("prayer_wall")
-        .select("*")
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("prayer_call_sessions")
-        .select("*")
-        .order("display_order")
-        .order("created_at"),
-      loadFundFormData(supabase),
-      supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "prayer_calendar_id")
-        .maybeSingle(),
-    ]);
+  const [
+    { data: requests, error: requestsError },
+    { data: sessions, error: sessionsError },
+    { members },
+    { data: calSetting },
+  ] = await Promise.all([
+    supabase
+      .from("prayer_wall")
+      .select("*")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("prayer_call_sessions")
+      .select("*")
+      .order("display_order")
+      .order("created_at"),
+    loadFundFormData(supabase),
+    supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "prayer_calendar_id")
+      .maybeSingle(),
+  ]);
+  if (requestsError) {
+    console.error("Failed to fetch prayer requests:", requestsError);
+    throw new Error("Failed to load the prayer wall.");
+  }
+  if (sessionsError) {
+    console.error("Failed to fetch prayer call sessions:", sessionsError);
+  }
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">

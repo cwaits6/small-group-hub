@@ -15,10 +15,12 @@ const ANSWERED = "#3E8E5A";
 
 export function PrayerCard({
   row,
+  prayPending,
   onPray,
   onToggleAnswered,
 }: {
   row: PrayerWallRow;
+  prayPending: boolean;
   onPray: () => void;
   onToggleAnswered: () => void;
 }) {
@@ -115,6 +117,7 @@ export function PrayerCard({
           <button
             type="button"
             onClick={onPray}
+            disabled={prayPending}
             aria-pressed={row.i_am_praying}
             className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
               row.i_am_praying

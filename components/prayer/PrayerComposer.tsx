@@ -158,6 +158,7 @@ export function PrayerComposer({
                 key={key}
                 type="button"
                 onClick={() => setCategory(key)}
+                aria-pressed={active}
                 className="rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors"
                 style={
                   active

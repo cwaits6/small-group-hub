@@ -64,19 +64,19 @@ alter table public.prayer_call_sessions enable row level security;
 
 create policy "Members can view prayer call sessions"
   on public.prayer_call_sessions for select
-  using (public.is_member());
+  using ((select public.is_member()));
 
 create policy "Admins can insert prayer call sessions"
   on public.prayer_call_sessions for insert
-  with check (public.is_admin());
+  with check ((select public.is_admin()));
 
 create policy "Admins can update prayer call sessions"
   on public.prayer_call_sessions for update
-  using (public.is_admin());
+  using ((select public.is_admin()));
 
 create policy "Admins can delete prayer call sessions"
   on public.prayer_call_sessions for delete
-  using (public.is_admin());
+  using ((select public.is_admin()));
 
 -- ==================
 -- AUDIENCE HELPERS
@@ -87,14 +87,14 @@ returns boolean as $$
     select 1 from public.profiles
     where id = auth.uid() and is_prayer_warrior
   );
-$$ language sql security definer;
+$$ language sql security definer stable set search_path = '';
 
 create or replace function public.is_prayer_call_leader()
 returns boolean as $$
   select exists (
     select 1 from public.prayer_call_sessions where leader_id = auth.uid()
   );
-$$ language sql security definer;
+$$ language sql security definer stable set search_path = '';
 
 -- ==================
 -- PRAYER_REQUESTS
@@ -123,30 +123,32 @@ create trigger prayer_requests_touch_updated_at
 
 alter table public.prayer_requests enable row level security;
 
+-- Helper calls are wrapped in scalar subqueries so the planner evaluates them
+-- once per statement (initPlan) instead of per row.
 create policy "Members can view visible prayer requests"
   on public.prayer_requests for select
   using (
-    public.is_member()
+    (select public.is_member())
     and (
       author_id = auth.uid()
       or not (visible_to_warriors or visible_to_leaders or visible_to_admins)
-      or (visible_to_warriors and public.is_prayer_warrior())
-      or (visible_to_leaders and public.is_prayer_call_leader())
-      or (visible_to_admins and public.is_admin())
+      or (visible_to_warriors and (select public.is_prayer_warrior()))
+      or (visible_to_leaders and (select public.is_prayer_call_leader()))
+      or (visible_to_admins and (select public.is_admin()))
     )
   );
 
 create policy "Members can post own prayer requests"
   on public.prayer_requests for insert
-  with check (public.is_member() and author_id = auth.uid());
+  with check ((select public.is_member()) and author_id = auth.uid());
 
 create policy "Posters and admins can update prayer requests"
   on public.prayer_requests for update
-  using (author_id = auth.uid() or public.is_admin());
+  using (author_id = auth.uid() or (select public.is_admin()));
 
 create policy "Posters and admins can delete prayer requests"
   on public.prayer_requests for delete
-  using (author_id = auth.uid() or public.is_admin());
+  using (author_id = auth.uid() or (select public.is_admin()));
 
 -- ==================
 -- PRAYER_RESPONSES: one row = one member praying for one request
@@ -160,16 +162,22 @@ create table public.prayer_responses (
 
 alter table public.prayer_responses enable row level security;
 
+-- The exists() runs under the caller's RLS on prayer_requests, so responses
+-- to a restricted request are only visible to members who can see the
+-- request itself — otherwise the rows would leak who is praying for it.
 create policy "Members can view prayer responses"
   on public.prayer_responses for select
-  using (public.is_member());
+  using (
+    (select public.is_member())
+    and exists (select 1 from public.prayer_requests r where r.id = request_id)
+  );
 
--- The exists() runs under the caller's RLS, so nobody can respond to a
--- restricted request they can't see.
+-- Same guard on insert: nobody can respond to a restricted request they
+-- can't see.
 create policy "Members can pray for visible requests"
   on public.prayer_responses for insert
   with check (
-    public.is_member()
+    (select public.is_member())
     and profile_id = auth.uid()
     and exists (select 1 from public.prayer_requests r where r.id = request_id)
   );
