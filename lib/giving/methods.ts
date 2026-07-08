@@ -107,11 +107,11 @@ export interface ResolvedMethod {
 }
 
 /**
- * Resolve a fund's methods, dropping any without a custom handle.
- * A toggled-on method with no handle is a dead button.
+ * Resolve a fund's methods, dropping any without a handle —
+ * a method with nothing to show is a dead button.
  */
 export function resolveFundMethods(
-  fundMethods: { method: PaymentMethodKey; custom_handle: string | null; display_order: number }[]
+  fundMethods: { method: PaymentMethodKey; custom_handle: string; display_order: number }[]
 ): ResolvedMethod[] {
   return fundMethods
     .slice()

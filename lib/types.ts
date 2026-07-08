@@ -357,20 +357,12 @@ export type PaymentMethodKey =
   | "zelle"
   | "wallet";
 
-/** A member's reusable payment username, visible to members only */
-export interface PaymentHandle {
-  profile_id: string;
-  method: PaymentMethodKey;
-  handle: string;
-  updated_at: string;
-}
-
 /** One giving collection, held by a named steward (optionally a couple) */
 export interface GivingFund {
   id: string;
   name: string;
   description: string | null;
-  /** Person whose payment handles receive the money */
+  /** Person who receives the money */
   steward_id: string;
   /** Displayed alongside the steward (couples) */
   co_steward_id: string | null;
@@ -385,11 +377,11 @@ export interface GivingFund {
   updated_at: string;
 }
 
-/** A payment method a fund accepts; null custom_handle = use steward's profile handle */
+/** A payment method a fund accepts */
 export interface GivingFundMethod {
   fund_id: string;
   method: PaymentMethodKey;
-  custom_handle: string | null;
+  custom_handle: string;
   display_order: number;
 }
 

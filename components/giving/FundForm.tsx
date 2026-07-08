@@ -160,32 +160,37 @@ export function FundForm({
       fundId = data.id;
     }
 
-    // Reconcile methods: upsert the enabled rows first, then prune the
-    // disabled ones — a failed write never leaves the fund with no methods
+    // Reconcile methods: upsert the usable rows first, then prune the
+    // rest — a failed write never leaves the fund with no methods.
+    // Enabled-but-blank methods are pruned too: without a handle there
+    // is nothing to save (custom_handle is not null in the schema).
     const rows = METHOD_ORDER.flatMap((key, i) => {
       const m = methods[key];
-      if (!m.enabled) return [];
+      const handle = m.custom.trim();
+      if (!m.enabled || !handle) return [];
       return [
         {
           fund_id: fundId,
           method: key,
-          custom_handle: m.custom.trim() || null,
+          custom_handle: handle,
           display_order: i,
         },
       ];
     });
-    const disabled = METHOD_ORDER.filter((key) => !methods[key].enabled);
+    const pruned = METHOD_ORDER.filter(
+      (key) => !rows.some((r) => r.method === key)
+    );
     const { error: upsertError } =
       rows.length > 0
         ? await supabase.from("giving_fund_methods").upsert(rows)
         : { error: null };
     const { error: delError } =
-      !upsertError && disabled.length > 0
+      !upsertError && pruned.length > 0
         ? await supabase
             .from("giving_fund_methods")
             .delete()
             .eq("fund_id", fundId)
-            .in("method", disabled)
+            .in("method", pruned)
         : { error: null };
 
     setSaving(false);
@@ -408,7 +413,7 @@ export function FundForm({
                         />
                         {missing && (
                           <p className="mt-1.5 text-xs font-medium text-brand-accent">
-                            Enter a handle for {meta.name}{' '}or this method won&apos;t show.
+                            Enter a handle for {meta.name}{' '}or this method won&apos;t be saved.
                           </p>
                         )}
                       </div>
