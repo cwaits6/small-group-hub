@@ -86,6 +86,22 @@ export function FundForm({
   const coSteward =
     coStewardId !== NONE ? members.find((m) => m.id === coStewardId) : undefined;
 
+  // Base UI's SelectValue renders the raw value unless the root gets an
+  // items map to resolve labels from
+  const stewardItems = useMemo(
+    () => members.map((m) => ({ value: m.id, label: m.name })),
+    [members]
+  );
+  const coStewardItems = useMemo(
+    () => [
+      { value: NONE, label: "Nobody" },
+      ...members
+        .filter((m) => m.id !== stewardId)
+        .map((m) => ({ value: m.id, label: m.name })),
+    ],
+    [members, stewardId]
+  );
+
   const stewardNames = useMemo(() => {
     if (!steward) return "";
     if (!coSteward) return steward.name;
@@ -259,8 +275,12 @@ export function FundForm({
             <div>
               <Label className="text-base">Who receives it?</Label>
               {isAdmin ? (
-                <Select value={stewardId} onValueChange={(v) => v && setStewardId(v)}>
-                  <SelectTrigger className="mt-1.5 text-base py-5">
+                <Select
+                  items={stewardItems}
+                  value={stewardId}
+                  onValueChange={(v) => v && setStewardId(v)}
+                >
+                  <SelectTrigger className="mt-1.5 w-full text-base py-5">
                     <SelectValue placeholder="Pick a member" />
                   </SelectTrigger>
                   <SelectContent>
@@ -282,8 +302,12 @@ export function FundForm({
             </div>
             <div>
               <Label className="text-base">Shown with (optional)</Label>
-              <Select value={coStewardId} onValueChange={(v) => v && setCoStewardId(v)}>
-                <SelectTrigger className="mt-1.5 text-base py-5">
+              <Select
+                items={coStewardItems}
+                value={coStewardId}
+                onValueChange={(v) => v && setCoStewardId(v)}
+              >
+                <SelectTrigger className="mt-1.5 w-full text-base py-5">
                   <SelectValue placeholder="Nobody" />
                 </SelectTrigger>
                 <SelectContent>
