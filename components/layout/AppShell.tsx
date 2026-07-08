@@ -19,6 +19,7 @@ export const SIDEBAR_ROUTES = [
   "/admin",
   "/directory",
   "/serving",
+  "/prayer",
   "/profile",
 ];
 

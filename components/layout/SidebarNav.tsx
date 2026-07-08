@@ -16,6 +16,7 @@ import {
   MailPlus,
   HandHelping,
   HandCoins,
+  HeartHandshake,
   BarChart2,
 } from "lucide-react";
 import { useState, useEffect, type ComponentType } from "react";
@@ -38,6 +39,7 @@ const memberNav = [
   { href: "/lectures", label: "Lectures", icon: BookOpen },
   { href: "/directory", label: "Directory", icon: Users },
   { href: "/serving", label: "Serving", icon: HandHelping },
+  { href: "/prayer", label: "Prayer", icon: HeartHandshake },
   { href: "/give", label: "Give", icon: HandCoins },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];

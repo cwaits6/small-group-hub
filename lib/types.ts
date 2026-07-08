@@ -42,6 +42,7 @@ export interface Profile {
   relationship: FamilyMemberRelationship;
   is_prayer_team: boolean;
   is_greeter_team: boolean;
+  is_prayer_warrior: boolean;
   setup_completed: boolean;
   approved_at: string | null;
   approved_by: string | null;
@@ -221,7 +222,7 @@ export interface MemberGroup {
   color: string | null;
   icon: string | null;
   display_order: number;
-  functional_role: "prayer_team" | "greeter_team" | null;
+  functional_role: "prayer_team" | "greeter_team" | "prayer_warriors" | null;
   show_in_directory_filter: boolean;
   created_by: string | null;
   created_at: string;
@@ -383,6 +384,58 @@ export interface GivingFundMethod {
   method: PaymentMethodKey;
   custom_handle: string;
   display_order: number;
+}
+
+export type PrayerCategory =
+  | "health"
+  | "family"
+  | "thanksgiving"
+  | "prodigal"
+  | "guidance"
+  | "grief";
+
+/**
+ * Row from the prayer_wall view. Author name/avatar come back null on
+ * anonymous posts (unless it's the caller's own post — `mine` is true) and
+ * audience-restricted rows are filtered out by RLS for members outside the
+ * toggled audiences (prayer warriors / call leaders / admins).
+ */
+export interface PrayerWallRow {
+  id: string;
+  body: string;
+  category: PrayerCategory;
+  is_anonymous: boolean;
+  visible_to_warriors: boolean;
+  visible_to_leaders: boolean;
+  visible_to_admins: boolean;
+  is_answered: boolean;
+  created_at: string;
+  mine: boolean;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
+  praying_count: number;
+  i_am_praying: boolean;
+}
+
+/** One weekly prayer call session shown on the Prayer Call card */
+export interface PrayerCallSession {
+  id: string;
+  /** 0 = Sunday … 6 = Saturday */
+  weekday: number;
+  /** "HH:MM:SS" from Postgres time */
+  start_time: string;
+  end_time: string | null;
+  leader_id: string | null;
+  dial_in: string | null;
+  pin: string | null;
+  join_url: string | null;
+  /** The synced weekly recurring calendar event, kept in step on save */
+  event_id: string | null;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SiteSetting {
