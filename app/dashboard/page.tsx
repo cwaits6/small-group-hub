@@ -174,8 +174,9 @@ export default async function DashboardPage() {
     .order("published_at", { ascending: false })
     .limit(3);
 
-  // Give tile — live funds, gated by the admin toggle
-  const today = toDateString(new Date());
+  // Give tile — live funds, gated by the admin toggle. UTC date to match
+  // the retirement filtering on /give and /admin/giving.
+  const today = new Date().toISOString().slice(0, 10);
   const [{ data: giveTileSetting }, { data: liveFunds, count: liveFundCount }] =
     await Promise.all([
       supabase

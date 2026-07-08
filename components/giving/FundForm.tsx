@@ -168,11 +168,8 @@ export function FundForm({
       fundId = data.id;
     }
 
-    // Reconcile methods: replace the set wholesale — it's at most five rows
-    const { error: delError } = await supabase
-      .from("giving_fund_methods")
-      .delete()
-      .eq("fund_id", fundId);
+    // Reconcile methods: upsert the enabled rows first, then prune the
+    // disabled ones — a failed write never leaves the fund with no methods
     const rows = METHOD_ORDER.flatMap((key, i) => {
       const m = methods[key];
       if (!m.enabled) return [];
@@ -185,13 +182,22 @@ export function FundForm({
         },
       ];
     });
-    const { error: insError } =
+    const disabled = METHOD_ORDER.filter((key) => !methods[key].enabled);
+    const { error: upsertError } =
       rows.length > 0
-        ? await supabase.from("giving_fund_methods").insert(rows)
+        ? await supabase.from("giving_fund_methods").upsert(rows)
+        : { error: null };
+    const { error: delError } =
+      !upsertError && disabled.length > 0
+        ? await supabase
+            .from("giving_fund_methods")
+            .delete()
+            .eq("fund_id", fundId)
+            .in("method", disabled)
         : { error: null };
 
     setSaving(false);
-    if (delError || insError) {
+    if (upsertError || delError) {
       toast.error("Fund saved, but payment methods failed to update.");
       return;
     }
@@ -278,7 +284,11 @@ export function FundForm({
                 <Select
                   items={stewardItems}
                   value={stewardId}
-                  onValueChange={(v) => v && setStewardId(v)}
+                  onValueChange={(v) => {
+                    if (!v) return;
+                    setStewardId(v);
+                    if (v === coStewardId) setCoStewardId(NONE);
+                  }}
                 >
                   <SelectTrigger className="mt-1.5 w-full text-base py-5">
                     <SelectValue placeholder="Pick a member" />

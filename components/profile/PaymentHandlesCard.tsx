@@ -49,7 +49,7 @@ export function PaymentHandlesCard({ profileId, handles }: PaymentHandlesCardPro
           )
         : { error: null };
     const del =
-      drop.length > 0
+      !upsert.error && drop.length > 0
         ? await supabase
             .from("payment_handles")
             .delete()

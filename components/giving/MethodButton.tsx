@@ -32,6 +32,11 @@ export function MethodChip({
  */
 export function MethodButton({ resolved }: { resolved: ResolvedMethod }) {
   const { meta, handle } = resolved;
+  // Don't double the prefix when the stored handle already includes it
+  const displayHandle =
+    meta.prefix && handle.toLowerCase().startsWith(meta.prefix.toLowerCase())
+      ? handle.slice(meta.prefix.length)
+      : handle;
   const inner = (
     <>
       <MethodChip method={meta} />
@@ -41,7 +46,7 @@ export function MethodButton({ resolved }: { resolved: ResolvedMethod }) {
         </span>
         <span className="block truncate font-mono text-sm text-muted-foreground">
           {meta.prefix}
-          {handle}
+          {displayHandle}
         </span>
       </span>
     </>
