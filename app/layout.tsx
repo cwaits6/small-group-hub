@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AppShell } from "@/components/layout/AppShell";
+import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
@@ -91,8 +92,10 @@ export default async function RootLayout({
         />
       </head>
       <body className={`${cormorant.variable} ${interTight.variable} ${jetbrainsMono.variable} antialiased min-h-screen flex flex-col`}>
-        <Header profile={profile} />
-        <AppShell profile={profile} hasServingAccess={hasServingAccess}>{children}</AppShell>
+        <SidebarProvider>
+          <Header profile={profile} hasServingAccess={hasServingAccess} />
+          <AppShell profile={profile} hasServingAccess={hasServingAccess}>{children}</AppShell>
+        </SidebarProvider>
         <Footer />
         <Toaster />
         <Analytics />

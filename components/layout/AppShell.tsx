@@ -10,7 +10,7 @@ interface AppShellProps {
   children: React.ReactNode;
 }
 
-const SIDEBAR_ROUTES = [
+export const SIDEBAR_ROUTES = [
   "/dashboard",
   "/events",
   "/announcements",
