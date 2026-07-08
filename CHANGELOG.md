@@ -1,3 +1,10 @@
+# [0.13.0](https://github.com/cwaits6/small-group-hub/compare/v0.12.1...v0.13.0) (2026-07-08)
+
+
+### Features
+
+* **giving:** trust-first Give page with steward-held funds ([#183](https://github.com/cwaits6/small-group-hub/issues/183)) ([5b19767](https://github.com/cwaits6/small-group-hub/commit/5b1976793b0bf72b1521b4a95f5e7a8377527666))
+
 ## [0.12.1](https://github.com/cwaits6/small-group-hub/compare/v0.12.0...v0.12.1) (2026-07-08)
 
 
