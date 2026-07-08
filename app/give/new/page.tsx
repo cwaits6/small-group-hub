@@ -7,7 +7,7 @@ import {
   loadFundFormData,
 } from "@/lib/giving/server";
 
-export const metadata = { title: `New Giving Link | ${siteConfig.name}` };
+export const metadata = { title: `New Fund | ${siteConfig.name}` };
 
 export default async function NewFundPage() {
   const supabase = await createClient();
@@ -31,13 +31,9 @@ export default async function NewFundPage() {
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Put up a new link
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
+        New fund
       </h1>
-      <p className="text-lg text-muted-foreground mb-10 max-w-xl">
-        For a one-off collection — flowers, a love offering, a retreat. Takes a
-        minute, and you can retire it when it&apos;s done.
-      </p>
       <FundForm
         fund={null}
         members={members}

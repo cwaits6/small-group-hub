@@ -201,7 +201,7 @@ export function FundForm({
       toast.error("Fund saved, but payment methods failed to update.");
       return;
     }
-    toast.success(fund ? "Fund updated." : "Your giving link is live.");
+    toast.success(fund ? "Fund updated." : "Fund created.");
     router.push(backHref);
     router.refresh();
   }
@@ -216,7 +216,7 @@ export function FundForm({
       toast.error("Failed to update the fund.");
       return;
     }
-    toast.success(active ? "Fund is back up." : "Fund retired.");
+    toast.success(active ? "Fund reactivated." : "Fund retired.");
     router.push(backHref);
     router.refresh();
   }
@@ -363,7 +363,7 @@ export function FundForm({
                 className="mt-1.5 text-base py-5"
               />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                The link quietly disappears after this date.
+                Hidden from the Give page after this date.
               </p>
             </div>
           </div>
@@ -433,7 +433,7 @@ export function FundForm({
               disabled={saving}
               className="bg-brand-primary hover:bg-brand-primary/90 text-white"
             >
-              {saving ? "Saving…" : fund ? "Save changes" : "Publish link"}
+              {saving ? "Saving…" : fund ? "Save changes" : "Create fund"}
             </Button>
             <Button variant="outline" onClick={() => router.push(backHref)}>
               Cancel
@@ -444,7 +444,7 @@ export function FundForm({
                   variant="outline"
                   onClick={() => setActive(!fund.is_active)}
                 >
-                  {fund.is_active ? "Retire fund" : "Put back up"}
+                  {fund.is_active ? "Retire fund" : "Reactivate fund"}
                 </Button>
                 <Button
                   variant="ghost"

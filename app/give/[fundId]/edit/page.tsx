@@ -8,7 +8,7 @@ import {
 } from "@/lib/giving/server";
 import type { GivingFund, GivingFundMethod } from "@/lib/types";
 
-export const metadata = { title: `Edit Giving Link | ${siteConfig.name}` };
+export const metadata = { title: `Edit Fund | ${siteConfig.name}` };
 
 export default async function EditFundPage({
   params,
@@ -50,14 +50,9 @@ export default async function EditFundPage({
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Edit giving link
+      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
+        Edit fund
       </h1>
-      <p className="text-lg text-muted-foreground mb-10 max-w-xl">
-        {fund.is_active
-          ? "Changes show up on the Give page right away."
-          : "This fund is retired — it's hidden from the Give page."}
-      </p>
       <FundForm
         fund={{ ...fund, methods: (methodRows ?? []) as GivingFundMethod[] }}
         members={members}

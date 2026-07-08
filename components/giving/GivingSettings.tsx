@@ -49,8 +49,8 @@ export function GivingSettings({
       next ? "stewards" : "admins",
       () => setManageOn(!next),
       next
-        ? "Members can now put up their own giving links."
-        : "Giving links are now admin-managed only."
+        ? "Members can now add their own funds."
+        : "Funds are now admin-managed only."
     );
   }
 
@@ -71,7 +71,7 @@ export function GivingSettings({
       <div className="flex items-center justify-between gap-4 py-4">
         <div>
           <Label htmlFor="giving-mode" className="text-base">
-            Members can put up their own links
+            Members can add their own funds
           </Label>
           <p className="mt-0.5 text-sm text-muted-foreground">
             When off, only admins can create and edit giving funds. Existing

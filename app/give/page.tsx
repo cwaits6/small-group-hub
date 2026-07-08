@@ -154,15 +154,9 @@ export default async function GivePage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-            Give
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Pick a fund and pay the way you already do — every dollar goes
-            straight to someone you know.
-          </p>
-        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">
+          Give
+        </h1>
         {canCreate && (
           <Button
             nativeButton={false}
@@ -170,7 +164,7 @@ export default async function GivePage() {
             className="shrink-0 bg-brand-primary hover:bg-brand-primary/90 text-white"
           >
             <Plus className="mr-1.5 h-4 w-4" />
-            Put up a link
+            Add fund
           </Button>
         )}
       </div>
@@ -180,19 +174,15 @@ export default async function GivePage() {
           <GiveList funds={views} />
         ) : (
           <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-            <p className="text-xl text-muted-foreground">
-              No giving links are up right now.
-            </p>
+            <p className="text-xl text-muted-foreground">No funds yet.</p>
             {canCreate && (
               <p className="mt-2 text-muted-foreground">
-                Collecting for something?{" "}
                 <Link
                   href="/give/new"
                   className="font-semibold text-brand-primary hover:underline"
                 >
-                  Put up the first link
+                  Add the first fund
                 </Link>
-                .
               </p>
             )}
           </div>

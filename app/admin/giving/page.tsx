@@ -73,7 +73,7 @@ export default async function AdminGivingPage() {
             Giving
           </h1>
           <p className="text-lg text-muted-foreground">
-            Funds, stewards, and payment links on the Give page.
+            Manage the funds on the Give page.
           </p>
         </div>
         <Button
@@ -155,7 +155,7 @@ export default async function AdminGivingPage() {
         </div>
       ) : (
         <p className="rounded-2xl border border-dashed border-border px-6 py-10 text-center text-lg text-muted-foreground">
-          No funds yet — put up the first giving link.
+          No funds yet.
         </p>
       )}
     </div>

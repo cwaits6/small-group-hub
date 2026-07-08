@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Heart, Pencil } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import { AvatarCluster } from "@/components/directory/AvatarCluster";
 import { MethodButton } from "@/components/giving/MethodButton";
 import type { ResolvedMethod } from "@/lib/giving/methods";
@@ -91,19 +91,17 @@ export function GiveList({ funds }: { funds: FundView[] }) {
                     this fund payable.
                   </p>
                 )}
-                <div className="mt-3.5 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Heart className="h-3.5 w-3.5" aria-hidden="true" />
-                  Goes directly to {fund.stewardNames} — no fees, no middleman.
-                  {fund.canManage && (
+                {fund.canManage && (
+                  <div className="mt-3.5 flex justify-end text-sm">
                     <Link
                       href={`/give/${fund.id}/edit`}
-                      className="ml-auto flex items-center gap-1 font-semibold text-brand-primary hover:underline"
+                      className="flex items-center gap-1 font-semibold text-brand-primary hover:underline"
                     >
                       <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                       Edit
                     </Link>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
