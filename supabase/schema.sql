@@ -61,6 +61,34 @@ $$;
 ALTER FUNCTION "public"."get_profile_role"("profile_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  select public.is_admin() or (
+    public.giving_stewards_can_manage() and exists (
+      select 1 from public.giving_funds f
+      where f.id = _fund_id and f.steward_id = auth.uid()
+    )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."giving_stewards_can_manage"() RETURNS boolean
+    LANGUAGE "sql" SECURITY DEFINER
+    AS $$
+  select coalesce(
+    (select value from public.site_settings where key = 'giving_manage_mode'),
+    'stewards'
+  ) = 'stewards';
+$$;
+
+
+ALTER FUNCTION "public"."giving_stewards_can_manage"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
@@ -495,6 +523,40 @@ CREATE TABLE IF NOT EXISTS "public"."family_invites" (
 ALTER TABLE "public"."family_invites" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."giving_fund_methods" (
+    "fund_id" "uuid" NOT NULL,
+    "method" "text" NOT NULL,
+    "custom_handle" "text" NOT NULL,
+    "display_order" integer DEFAULT 0 NOT NULL,
+    CONSTRAINT "giving_fund_methods_custom_handle_check" CHECK ((("char_length"("custom_handle") >= 1) AND ("char_length"("custom_handle") <= 120))),
+    CONSTRAINT "giving_fund_methods_method_check" CHECK (("method" = ANY (ARRAY['venmo'::"text", 'paypal'::"text", 'cashapp'::"text", 'zelle'::"text", 'wallet'::"text"])))
+);
+
+
+ALTER TABLE "public"."giving_fund_methods" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."giving_funds" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "description" "text",
+    "steward_id" "uuid" NOT NULL,
+    "co_steward_id" "uuid",
+    "steward_role" "text",
+    "retire_on" "date",
+    "is_active" boolean DEFAULT true NOT NULL,
+    "display_order" integer DEFAULT 0 NOT NULL,
+    "created_by" "uuid",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "giving_funds_name_check" CHECK ((("char_length"("name") >= 1) AND ("char_length"("name") <= 80))),
+    CONSTRAINT "giving_funds_steward_role_check" CHECK ((("steward_role" IS NULL) OR ("char_length"("steward_role") <= 60)))
+);
+
+
+ALTER TABLE "public"."giving_funds" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."lecture_series" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
@@ -736,6 +798,16 @@ ALTER TABLE ONLY "public"."family_members"
 
 ALTER TABLE ONLY "public"."family_units"
     ADD CONSTRAINT "family_units_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."giving_fund_methods"
+    ADD CONSTRAINT "giving_fund_methods_pkey" PRIMARY KEY ("fund_id", "method");
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_pkey" PRIMARY KEY ("id");
 
 
 
@@ -1026,6 +1098,26 @@ ALTER TABLE ONLY "public"."family_members"
 
 
 
+ALTER TABLE ONLY "public"."giving_fund_methods"
+    ADD CONSTRAINT "giving_fund_methods_fund_id_fkey" FOREIGN KEY ("fund_id") REFERENCES "public"."giving_funds"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_co_steward_id_fkey" FOREIGN KEY ("co_steward_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_steward_id_fkey" FOREIGN KEY ("steward_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."lectures"
     ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
 
@@ -1133,6 +1225,18 @@ ALTER TABLE ONLY "public"."serving_team_settings"
 
 ALTER TABLE ONLY "public"."site_settings"
     ADD CONSTRAINT "site_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+
+
+
+CREATE POLICY "Admins and self-stewards can create funds" ON "public"."giving_funds" FOR INSERT WITH CHECK ((("created_by" = "auth"."uid"()) AND ("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND "public"."is_member"() AND ("steward_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "Admins and stewards can delete funds" ON "public"."giving_funds" FOR DELETE USING (("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND ("steward_id" = "auth"."uid"()))));
+
+
+
+CREATE POLICY "Admins and stewards can update funds" ON "public"."giving_funds" FOR UPDATE USING (("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND ("steward_id" = "auth"."uid"()))));
 
 
 
@@ -1308,6 +1412,18 @@ CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR U
 
 
 
+CREATE POLICY "Fund managers can add methods" ON "public"."giving_fund_methods" FOR INSERT WITH CHECK ("public"."giving_can_manage_fund"("fund_id"));
+
+
+
+CREATE POLICY "Fund managers can remove methods" ON "public"."giving_fund_methods" FOR DELETE USING ("public"."giving_can_manage_fund"("fund_id"));
+
+
+
+CREATE POLICY "Fund managers can update methods" ON "public"."giving_fund_methods" FOR UPDATE USING ("public"."giving_can_manage_fund"("fund_id"));
+
+
+
 CREATE POLICY "Household leaders can delete own household family members" ON "public"."family_members" FOR DELETE USING ((("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = "auth"."uid"()) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))));
@@ -1422,6 +1538,14 @@ CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SEL
 
 
 
+CREATE POLICY "Members can view fund methods" ON "public"."giving_fund_methods" FOR SELECT USING ("public"."is_member"());
+
+
+
+CREATE POLICY "Members can view giving funds" ON "public"."giving_funds" FOR SELECT USING ("public"."is_member"());
+
+
+
 CREATE POLICY "Members can view member groups" ON "public"."member_groups" FOR SELECT USING ("public"."is_member"());
 
 
@@ -1502,6 +1626,12 @@ ALTER TABLE "public"."family_members" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."family_units" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."giving_fund_methods" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."giving_funds" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."lecture_series" ENABLE ROW LEVEL SECURITY;
 
 
@@ -1560,6 +1690,18 @@ GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "serv
 GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_profile_role"("profile_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."giving_stewards_can_manage"() TO "anon";
+GRANT ALL ON FUNCTION "public"."giving_stewards_can_manage"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."giving_stewards_can_manage"() TO "service_role";
 
 
 
@@ -1668,6 +1810,18 @@ GRANT ALL ON TABLE "public"."families_directory_full" TO "service_role";
 GRANT ALL ON TABLE "public"."family_invites" TO "anon";
 GRANT ALL ON TABLE "public"."family_invites" TO "authenticated";
 GRANT ALL ON TABLE "public"."family_invites" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."giving_fund_methods" TO "anon";
+GRANT ALL ON TABLE "public"."giving_fund_methods" TO "authenticated";
+GRANT ALL ON TABLE "public"."giving_fund_methods" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."giving_funds" TO "anon";
+GRANT ALL ON TABLE "public"."giving_funds" TO "authenticated";
+GRANT ALL ON TABLE "public"."giving_funds" TO "service_role";
 
 
 
