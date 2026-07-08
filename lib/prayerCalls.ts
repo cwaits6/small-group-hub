@@ -98,38 +98,53 @@ export async function savePrayerCallSessions(
   const calendarId = await ensurePrayerCalendar(supabase, calendarSettingId);
 
   for (const s of removed) {
+    // Delete the synced event first — if that fails we bail before touching
+    // the session row, so a retry sees the same state and no event is
+    // orphaned on the calendar.
+    if (s.event_id) {
+      const { error } = await supabase
+        .from("events")
+        .delete()
+        .eq("id", s.event_id);
+      if (error) return "Couldn't remove a session. Please try again.";
+    }
     const { error } = await supabase
       .from("prayer_call_sessions")
       .delete()
       .eq("id", s.id);
     if (error) return "Couldn't remove a session. Please try again.";
-    if (s.event_id) {
-      await supabase.from("events").delete().eq("id", s.event_id);
-    }
   }
 
   for (const draft of drafts) {
     const fields = eventFields(draft, calendarId);
 
-    // Sync the event first so the session row can point at it. An update that
-    // matches no rows means the event was deleted out from under us — the FK
-    // already nulled event_id in the DB, so fall through and re-create.
+    // Sync the event first so the session row can point at it. Only an
+    // error-free update that matches no rows means the event was deleted out
+    // from under us (the FK already nulled event_id in the DB) — fall through
+    // and re-create. A failed update must not fall through, or a transient
+    // error would duplicate the event.
     let eventId = draft.event_id;
     if (eventId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .update(fields)
         .eq("id", eventId)
         .select("id");
-      if (!data || data.length === 0) eventId = null;
+      if (error) {
+        return "Couldn't update the calendar event. Please try again.";
+      }
+      if (data.length === 0) eventId = null;
     }
     if (!eventId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("events")
         .insert(fields)
         .select("id")
         .single();
-      eventId = data?.id ?? null;
+      if (error || !data) {
+        return "Couldn't create the calendar event. Please try again.";
+      }
+      eventId = data.id;
     }
     draft.event_id = eventId;
 
