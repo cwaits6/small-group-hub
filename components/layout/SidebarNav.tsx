@@ -15,6 +15,7 @@ import {
   Home,
   MailPlus,
   HandHelping,
+  HandCoins,
   BarChart2,
 } from "lucide-react";
 import { useState, useEffect, type ComponentType } from "react";
@@ -37,6 +38,7 @@ const memberNav = [
   { href: "/lectures", label: "Lectures", icon: BookOpen },
   { href: "/directory", label: "Directory", icon: Users },
   { href: "/serving", label: "Serving", icon: HandHelping },
+  { href: "/give", label: "Give", icon: HandCoins },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
@@ -48,6 +50,7 @@ const adminNav = [
   { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
   { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
   { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
+  { href: "/admin/giving", label: "Giving", icon: HandCoins },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
 ];
 

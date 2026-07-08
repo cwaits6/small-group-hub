@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { DirectoryPreview } from "@/components/profile/DirectoryPreview";
+import { PaymentHandlesCard } from "@/components/profile/PaymentHandlesCard";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/config";
 import { Home } from "lucide-react";
-import type { Profile, FamilyUnit } from "@/lib/types";
+import type { Profile, FamilyUnit, PaymentHandle } from "@/lib/types";
 
 export const metadata = { title: `My Profile | ${siteConfig.name}` };
 
@@ -38,6 +39,11 @@ export default async function ProfilePage() {
   // component to render the family tab disabled, so pass an empty list.
   const families: FamilyUnit[] = [];
 
+  const { data: paymentHandles } = await supabase
+    .from("payment_handles")
+    .select("*")
+    .eq("profile_id", user.id);
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
@@ -53,6 +59,13 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileForm profile={profile} families={families} isAdmin={false} />
+
+      <div className="mt-8">
+        <PaymentHandlesCard
+          profileId={user.id}
+          handles={(paymentHandles ?? []) as PaymentHandle[]}
+        />
+      </div>
 
       {profile.family_id && (
         <div className="mt-8 pt-6 border-t">

@@ -350,6 +350,49 @@ export interface FamilyInvite {
   created_at: string;
 }
 
+export type PaymentMethodKey =
+  | "venmo"
+  | "paypal"
+  | "cashapp"
+  | "zelle"
+  | "wallet";
+
+/** A member's reusable payment username, visible to members only */
+export interface PaymentHandle {
+  profile_id: string;
+  method: PaymentMethodKey;
+  handle: string;
+  updated_at: string;
+}
+
+/** One giving collection, held by a named steward (optionally a couple) */
+export interface GivingFund {
+  id: string;
+  name: string;
+  description: string | null;
+  /** Person whose payment handles receive the money */
+  steward_id: string;
+  /** Displayed alongside the steward (couples) */
+  co_steward_id: string | null;
+  /** Short trust label: "Class treasurers", "Hospitality" */
+  steward_role: string | null;
+  /** YYYY-MM-DD — fund disappears from the Give page after this date */
+  retire_on: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A payment method a fund accepts; null custom_handle = use steward's profile handle */
+export interface GivingFundMethod {
+  fund_id: string;
+  method: PaymentMethodKey;
+  custom_handle: string | null;
+  display_order: number;
+}
+
 export interface SiteSetting {
   key: string;
   value: string | null;
