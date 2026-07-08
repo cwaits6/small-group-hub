@@ -99,7 +99,7 @@ export function methodHref(
   }
 }
 
-/** A fund method with its handle resolved (custom override ?? steward profile handle) */
+/** A fund method with its handle */
 export interface ResolvedMethod {
   method: PaymentMethodKey;
   handle: string;
@@ -107,20 +107,17 @@ export interface ResolvedMethod {
 }
 
 /**
- * Resolve a fund's methods against the steward's profile handles.
- * Methods with no custom handle and no profile handle are dropped —
- * a toggled-on method with nothing to show is a dead button.
+ * Resolve a fund's methods, dropping any without a custom handle.
+ * A toggled-on method with no handle is a dead button.
  */
 export function resolveFundMethods(
-  fundMethods: { method: PaymentMethodKey; custom_handle: string | null; display_order: number }[],
-  stewardHandles: Map<PaymentMethodKey, string>
+  fundMethods: { method: PaymentMethodKey; custom_handle: string | null; display_order: number }[]
 ): ResolvedMethod[] {
   return fundMethods
     .slice()
     .sort((a, b) => a.display_order - b.display_order)
     .flatMap((fm) => {
-      const handle = fm.custom_handle ?? stewardHandles.get(fm.method);
-      if (!handle) return [];
-      return [{ method: fm.method, handle, meta: PAYMENT_METHODS[fm.method] }];
+      if (!fm.custom_handle) return [];
+      return [{ method: fm.method, handle: fm.custom_handle, meta: PAYMENT_METHODS[fm.method] }];
     });
 }

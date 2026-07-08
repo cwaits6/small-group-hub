@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxInput,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { toast } from "sonner";
 import { AvatarCluster } from "@/components/directory/AvatarCluster";
 import { MethodButton, MethodChip } from "@/components/giving/MethodButton";
@@ -40,8 +41,6 @@ interface FundFormProps {
   /** null = create */
   fund: (GivingFund & { methods: GivingFundMethod[] }) | null;
   members: MemberOption[];
-  /** profile id → method → handle, for prefill and the live preview */
-  handlesByProfile: Record<string, Partial<Record<PaymentMethodKey, string>>>;
   currentUserId: string;
   isAdmin: boolean;
   backHref: string;
@@ -54,7 +53,6 @@ const NONE = "none";
 export function FundForm({
   fund,
   members,
-  handlesByProfile,
   currentUserId,
   isAdmin,
   backHref,
@@ -81,26 +79,10 @@ export function FundForm({
     return state;
   });
 
-  const stewardHandles = handlesByProfile[stewardId] ?? {};
   const steward = members.find((m) => m.id === stewardId);
   const coSteward =
     coStewardId !== NONE ? members.find((m) => m.id === coStewardId) : undefined;
 
-  // Base UI's SelectValue renders the raw value unless the root gets an
-  // items map to resolve labels from
-  const stewardItems = useMemo(
-    () => members.map((m) => ({ value: m.id, label: m.name })),
-    [members]
-  );
-  const coStewardItems = useMemo(
-    () => [
-      { value: NONE, label: "Nobody" },
-      ...members
-        .filter((m) => m.id !== stewardId)
-        .map((m) => ({ value: m.id, label: m.name })),
-    ],
-    [members, stewardId]
-  );
 
   const stewardNames = useMemo(() => {
     if (!steward) return "";
@@ -108,10 +90,20 @@ export function FundForm({
     return `${steward.name.split(" ")[0]} & ${coSteward.name}`;
   }, [steward, coSteward]);
 
+  const memberLabel = (id: string) =>
+    id === NONE ? "Nobody" : members.find((m) => m.id === id)?.name ?? "";
+
+  const memberIds = useMemo(() => members.map((m) => m.id), [members]);
+
+  const coMemberIds = useMemo(
+    () => [NONE, ...members.filter((m) => m.id !== stewardId).map((m) => m.id)],
+    [members, stewardId]
+  );
+
   const previewMethods: ResolvedMethod[] = METHOD_ORDER.flatMap((key) => {
     const m = methods[key];
     if (!m.enabled) return [];
-    const handle = m.custom.trim() || stewardHandles[key];
+    const handle = m.custom.trim();
     if (!handle) return [];
     return [{ method: key, handle, meta: PAYMENT_METHODS[key] }];
   });
@@ -281,8 +273,9 @@ export function FundForm({
             <div>
               <Label className="text-base">Who receives it?</Label>
               {isAdmin ? (
-                <Select
-                  items={stewardItems}
+                <Combobox
+                  items={memberIds}
+                  itemToStringLabel={memberLabel}
                   value={stewardId}
                   onValueChange={(v) => {
                     if (!v) return;
@@ -290,17 +283,21 @@ export function FundForm({
                     if (v === coStewardId) setCoStewardId(NONE);
                   }}
                 >
-                  <SelectTrigger className="mt-1.5 w-full text-base py-5">
-                    <SelectValue placeholder="Pick a member" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {members.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <ComboboxInput
+                    placeholder="Search members…"
+                    className="mt-1.5 text-base py-2.5"
+                  />
+                  <ComboboxPopup>
+                    <ComboboxEmpty />
+                    <ComboboxList>
+                      {(id: string) => (
+                        <ComboboxItem key={id} value={id}>
+                          {memberLabel(id)}
+                        </ComboboxItem>
+                      )}
+                    </ComboboxList>
+                  </ComboboxPopup>
+                </Combobox>
               ) : (
                 <p className="mt-1.5 rounded-md border border-border bg-background px-3 py-2.5 text-base">
                   {steward?.name ?? "You"}
@@ -312,25 +309,27 @@ export function FundForm({
             </div>
             <div>
               <Label className="text-base">Shown with (optional)</Label>
-              <Select
-                items={coStewardItems}
+              <Combobox
+                items={coMemberIds}
+                itemToStringLabel={memberLabel}
                 value={coStewardId}
-                onValueChange={(v) => v && setCoStewardId(v)}
+                onValueChange={(v) => setCoStewardId(v ?? NONE)}
               >
-                <SelectTrigger className="mt-1.5 w-full text-base py-5">
-                  <SelectValue placeholder="Nobody" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>Nobody</SelectItem>
-                  {members
-                    .filter((m) => m.id !== stewardId)
-                    .map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                <ComboboxInput
+                  placeholder="Search members…"
+                  className="mt-1.5 text-base py-2.5"
+                />
+                <ComboboxPopup>
+                  <ComboboxEmpty />
+                  <ComboboxList>
+                    {(id: string) => (
+                      <ComboboxItem key={id} value={id}>
+                        {memberLabel(id)}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxPopup>
+              </Combobox>
               <p className="mt-1.5 text-xs text-muted-foreground">
                 A spouse or co-collector, for display.
               </p>
@@ -371,15 +370,13 @@ export function FundForm({
           <div>
             <Label className="text-base">Payment methods</Label>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Leave the handle blank to use the steward&apos;s profile handle —
-              it stays in sync if they change it.
+              Enter a payment handle for each method.
             </p>
             <div className="mt-3 space-y-2">
               {METHOD_ORDER.map((key) => {
                 const meta = PAYMENT_METHODS[key];
                 const m = methods[key];
-                const profileHandle = stewardHandles[key];
-                const missing = m.enabled && !m.custom.trim() && !profileHandle;
+                const missing = m.enabled && !m.custom.trim();
                 return (
                   <div
                     key={key}
@@ -405,18 +402,13 @@ export function FundForm({
                         <Input
                           value={m.custom}
                           onChange={(e) => setMethod(key, { custom: e.target.value })}
-                          placeholder={
-                            profileHandle
-                              ? `${meta.prefix}${profileHandle} (from profile)`
-                              : meta.placeholder
-                          }
+                          placeholder={meta.placeholder}
                           maxLength={120}
                           className="font-mono text-sm"
                         />
                         {missing && (
                           <p className="mt-1.5 text-xs font-medium text-brand-accent">
-                            No profile handle for {meta.name} — enter one here
-                            or this method won&apos;t show.
+                            Enter a handle for {meta.name}{' '}or this method won&apos;t show.
                           </p>
                         )}
                       </div>

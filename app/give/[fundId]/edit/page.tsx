@@ -46,7 +46,7 @@ export default async function EditFundPage({
     isAdmin || (stewardsCanManage && fund.steward_id === user.id);
   if (!canManage) redirect("/give");
 
-  const { members, handlesByProfile } = await loadFundFormData(supabase);
+  const { members } = await loadFundFormData(supabase);
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -56,7 +56,6 @@ export default async function EditFundPage({
       <FundForm
         fund={{ ...fund, methods: (methodRows ?? []) as GivingFundMethod[] }}
         members={members}
-        handlesByProfile={handlesByProfile}
         currentUserId={user.id}
         isAdmin={isAdmin}
         backHref={isAdmin ? "/admin/giving" : "/give"}

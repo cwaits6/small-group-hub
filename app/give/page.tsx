@@ -7,12 +7,7 @@ import { siteConfig } from "@/lib/config";
 import { displayName, initials } from "@/lib/names";
 import { resolveFundMethods } from "@/lib/giving/methods";
 import { GiveList, type FundView } from "@/components/giving/GiveList";
-import type {
-  GivingFund,
-  GivingFundMethod,
-  PaymentHandle,
-  PaymentMethodKey,
-} from "@/lib/types";
+import type { GivingFund, GivingFundMethod } from "@/lib/types";
 
 export const metadata = { title: `Give | ${siteConfig.name}` };
 
@@ -84,34 +79,15 @@ export default async function GivePage() {
   const canCreate = isAdmin || stewardsCanManage;
 
   let methods: GivingFundMethod[] = [];
-  let handles: PaymentHandle[] = [];
   if (funds.length > 0) {
-    const [{ data: methodRows }, { data: handleRows }] = await Promise.all([
-      supabase
-        .from("giving_fund_methods")
-        .select("*")
-        .in(
-          "fund_id",
-          funds.map((f) => f.id)
-        ),
-      supabase
-        .from("payment_handles")
-        .select("*")
-        .in(
-          "profile_id",
-          funds.map((f) => f.steward_id)
-        ),
-    ]);
+    const { data: methodRows } = await supabase
+      .from("giving_fund_methods")
+      .select("*")
+      .in(
+        "fund_id",
+        funds.map((f) => f.id)
+      );
     methods = (methodRows ?? []) as GivingFundMethod[];
-    handles = (handleRows ?? []) as PaymentHandle[];
-  }
-
-  const handlesByProfile = new Map<string, Map<PaymentMethodKey, string>>();
-  for (const h of handles) {
-    if (!handlesByProfile.has(h.profile_id)) {
-      handlesByProfile.set(h.profile_id, new Map());
-    }
-    handlesByProfile.get(h.profile_id)!.set(h.method, h.handle);
   }
 
   const views: FundView[] = funds.flatMap((fund) => {
@@ -119,8 +95,7 @@ export default async function GivePage() {
     const canManage =
       isAdmin || (stewardsCanManage && fund.steward_id === user.id);
     const resolved = resolveFundMethods(
-      methods.filter((m) => m.fund_id === fund.id),
-      handlesByProfile.get(fund.steward_id) ?? new Map()
+      methods.filter((m) => m.fund_id === fund.id)
     );
     // A fund nobody can pay yet is only useful to whoever can fix it
     if (resolved.length === 0 && !canManage) return [];

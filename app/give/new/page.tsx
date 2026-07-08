@@ -27,7 +27,7 @@ export default async function NewFundPage() {
   const stewardsCanManage = await givingStewardsCanManage(supabase);
   if (!isAdmin && !stewardsCanManage) redirect("/give");
 
-  const { members, handlesByProfile } = await loadFundFormData(supabase);
+  const { members } = await loadFundFormData(supabase);
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -37,7 +37,6 @@ export default async function NewFundPage() {
       <FundForm
         fund={null}
         members={members}
-        handlesByProfile={handlesByProfile}
         currentUserId={user.id}
         isAdmin={isAdmin}
         backHref="/give"
