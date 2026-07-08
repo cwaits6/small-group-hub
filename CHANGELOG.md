@@ -1,3 +1,10 @@
+## [0.12.1](https://github.com/cwaits6/small-group-hub/compare/v0.12.0...v0.12.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **nav:** mobile access to sidebar nav, admin highlight, pointer cursors ([#182](https://github.com/cwaits6/small-group-hub/issues/182)) ([f8d4e20](https://github.com/cwaits6/small-group-hub/commit/f8d4e20d27d27debb035930322dfd92c0b9a8762))
+
 # [0.12.0](https://github.com/cwaits6/small-group-hub/compare/v0.11.1...v0.12.0) (2026-07-07)
 
 
