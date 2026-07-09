@@ -4,10 +4,11 @@ import type { MemberGroup } from "@/lib/types";
 /** Map a functional role to its denormalized boolean column on profiles */
 const ROLE_COLUMNS: Record<
   NonNullable<MemberGroup["functional_role"]>,
-  "is_prayer_team" | "is_greeter_team"
+  "is_prayer_team" | "is_greeter_team" | "is_prayer_warrior"
 > = {
   prayer_team: "is_prayer_team",
   greeter_team: "is_greeter_team",
+  prayer_warriors: "is_prayer_warrior",
 };
 
 /**
