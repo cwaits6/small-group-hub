@@ -317,6 +317,12 @@ CREATE TABLE IF NOT EXISTS "public"."events" (
     "recurrence_until" timestamp with time zone,
     "series_id" "uuid",
     "series_occurrence_date" timestamp with time zone,
+    "meeting_url" "text",
+    "meeting_id" "text",
+    "meeting_passcode" "text",
+    "meeting_show_on_dashboard" boolean DEFAULT true NOT NULL,
+    "meeting_lead_minutes" integer DEFAULT 15 NOT NULL,
+    CONSTRAINT "events_meeting_lead_minutes_check" CHECK ((("meeting_lead_minutes" >= 0) AND ("meeting_lead_minutes" <= 1440))),
     CONSTRAINT "events_recurrence_end_mode_check" CHECK (("recurrence_end_mode" = ANY (ARRAY['never'::"text", 'count'::"text", 'until'::"text"]))),
     CONSTRAINT "events_recurrence_frequency_check" CHECK (("recurrence_frequency" = ANY (ARRAY['daily'::"text", 'weekly'::"text", 'monthly'::"text", 'yearly'::"text"])))
 );
