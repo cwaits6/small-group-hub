@@ -471,3 +471,40 @@ export interface PageContent {
   updated_by: string | null;
   updated_at: string;
 }
+
+/**
+ * Singleton row (id = true) holding the About Our Class summary. Body is
+ * BlockNote JSON, same format as PageContent.body. Members-only via RLS —
+ * unlike page_content, which is publicly readable.
+ */
+export interface AboutPage {
+  id: boolean;
+  body: string;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+/**
+ * A teacher listed on the About Our Class page. Points at a member profile
+ * (name and photo come from the profile) with a teacher-specific title and
+ * bio on top.
+ */
+export interface ClassTeacher {
+  id: string;
+  profile_id: string;
+  title: string;
+  bio: string;
+  sort_order: number;
+  created_at: string;
+}
+
+/** ClassTeacher with the joined profile fields used for display. */
+export interface ClassTeacherWithProfile extends ClassTeacher {
+  profiles: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    preferred_name: string | null;
+    avatar_url: string | null;
+  } | null;
+}

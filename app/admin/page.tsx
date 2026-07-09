@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home } from "lucide-react";
+import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home, Info } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 
 export const metadata = { title: `Admin | ${siteConfig.name}` };
@@ -88,6 +88,12 @@ export default async function AdminPage() {
       label: "Pages",
       description: "Edit content pages",
       icon: FileText,
+    },
+    {
+      href: "/admin/about",
+      label: "About Page",
+      description: "Edit the class summary and teachers",
+      icon: Info,
     },
     {
       href: "/admin/settings",

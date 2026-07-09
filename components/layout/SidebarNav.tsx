@@ -18,6 +18,7 @@ import {
   HandCoins,
   HeartHandshake,
   BarChart2,
+  Info,
 } from "lucide-react";
 import { useState, useEffect, type ComponentType } from "react";
 import type { PageContent, Profile } from "@/lib/types";
@@ -41,6 +42,7 @@ const memberNav = [
   { href: "/serving", label: "Serving", icon: HandHelping },
   { href: "/prayer", label: "Prayer", icon: HeartHandshake },
   { href: "/give", label: "Give", icon: HandCoins },
+  { href: "/about", label: "About", icon: Info },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
@@ -54,6 +56,7 @@ const adminNav = [
   { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
   { href: "/admin/giving", label: "Giving", icon: HandCoins },
   { href: "/admin/pages", label: "Manage Pages", icon: FileText },
+  { href: "/admin/about", label: "About Page", icon: Info },
 ];
 
 export function SidebarNav({
@@ -154,7 +157,12 @@ export function SidebarNav({
           )}
           {collapsed && <div className="border-t border-border my-2" role="separator" />}
           {adminNav
-            .filter((item) => isAdmin || item.href === "/admin/pages")
+            .filter(
+              (item) =>
+                isAdmin ||
+                item.href === "/admin/pages" ||
+                item.href === "/admin/about",
+            )
             .map(renderLink)}
         </>
       )}
