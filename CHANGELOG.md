@@ -1,3 +1,10 @@
+# [0.16.0](https://github.com/cwaits6/small-group-hub/compare/v0.15.0...v0.16.0) (2026-07-09)
+
+
+### Features
+
+* **about:** About Our Class page with GUI-editable summary and teachers ([#186](https://github.com/cwaits6/small-group-hub/issues/186)) ([7745a0e](https://github.com/cwaits6/small-group-hub/commit/7745a0e982421a710d9618bdfa56be84b70f0206))
+
 # [0.15.0](https://github.com/cwaits6/small-group-hub/compare/v0.14.0...v0.15.0) (2026-07-09)
 
 
