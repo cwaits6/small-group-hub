@@ -108,14 +108,14 @@ export function MeetingFieldsSection({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-lg">Join opens before start</Label>
+            <Label htmlFor="meeting_lead_minutes" className="text-lg">Join opens before start</Label>
             <Select
               value={leadMinutes}
               onValueChange={(v) => {
                 if (v) onLeadMinutesChange(v);
               }}
             >
-              <SelectTrigger className="w-full text-lg py-6">
+              <SelectTrigger id="meeting_lead_minutes" className="w-full text-lg py-6">
                 <SelectValue>{LEAD_LABELS[leadMinutes] ?? `${leadMinutes} minutes`}</SelectValue>
               </SelectTrigger>
               <SelectContent>

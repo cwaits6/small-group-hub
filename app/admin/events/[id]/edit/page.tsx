@@ -100,14 +100,19 @@ export default function EditEventPage() {
       return;
     }
 
+    const isRecurringSeries = !!event?.recurrence_frequency && !event?.series_id;
+    const isSingleOccurrenceEdit = isRecurringSeries && !!occurrenceISO && editScope === "this";
+
     const trimmedMeetingUrl = meetingUrl.trim();
-    if (trimmedMeetingUrl && !/^https?:\/\//i.test(trimmedMeetingUrl)) {
-      toast.error("Meeting link must start with https://");
-      return;
-    }
-    if (!trimmedMeetingUrl && (meetingId.trim() || meetingPasscode.trim())) {
-      toast.error("Add the meeting link to go with the meeting ID and passcode.");
-      return;
+    if (!isSingleOccurrenceEdit) {
+      if (trimmedMeetingUrl && !/^https:\/\//i.test(trimmedMeetingUrl)) {
+        toast.error("Meeting link must start with https://");
+        return;
+      }
+      if (!trimmedMeetingUrl && (meetingId.trim() || meetingPasscode.trim())) {
+        toast.error("Add the meeting link to go with the meeting ID and passcode.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -116,8 +121,6 @@ export default function EditEventPage() {
     const nextLocation = (formData.get("location") as string)?.trim() ?? "";
     const title = formData.get("title") as string;
     const description = (formData.get("description") as string) || null;
-
-    const isRecurringSeries = !!event?.recurrence_frequency && !event?.series_id;
 
     if (isRecurringSeries && occurrenceISO && editScope === "this") {
       // Create a one-off exception row for just this occurrence.

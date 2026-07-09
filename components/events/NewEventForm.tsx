@@ -143,7 +143,7 @@ export function NewEventForm() {
     }
 
     const trimmedMeetingUrl = meetingUrl.trim();
-    if (trimmedMeetingUrl && !/^https?:\/\//i.test(trimmedMeetingUrl)) {
+    if (trimmedMeetingUrl && !/^https:\/\//i.test(trimmedMeetingUrl)) {
       toast.error("Meeting link must start with https://");
       return;
     }
