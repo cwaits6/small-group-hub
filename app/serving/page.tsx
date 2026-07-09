@@ -18,6 +18,7 @@ type RosterRow = {
   is_leader: boolean;
   profiles: {
     id: string;
+    role: string | null;
     first_name: string | null;
     last_name: string | null;
     preferred_name: string | null;
@@ -53,7 +54,7 @@ export default async function ServingPage() {
     supabase
       .from("profile_groups")
       .select(
-        "group_id, is_leader, profiles(id, first_name, last_name, preferred_name, avatar_url)"
+        "group_id, is_leader, profiles(id, role, first_name, last_name, preferred_name, avatar_url)"
       ),
     supabase
       .from("profile_groups")
@@ -73,7 +74,8 @@ export default async function ServingPage() {
   // Leaders float to the top, then alphabetical by display name.
   const rosters = new Map<string, RosterMember[]>();
   for (const row of (rosterRows ?? []) as unknown as RosterRow[]) {
-    if (!row.profiles) continue;
+    // Skip un-onboarded household peers (no name yet, not real roster members).
+    if (!row.profiles || row.profiles.role === "pending") continue;
     const list = rosters.get(row.group_id) ?? [];
     list.push({ ...row.profiles, is_leader: row.is_leader });
     rosters.set(row.group_id, list);

@@ -134,13 +134,17 @@ export function PrayerComposer({
   const submit = async () => {
     if (!canPost) return;
     setSubmitting(true);
-    const ok = await onPost({
-      body: body.trim(),
-      category,
-      is_anonymous: anonymous,
-      visible_to_warriors: toWarriors,
-    });
-    setSubmitting(false);
+    let ok = false;
+    try {
+      ok = await onPost({
+        body: body.trim(),
+        category,
+        is_anonymous: anonymous,
+        visible_to_warriors: toWarriors,
+      });
+    } finally {
+      setSubmitting(false);
+    }
     if (ok) {
       setBody("");
       setAnonymous(false);
