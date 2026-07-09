@@ -61,6 +61,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   // Dismiss on outside press or Escape, matching the app's menus/dialogs so the
   // picker doesn't linger when the admin clicks away from it.
@@ -73,7 +74,11 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
       }
     }
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        // Return focus to the trigger so keyboard users don't land on <body>.
+        triggerRef.current?.focus();
+      }
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -100,6 +105,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
   return (
     <div className="space-y-2" ref={containerRef}>
       <Button
+        ref={triggerRef}
         type="button"
         variant="outline"
         onClick={() => setOpen(!open)}
