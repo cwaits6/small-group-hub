@@ -17,32 +17,6 @@ export const PRAYER_CATEGORY_KEYS = Object.keys(
   PRAYER_CATEGORIES
 ) as PrayerCategory[];
 
-/** Audience toggles on a request; all false = visible to every member */
-export interface PrayerAudience {
-  visible_to_warriors: boolean;
-  visible_to_leaders: boolean;
-  visible_to_admins: boolean;
-}
-
-export const PRAYER_AUDIENCES: {
-  key: keyof PrayerAudience;
-  label: string;
-}[] = [
-  { key: "visible_to_warriors", label: "prayer warriors" },
-  { key: "visible_to_leaders", label: "call leaders" },
-  { key: "visible_to_admins", label: "admins" },
-];
-
-export function isRestricted(a: PrayerAudience): boolean {
-  return a.visible_to_warriors || a.visible_to_leaders || a.visible_to_admins;
-}
-
-/** "everyone", "prayer warriors", "prayer warriors + admins", … */
-export function audienceSummary(a: PrayerAudience): string {
-  const on = PRAYER_AUDIENCES.filter(({ key }) => a[key]).map((x) => x.label);
-  return on.length === 0 ? "everyone" : on.join(" + ");
-}
-
 /** Plural weekday names, indexed by PrayerCallSession.weekday (0 = Sunday) */
 export const WEEKDAY_LABELS = [
   "Sundays",

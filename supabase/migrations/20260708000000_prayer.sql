@@ -1,15 +1,14 @@
--- Prayer wall: members post requests with independent privacy controls —
--- is_anonymous hides the author's name from everyone; three audience toggles
--- (visible_to_warriors / visible_to_leaders / visible_to_admins) limit who can
--- see the whole request. All toggles off = visible to every member. Audiences
--- are exactly what's toggled — admins get no implicit access. The author is
--- always recorded (RLS + "My requests" need it); anonymity is applied at read
--- time by the prayer_wall view, mirroring how profiles_directory applies
--- field-level privacy.
+-- Prayer wall: members post requests with two independent privacy controls —
+-- is_anonymous hides the author's name from everyone; visible_to_warriors
+-- limits the whole request to prayer warriors. Off = visible to every member.
+-- The author is always recorded (RLS + "My requests" need it); anonymity is
+-- applied at read time by the prayer_wall view, mirroring how
+-- profiles_directory applies field-level privacy.
 --
 -- Prayer warriors are a profile-level role (distinct from the serving-page
--- prayer team) managed through the member-groups system. Prayer call leaders
--- are derived: anyone set as leader_id on a prayer_call_sessions row.
+-- prayer team) managed through the member-groups system; the Prayer page lists
+-- who's in the group so posters know who they're sharing a restricted request
+-- with. Prayer call leaders (leader_id on a session) get no special read access.
 
 -- ==================
 -- ROLE: prayer warriors (profile flag + seeded member group)
@@ -89,13 +88,6 @@ returns boolean as $$
   );
 $$ language sql security definer stable set search_path = '';
 
-create or replace function public.is_prayer_call_leader()
-returns boolean as $$
-  select exists (
-    select 1 from public.prayer_call_sessions where leader_id = auth.uid()
-  );
-$$ language sql security definer stable set search_path = '';
-
 -- ==================
 -- PRAYER_REQUESTS
 -- ==================
@@ -108,8 +100,6 @@ create table public.prayer_requests (
   ),
   is_anonymous boolean not null default false,
   visible_to_warriors boolean not null default false,
-  visible_to_leaders boolean not null default false,
-  visible_to_admins boolean not null default false,
   is_answered boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -131,10 +121,8 @@ create policy "Members can view visible prayer requests"
     (select public.is_member())
     and (
       author_id = auth.uid()
-      or not (visible_to_warriors or visible_to_leaders or visible_to_admins)
+      or not visible_to_warriors
       or (visible_to_warriors and (select public.is_prayer_warrior()))
-      or (visible_to_leaders and (select public.is_prayer_call_leader()))
-      or (visible_to_admins and (select public.is_admin()))
     )
   );
 
@@ -202,8 +190,6 @@ select
   r.category,
   r.is_anonymous,
   r.visible_to_warriors,
-  r.visible_to_leaders,
-  r.visible_to_admins,
   r.is_answered,
   r.created_at,
   (r.author_id = auth.uid()) as mine,

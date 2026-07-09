@@ -5,12 +5,7 @@ import { Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { displayName } from "@/lib/names";
-import {
-  isRestricted,
-  PRAYER_CATEGORIES,
-  PRAYER_CATEGORY_KEYS,
-  type PrayerAudience,
-} from "@/lib/prayer";
+import { PRAYER_CATEGORIES, PRAYER_CATEGORY_KEYS } from "@/lib/prayer";
 import { PrayerCard } from "@/components/prayer/PrayerCard";
 import { PrayerComposer } from "@/components/prayer/PrayerComposer";
 import { PrayerCallCard } from "@/components/prayer/PrayerCallCard";
@@ -22,7 +17,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { MemberOption } from "@/components/giving/FundForm";
-import type { PrayerCallSession, PrayerCategory, PrayerWallRow } from "@/lib/types";
+import type {
+  PrayerCallSession,
+  PrayerCategory,
+  PrayerWallRow,
+  PrayerWarrior,
+} from "@/lib/types";
 
 export interface Me {
   id: string;
@@ -54,6 +54,7 @@ export function PrayerBoard({
   me,
   isAdmin,
   members,
+  warriors,
   prayerCalendarId,
 }: {
   initialRequests: PrayerWallRow[];
@@ -61,6 +62,7 @@ export function PrayerBoard({
   me: Me;
   isAdmin: boolean;
   members: MemberOption[];
+  warriors: PrayerWarrior[];
   prayerCalendarId: string | null;
 }) {
   const [requests, setRequests] = useState(initialRequests);
@@ -73,7 +75,8 @@ export function PrayerBoard({
     body: string;
     category: PrayerCategory;
     is_anonymous: boolean;
-  } & PrayerAudience) => {
+    visible_to_warriors: boolean;
+  }) => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("prayer_requests")
@@ -91,8 +94,6 @@ export function PrayerBoard({
         category: draft.category,
         is_anonymous: draft.is_anonymous,
         visible_to_warriors: draft.visible_to_warriors,
-        visible_to_leaders: draft.visible_to_leaders,
-        visible_to_admins: draft.visible_to_admins,
         is_answered: false,
         created_at: data.created_at,
         mine: true,
@@ -165,8 +166,8 @@ export function PrayerBoard({
     const q = query.trim().toLowerCase();
     return requests.filter((r) => {
       if (status === "My requests" && !r.mine) return false;
-      if (status === "Everyone" && isRestricted(r)) return false;
-      if (status === "Restricted" && !isRestricted(r)) return false;
+      if (status === "Everyone" && r.visible_to_warriors) return false;
+      if (status === "Restricted" && !r.visible_to_warriors) return false;
       if (status === "Answered" && !r.is_answered) return false;
       if (category && r.category !== category) return false;
       if (!q) return true;
@@ -182,7 +183,7 @@ export function PrayerBoard({
   // RLS already trims the wall to what this member may see, so the chip only
   // appears when at least one visible request is actually restricted.
   const statusFilters = STATUS_FILTERS.filter(
-    (f) => f !== "Restricted" || requests.some(isRestricted)
+    (f) => f !== "Restricted" || requests.some((r) => r.visible_to_warriors)
   );
 
   const typeMeta = category ? PRAYER_CATEGORIES[category] : null;
@@ -312,7 +313,7 @@ export function PrayerBoard({
     <div className="grid gap-8 lg:grid-cols-[1.55fr_1fr] lg:items-start">
       <div className="order-2 lg:order-1">{wall}</div>
       <div className="order-1 space-y-6 lg:sticky lg:top-6 lg:order-2">
-        <PrayerComposer me={me} onPost={handlePost} />
+        <PrayerComposer me={me} onPost={handlePost} warriors={warriors} />
         <PrayerCallCard
           initialSessions={sessions}
           isAdmin={isAdmin}

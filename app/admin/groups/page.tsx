@@ -25,6 +25,7 @@ import {
   ArrowDown,
   Users,
   Filter,
+  HandHeart,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
 import { GroupRosterDialog } from "./GroupRosterDialog";
@@ -36,6 +37,7 @@ interface GroupFormState {
   color: string;
   icon: string;
   show_in_directory_filter: boolean;
+  is_serving_role: boolean;
 }
 
 const EMPTY_FORM: GroupFormState = {
@@ -44,6 +46,7 @@ const EMPTY_FORM: GroupFormState = {
   color: "#2F6BA8",
   icon: "users",
   show_in_directory_filter: true,
+  is_serving_role: false,
 };
 
 function fromGroup(g: MemberGroup): GroupFormState {
@@ -53,6 +56,7 @@ function fromGroup(g: MemberGroup): GroupFormState {
     color: g.color || "#2F6BA8",
     icon: g.icon || "users",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
+    is_serving_role: g.is_serving_role ?? false,
   };
 }
 
@@ -128,6 +132,7 @@ export default function GroupsPage() {
       color: form.color || null,
       icon: form.icon || null,
       show_in_directory_filter: form.show_in_directory_filter,
+      is_serving_role: form.is_serving_role,
     };
 
     setSaving(true);
@@ -275,6 +280,12 @@ export default function GroupsPage() {
                           Directory filter
                         </Badge>
                       )}
+                      {group.is_serving_role && (
+                        <Badge variant="secondary" className="text-xs gap-1">
+                          <HandHeart className="h-3 w-3" />
+                          Serving role
+                        </Badge>
+                      )}
                     </div>
                     {group.description && (
                       <p className="text-sm text-muted-foreground">
@@ -418,6 +429,23 @@ export default function GroupsPage() {
                 checked={form.show_in_directory_filter}
                 onCheckedChange={(v) =>
                   setForm({ ...form, show_in_directory_filter: v })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="g_serving">Serving role</Label>
+                <p className="text-xs text-muted-foreground">
+                  Lists this group on the Serving page with a roster everyone
+                  can see. Turn on Sunday signups separately from that page.
+                </p>
+              </div>
+              <Switch
+                id="g_serving"
+                checked={form.is_serving_role}
+                onCheckedChange={(v) =>
+                  setForm({ ...form, is_serving_role: v })
                 }
               />
             </div>

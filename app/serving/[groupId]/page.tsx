@@ -69,8 +69,9 @@ export default async function ServingSchedulePage({
 
   const isMember = !!membership;
   const isLeader = membership?.is_leader === true;
-
-  if (!isMember && !isLeader && !isAdmin) redirect("/serving");
+  // Everyone can view the schedule/roster read-only; only team members,
+  // leaders, and admins can actually claim a Sunday.
+  const canSignUp = isMember || isLeader || isAdmin;
 
   const { data: memberRows } = await supabase
     .from("profile_groups")
@@ -261,6 +262,13 @@ export default async function ServingSchedulePage({
         </div>
       )}
 
+      {!canSignUp && (
+        <p className="text-sm text-muted-foreground mb-6">
+          You&apos;re viewing this team&apos;s schedule. Only team members can
+          sign up — ask an admin to be added.
+        </p>
+      )}
+
       <ServingSchedule
         groupId={groupId}
         teamName={group.name}
@@ -268,7 +276,7 @@ export default async function ServingSchedulePage({
         entries={entries}
         userId={user.id}
         spouse={spouse}
-        canSignUp={isMember || isLeader || isAdmin}
+        canSignUp={canSignUp}
         canManage={isLeader || isAdmin}
       />
 

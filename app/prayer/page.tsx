@@ -4,7 +4,7 @@ import { siteConfig } from "@/lib/config";
 import { displayName, initials } from "@/lib/names";
 import { loadFundFormData } from "@/lib/giving/server";
 import { PrayerBoard } from "@/components/prayer/PrayerBoard";
-import type { PrayerCallSession, PrayerWallRow } from "@/lib/types";
+import type { PrayerCallSession, PrayerWallRow, PrayerWarrior } from "@/lib/types";
 
 export const metadata = { title: `Prayer | ${siteConfig.name}` };
 
@@ -27,6 +27,7 @@ export default async function PrayerPage() {
     { data: requests, error: requestsError },
     { data: sessions, error: sessionsError },
     { members },
+    { data: warriors },
     { data: calSetting },
   ] = await Promise.all([
     supabase
@@ -39,6 +40,13 @@ export default async function PrayerPage() {
       .order("display_order")
       .order("created_at"),
     loadFundFormData(supabase),
+    // Roster of the Prayer Warriors group so posters can see who a
+    // warrior-restricted request will reach. RLS trims this to listed profiles.
+    supabase
+      .from("profiles")
+      .select("id, first_name, last_name, preferred_name, avatar_url")
+      .eq("is_prayer_warrior", true)
+      .order("first_name"),
     supabase
       .from("site_settings")
       .select("value")
@@ -75,6 +83,7 @@ export default async function PrayerPage() {
           }}
           isAdmin={isAdmin}
           members={members}
+          warriors={(warriors ?? []) as PrayerWarrior[]}
           prayerCalendarId={calSetting?.value ?? null}
         />
       </div>

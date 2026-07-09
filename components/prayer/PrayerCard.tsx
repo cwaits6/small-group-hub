@@ -3,12 +3,7 @@
 import { Check, HandHeart, Lock, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { displayName, initials } from "@/lib/names";
-import {
-  audienceSummary,
-  isRestricted,
-  PRAYER_CATEGORIES,
-  timeAgo,
-} from "@/lib/prayer";
+import { PRAYER_CATEGORIES, timeAgo } from "@/lib/prayer";
 import type { PrayerWallRow } from "@/lib/types";
 
 const ANSWERED = "#3E8E5A";
@@ -34,7 +29,7 @@ export function PrayerCard({
     : hasName
       ? displayName(row)
       : "A member";
-  const restricted = isRestricted(row);
+  const restricted = row.visible_to_warriors;
   const barColor = row.is_answered ? ANSWERED : restricted ? "#E8A93C" : null;
 
   return (
@@ -82,7 +77,7 @@ export function PrayerCard({
             {restricted && (
               <span className="flex items-center gap-1 rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#8a6412]">
                 <Lock className="h-2.5 w-2.5" aria-hidden="true" />
-                {audienceSummary(row)}
+                Prayer warriors
               </span>
             )}
             {row.is_answered && (

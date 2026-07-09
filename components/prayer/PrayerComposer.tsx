@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { HandHeart, Lock, Phone, Shield, UserCog, UserRound } from "lucide-react";
+import { ChevronDown, HandHeart, Lock, Shield, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  audienceSummary,
-  isRestricted,
-  PRAYER_CATEGORIES,
-  PRAYER_CATEGORY_KEYS,
-  type PrayerAudience,
-} from "@/lib/prayer";
-import type { PrayerCategory } from "@/lib/types";
+import { displayName, initials } from "@/lib/names";
+import { PRAYER_CATEGORIES, PRAYER_CATEGORY_KEYS } from "@/lib/prayer";
+import type { PrayerCategory, PrayerWarrior } from "@/lib/types";
 import type { Me } from "@/components/prayer/PrayerBoard";
 
 function SwitchRow({
@@ -72,34 +67,69 @@ function SwitchRow({
   );
 }
 
-const NO_AUDIENCE: PrayerAudience = {
-  visible_to_warriors: false,
-  visible_to_leaders: false,
-  visible_to_admins: false,
-};
+/**
+ * Expandable roster of the Prayer Warriors group, so a poster can see exactly
+ * who will get a request they restrict to warriors. Only lists members the
+ * viewer is allowed to see (unlisted profiles are hidden by RLS).
+ */
+function WarriorRoster({ warriors }: { warriors: PrayerWarrior[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+        {warriors.length === 0
+          ? "No prayer warriors yet"
+          : `See who's in the group (${warriors.length})`}
+      </button>
+      {open && warriors.length > 0 && (
+        <ul className="flex flex-col gap-2 px-3 pb-3">
+          {warriors.map((w) => (
+            <li key={w.id} className="flex items-center gap-2.5">
+              <Avatar size="sm" className="shrink-0">
+                {w.avatar_url && <AvatarImage src={w.avatar_url} alt="" />}
+                <AvatarFallback className="bg-brand-warm text-xs font-semibold text-brand-primary">
+                  {initials(w)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-foreground">{displayName(w)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function PrayerComposer({
   me,
   onPost,
+  warriors,
 }: {
   me: Me;
   onPost: (draft: {
     body: string;
     category: PrayerCategory;
     is_anonymous: boolean;
-  } & PrayerAudience) => Promise<boolean>;
+    visible_to_warriors: boolean;
+  }) => Promise<boolean>;
+  warriors: PrayerWarrior[];
 }) {
   const [body, setBody] = useState("");
   const [category, setCategory] = useState<PrayerCategory>("health");
   const [anonymous, setAnonymous] = useState(false);
-  const [audience, setAudience] = useState<PrayerAudience>(NO_AUDIENCE);
+  const [toWarriors, setToWarriors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  const restricted = isRestricted(audience);
   const canPost = body.trim().length > 0 && !submitting;
-
-  const toggleAudience = (key: keyof PrayerAudience) =>
-    setAudience((a) => ({ ...a, [key]: !a[key] }));
 
   const submit = async () => {
     if (!canPost) return;
@@ -108,13 +138,13 @@ export function PrayerComposer({
       body: body.trim(),
       category,
       is_anonymous: anonymous,
-      ...audience,
+      visible_to_warriors: toWarriors,
     });
     setSubmitting(false);
     if (ok) {
       setBody("");
       setAnonymous(false);
-      setAudience(NO_AUDIENCE);
+      setToWarriors(false);
       setCategory("health");
     }
   };
@@ -186,36 +216,24 @@ export function PrayerComposer({
           Who can see this
         </div>
         <SwitchRow
-          on={audience.visible_to_warriors}
-          onToggle={() => toggleAudience("visible_to_warriors")}
-          title="Prayer warriors"
-          sub="Members in the Prayer Warriors group."
+          on={toWarriors}
+          onToggle={() => setToWarriors((v) => !v)}
+          title="Prayer warriors only"
+          sub="Off — everyone in the class can see it."
           icon={<Shield className="h-4 w-4" aria-hidden="true" />}
         />
-        <SwitchRow
-          on={audience.visible_to_leaders}
-          onToggle={() => toggleAudience("visible_to_leaders")}
-          title="Prayer call leaders"
-          sub="Members who lead a prayer call."
-          icon={<Phone className="h-4 w-4" aria-hidden="true" />}
-        />
-        <SwitchRow
-          on={audience.visible_to_admins}
-          onToggle={() => toggleAudience("visible_to_admins")}
-          title="Admins"
-          sub="Group admins."
-          icon={<UserCog className="h-4 w-4" aria-hidden="true" />}
-        />
-        {!restricted && (
-          <p className="px-1 text-[13px] text-muted-foreground">
-            All off — everyone in the group can see it.
+        <WarriorRoster warriors={warriors} />
+        {toWarriors && warriors.length === 0 && (
+          <p className="px-1 text-[13px] text-brand-primary">
+            No one is in the Prayer Warriors group yet, so only you will see
+            this request.
           </p>
         )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-5 py-3.5">
         <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-          {restricted && (
+          {toWarriors && (
             <Lock
               className="h-3.5 w-3.5 shrink-0 text-brand-primary"
               aria-hidden="true"
@@ -228,7 +246,7 @@ export function PrayerComposer({
             </strong>{" "}
             · visible to{" "}
             <strong className="font-semibold text-foreground">
-              {audienceSummary(audience)}
+              {toWarriors ? "prayer warriors" : "everyone"}
             </strong>
           </span>
         </p>

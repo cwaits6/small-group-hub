@@ -224,6 +224,8 @@ export interface MemberGroup {
   display_order: number;
   functional_role: "prayer_team" | "greeter_team" | "prayer_warriors" | null;
   show_in_directory_filter: boolean;
+  /** Listed on the Serve page as a standing role/team (vs. a directory-only tag) */
+  is_serving_role: boolean;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -396,9 +398,9 @@ export type PrayerCategory =
 
 /**
  * Row from the prayer_wall view. Author name/avatar come back null on
- * anonymous posts (unless it's the caller's own post — `mine` is true) and
- * audience-restricted rows are filtered out by RLS for members outside the
- * toggled audiences (prayer warriors / call leaders / admins).
+ * anonymous posts (unless it's the caller's own post — `mine` is true), and
+ * warrior-restricted rows are filtered out by RLS for members who aren't
+ * prayer warriors.
  */
 export interface PrayerWallRow {
   id: string;
@@ -406,8 +408,6 @@ export interface PrayerWallRow {
   category: PrayerCategory;
   is_anonymous: boolean;
   visible_to_warriors: boolean;
-  visible_to_leaders: boolean;
-  visible_to_admins: boolean;
   is_answered: boolean;
   created_at: string;
   mine: boolean;
@@ -417,6 +417,19 @@ export interface PrayerWallRow {
   avatar_url: string | null;
   praying_count: number;
   i_am_praying: boolean;
+}
+
+/**
+ * A member of the Prayer Warriors group, listed on the Prayer page so posters
+ * can see who a warrior-restricted request will reach. Only listed profiles
+ * come through (RLS hides unlisted members).
+ */
+export interface PrayerWarrior {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  preferred_name: string | null;
+  avatar_url: string | null;
 }
 
 /** One weekly prayer call session shown on the Prayer Call card */
