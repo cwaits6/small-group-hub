@@ -5,6 +5,8 @@ import { EventRsvpPanel } from "./_components/EventRsvpPanel";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { SubscribeToEventButton } from "@/components/events/SubscribeToEventButton";
 import { AttendeeStrip, type Attendee } from "./_components/AttendeeStrip";
+import { JoinMeetingBlock } from "@/components/events/JoinMeetingBlock";
+import type { MeetingFields } from "@/lib/meetings";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { siteConfig } from "@/lib/config";
@@ -165,6 +167,32 @@ export default async function EventDetailPage({
     } catch {
       // malformed percent-encoding — fall back to base event times
     }
+  }
+
+  // Meeting fields live on the series anchor; exception rows inherit them.
+  let meeting: MeetingFields | null = null;
+  if (isMember) {
+    let source: MeetingFields = event;
+    if (event.series_id) {
+      const { data: anchor } = await supabase
+        .from("events")
+        .select(
+          "meeting_url, meeting_id, meeting_passcode, meeting_show_on_dashboard, meeting_lead_minutes"
+        )
+        .eq("id", event.series_id)
+        .maybeSingle();
+      if (anchor) source = anchor;
+    }
+    if (source.meeting_url) meeting = source;
+  }
+
+  // Recordings link for the ended state — only when there's a library to point to
+  let hasLectures = false;
+  if (meeting) {
+    const { count } = await supabase
+      .from("lectures")
+      .select("id", { count: "exact", head: true });
+    hasLectures = (count ?? 0) > 0;
   }
 
   const startDate = new Date(displayStartTime);
@@ -372,6 +400,21 @@ export default async function EventDetailPage({
                     initialStatus={userRsvp?.status ?? null}
                   />
 
+                  {/* Join the call — time-aware, set once on the recurring event */}
+                  {meeting?.meeting_url && (
+                    <div className="mt-4">
+                      <JoinMeetingBlock
+                        meetingUrl={meeting.meeting_url}
+                        meetingId={meeting.meeting_id}
+                        passcode={meeting.meeting_passcode}
+                        startTime={displayStartTime}
+                        endTime={displayEndTime}
+                        leadMinutes={meeting.meeting_lead_minutes}
+                        recordingsHref={hasLectures ? "/lectures" : null}
+                      />
+                    </div>
+                  )}
+
                   {/* Calendar actions below RSVP */}
                   <div
                     className="flex flex-wrap gap-2 mt-4 pt-4"
@@ -390,6 +433,37 @@ export default async function EventDetailPage({
                       subscriptionToken={subscriptionToken}
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Join card when RSVP is disabled but a meeting is set */}
+            {!(event.is_rsvp_enabled && isMember && user) && meeting?.meeting_url && (
+              <div
+                className="rounded-[18px] p-6 relative overflow-hidden"
+                style={{
+                  background: "#2F6BA8",
+                  boxShadow: "0 14px 40px rgba(47,107,168,0.2)",
+                }}
+              >
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    opacity: 0.1,
+                    backgroundImage:
+                      "repeating-linear-gradient(0deg, rgba(255,255,255,0.4) 0px, rgba(255,255,255,0.4) 1px, transparent 1px, transparent 4px)",
+                  }}
+                />
+                <div className="relative">
+                  <JoinMeetingBlock
+                    meetingUrl={meeting.meeting_url}
+                    meetingId={meeting.meeting_id}
+                    passcode={meeting.meeting_passcode}
+                    startTime={displayStartTime}
+                    endTime={displayEndTime}
+                    leadMinutes={meeting.meeting_lead_minutes}
+                    recordingsHref={hasLectures ? "/lectures" : null}
+                  />
                 </div>
               </div>
             )}

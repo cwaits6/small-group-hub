@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { GoogleMapsScript } from "@/components/GoogleMapsScript";
 import { LocationInput } from "@/components/events/LocationInput";
+import { MeetingFieldsSection } from "@/components/events/MeetingFieldsSection";
 import { addHour, isValidEndTime } from "@/lib/datetime-local";
 import type { EventCalendar } from "@/lib/types";
 
@@ -73,6 +74,11 @@ export function NewEventForm() {
   const [recurrenceCount, setRecurrenceCount] = useState("4");
   const [recurrenceUntil, setRecurrenceUntil] = useState("");
   const [location, setLocation] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [meetingId, setMeetingId] = useState("");
+  const [meetingPasscode, setMeetingPasscode] = useState("");
+  const [meetingShowOnDashboard, setMeetingShowOnDashboard] = useState(true);
+  const [meetingLeadMinutes, setMeetingLeadMinutes] = useState("15");
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -136,6 +142,16 @@ export function NewEventForm() {
       }
     }
 
+    const trimmedMeetingUrl = meetingUrl.trim();
+    if (trimmedMeetingUrl && !/^https:\/\//i.test(trimmedMeetingUrl)) {
+      toast.error("Meeting link must start with https://");
+      return;
+    }
+    if (!trimmedMeetingUrl && (meetingId.trim() || meetingPasscode.trim())) {
+      toast.error("Add the meeting link to go with the meeting ID and passcode.");
+      return;
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
@@ -164,6 +180,11 @@ export function NewEventForm() {
         isRecurring && recurrenceEndMode === "until"
           ? localToUTCISO(recurrenceUntil)
           : null,
+      meeting_url: trimmedMeetingUrl || null,
+      meeting_id: meetingId.trim() || null,
+      meeting_passcode: meetingPasscode.trim() || null,
+      meeting_show_on_dashboard: meetingShowOnDashboard,
+      meeting_lead_minutes: Number(meetingLeadMinutes),
     });
 
     setLoading(false);
@@ -379,6 +400,20 @@ export function NewEventForm() {
                 </>
               )}
             </div>
+
+            <MeetingFieldsSection
+              meetingUrl={meetingUrl}
+              onMeetingUrlChange={setMeetingUrl}
+              meetingId={meetingId}
+              onMeetingIdChange={setMeetingId}
+              passcode={meetingPasscode}
+              onPasscodeChange={setMeetingPasscode}
+              showOnDashboard={meetingShowOnDashboard}
+              onShowOnDashboardChange={setMeetingShowOnDashboard}
+              leadMinutes={meetingLeadMinutes}
+              onLeadMinutesChange={setMeetingLeadMinutes}
+              isRecurring={isRecurring}
+            />
 
             <Button
               type="submit"

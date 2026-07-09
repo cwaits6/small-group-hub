@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { GoogleMapsScript } from "@/components/GoogleMapsScript";
 import { LocationInput } from "@/components/events/LocationInput";
+import { MeetingFieldsSection } from "@/components/events/MeetingFieldsSection";
 import { addHour, formatDateTimeLocal, isValidEndTime } from "@/lib/datetime-local";
 import type { Event, EventCalendar } from "@/lib/types";
 
@@ -32,6 +33,11 @@ export default function EditEventPage() {
   const [location, setLocation] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
+  const [meetingId, setMeetingId] = useState("");
+  const [meetingPasscode, setMeetingPasscode] = useState("");
+  const [meetingShowOnDashboard, setMeetingShowOnDashboard] = useState(true);
+  const [meetingLeadMinutes, setMeetingLeadMinutes] = useState("15");
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [editScope, setEditScope] = useState<EditScope>("all");
@@ -58,6 +64,11 @@ export default function EditEventPage() {
       setCalendarId(eventData.calendar_id ?? null);
       setIsRsvpEnabled(eventData.is_rsvp_enabled ?? true);
       setLocation(eventData.location ?? "");
+      setMeetingUrl(eventData.meeting_url ?? "");
+      setMeetingId(eventData.meeting_id ?? "");
+      setMeetingPasscode(eventData.meeting_passcode ?? "");
+      setMeetingShowOnDashboard(eventData.meeting_show_on_dashboard ?? true);
+      setMeetingLeadMinutes(String(eventData.meeting_lead_minutes ?? 15));
       let nextStartTime: string;
       let nextEndTime: string;
       if (occurrenceISO) {
@@ -89,14 +100,27 @@ export default function EditEventPage() {
       return;
     }
 
+    const isRecurringSeries = !!event?.recurrence_frequency && !event?.series_id;
+    const isSingleOccurrenceEdit = isRecurringSeries && !!occurrenceISO && editScope === "this";
+
+    const trimmedMeetingUrl = meetingUrl.trim();
+    if (!isSingleOccurrenceEdit) {
+      if (trimmedMeetingUrl && !/^https:\/\//i.test(trimmedMeetingUrl)) {
+        toast.error("Meeting link must start with https://");
+        return;
+      }
+      if (!trimmedMeetingUrl && (meetingId.trim() || meetingPasscode.trim())) {
+        toast.error("Add the meeting link to go with the meeting ID and passcode.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const nextLocation = (formData.get("location") as string)?.trim() ?? "";
     const title = formData.get("title") as string;
     const description = (formData.get("description") as string) || null;
-
-    const isRecurringSeries = !!event?.recurrence_frequency && !event?.series_id;
 
     if (isRecurringSeries && occurrenceISO && editScope === "this") {
       // Create a one-off exception row for just this occurrence.
@@ -154,6 +178,11 @@ export default function EditEventPage() {
             : null,
           calendar_id: calendarId || null,
           is_rsvp_enabled: isRsvpEnabled,
+          meeting_url: trimmedMeetingUrl || null,
+          meeting_id: meetingId.trim() || null,
+          meeting_passcode: meetingPasscode.trim() || null,
+          meeting_show_on_dashboard: meetingShowOnDashboard,
+          meeting_lead_minutes: Number(meetingLeadMinutes),
         })
         .eq("id", params.id);
 
@@ -348,6 +377,24 @@ export default function EditEventPage() {
               />
               <Label htmlFor="is_rsvp_enabled" className="text-lg">RSVP enabled</Label>
             </div>
+
+            {/* Meeting lives on the series anchor — hidden when saving a single
+                occurrence, which inherits the series meeting. */}
+            {!(showScopeChoice && editScope === "this") && (
+              <MeetingFieldsSection
+                meetingUrl={meetingUrl}
+                onMeetingUrlChange={setMeetingUrl}
+                meetingId={meetingId}
+                onMeetingIdChange={setMeetingId}
+                passcode={meetingPasscode}
+                onPasscodeChange={setMeetingPasscode}
+                showOnDashboard={meetingShowOnDashboard}
+                onShowOnDashboardChange={setMeetingShowOnDashboard}
+                leadMinutes={meetingLeadMinutes}
+                onLeadMinutesChange={setMeetingLeadMinutes}
+                isRecurring={isRecurringSeries}
+              />
+            )}
 
             <div className="flex gap-3">
               <Button
