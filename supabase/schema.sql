@@ -243,6 +243,18 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
+CREATE TABLE IF NOT EXISTS "public"."about_page" (
+    "id" boolean DEFAULT true NOT NULL,
+    "body" "text" DEFAULT ''::"text" NOT NULL,
+    "updated_by" "uuid",
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "about_page_id_check" CHECK ("id")
+);
+
+
+ALTER TABLE "public"."about_page" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."access_requests" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
@@ -285,6 +297,19 @@ CREATE TABLE IF NOT EXISTS "public"."calendar_subscription_tokens" (
 
 
 ALTER TABLE "public"."calendar_subscription_tokens" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."class_teachers" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "profile_id" "uuid" NOT NULL,
+    "title" "text" DEFAULT 'Teacher'::"text" NOT NULL,
+    "bio" "text" DEFAULT ''::"text" NOT NULL,
+    "sort_order" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."class_teachers" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."event_calendars" (
@@ -852,6 +877,11 @@ CREATE TABLE IF NOT EXISTS "public"."site_settings" (
 ALTER TABLE "public"."site_settings" OWNER TO "postgres";
 
 
+ALTER TABLE ONLY "public"."about_page"
+    ADD CONSTRAINT "about_page_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_pkey" PRIMARY KEY ("id");
 
@@ -879,6 +909,16 @@ ALTER TABLE ONLY "public"."calendar_subscription_tokens"
 
 ALTER TABLE ONLY "public"."calendar_subscription_tokens"
     ADD CONSTRAINT "calendar_subscription_tokens_user_id_key" UNIQUE ("user_id");
+
+
+
+ALTER TABLE ONLY "public"."class_teachers"
+    ADD CONSTRAINT "class_teachers_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."class_teachers"
+    ADD CONSTRAINT "class_teachers_profile_id_key" UNIQUE ("profile_id");
 
 
 
@@ -1171,6 +1211,11 @@ CREATE OR REPLACE TRIGGER "profiles_touch_updated_at" BEFORE UPDATE ON "public".
 
 
 
+ALTER TABLE ONLY "public"."about_page"
+    ADD CONSTRAINT "about_page_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+
+
+
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_invite_token_fkey" FOREIGN KEY ("invite_token") REFERENCES "public"."family_invites"("token") ON DELETE SET NULL;
 
@@ -1188,6 +1233,11 @@ ALTER TABLE ONLY "public"."announcements"
 
 ALTER TABLE ONLY "public"."calendar_subscription_tokens"
     ADD CONSTRAINT "calendar_subscription_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."class_teachers"
+    ADD CONSTRAINT "class_teachers_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
 
 
 
@@ -1579,7 +1629,27 @@ CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" F
 
 
 
+CREATE POLICY "Editors can delete class teachers" ON "public"."class_teachers" FOR DELETE USING ("public"."is_content_editor"());
+
+
+
+CREATE POLICY "Editors can insert about page" ON "public"."about_page" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+
+
+
+CREATE POLICY "Editors can insert class teachers" ON "public"."class_teachers" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+
+
+
 CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+
+
+
+CREATE POLICY "Editors can update about page" ON "public"."about_page" FOR UPDATE USING ("public"."is_content_editor"());
+
+
+
+CREATE POLICY "Editors can update class teachers" ON "public"."class_teachers" FOR UPDATE USING ("public"."is_content_editor"());
 
 
 
@@ -1688,6 +1758,14 @@ CREATE POLICY "Members can post own prayer requests" ON "public"."prayer_request
 CREATE POLICY "Members can pray for visible requests" ON "public"."prayer_responses" FOR INSERT WITH CHECK ((( SELECT "public"."is_member"() AS "is_member") AND ("profile_id" = "auth"."uid"()) AND (EXISTS ( SELECT 1
    FROM "public"."prayer_requests" "r"
   WHERE ("r"."id" = "prayer_responses"."request_id")))));
+
+
+
+CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT USING ("public"."is_member"());
+
+
+
+CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT USING ("public"."is_member"());
 
 
 
@@ -1813,6 +1891,9 @@ CREATE POLICY "Users can view own profile" ON "public"."profiles" FOR SELECT USI
 
 
 
+ALTER TABLE "public"."about_page" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."access_requests" ENABLE ROW LEVEL SECURITY;
 
 
@@ -1820,6 +1901,9 @@ ALTER TABLE "public"."announcements" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."calendar_subscription_tokens" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."class_teachers" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."event_calendars" ENABLE ROW LEVEL SECURITY;
@@ -1973,6 +2057,12 @@ GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."about_page" TO "anon";
+GRANT ALL ON TABLE "public"."about_page" TO "authenticated";
+GRANT ALL ON TABLE "public"."about_page" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."access_requests" TO "anon";
 GRANT ALL ON TABLE "public"."access_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."access_requests" TO "service_role";
@@ -1988,6 +2078,12 @@ GRANT ALL ON TABLE "public"."announcements" TO "service_role";
 GRANT ALL ON TABLE "public"."calendar_subscription_tokens" TO "anon";
 GRANT ALL ON TABLE "public"."calendar_subscription_tokens" TO "authenticated";
 GRANT ALL ON TABLE "public"."calendar_subscription_tokens" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."class_teachers" TO "anon";
+GRANT ALL ON TABLE "public"."class_teachers" TO "authenticated";
+GRANT ALL ON TABLE "public"."class_teachers" TO "service_role";
 
 
 
