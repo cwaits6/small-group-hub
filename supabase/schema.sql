@@ -180,6 +180,20 @@ $$;
 ALTER FUNCTION "public"."is_member"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_prayer_warrior"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and is_prayer_warrior
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_prayer_warrior"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'pg_catalog'
@@ -437,6 +451,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "setup_completed" boolean DEFAULT false NOT NULL,
     "is_prayer_team" boolean DEFAULT false NOT NULL,
     "is_greeter_team" boolean DEFAULT false NOT NULL,
+    "is_prayer_warrior" boolean DEFAULT false NOT NULL,
     CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
     CONSTRAINT "profiles_birth_month_check" CHECK ((("birth_month" >= 1) AND ("birth_month" <= 12))),
     CONSTRAINT "profiles_birth_year_check" CHECK ((("birth_year" >= 1900) AND ("birth_year" <= 2100))),
@@ -600,7 +615,8 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "show_in_directory_filter" boolean DEFAULT true NOT NULL,
-    CONSTRAINT "member_groups_functional_role_check" CHECK (("functional_role" = ANY (ARRAY['prayer_team'::"text", 'greeter_team'::"text"])))
+    "is_serving_role" boolean DEFAULT false NOT NULL,
+    CONSTRAINT "member_groups_functional_role_check" CHECK (("functional_role" = ANY (ARRAY['prayer_team'::"text", 'greeter_team'::"text", 'prayer_warriors'::"text"])))
 );
 
 
@@ -617,6 +633,95 @@ CREATE TABLE IF NOT EXISTS "public"."page_content" (
 
 
 ALTER TABLE "public"."page_content" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."prayer_call_sessions" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "weekday" integer NOT NULL,
+    "start_time" time without time zone NOT NULL,
+    "end_time" time without time zone,
+    "leader_id" "uuid",
+    "dial_in" "text",
+    "pin" "text",
+    "join_url" "text",
+    "event_id" "uuid",
+    "display_order" integer DEFAULT 0 NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "prayer_call_sessions_dial_in_check" CHECK ((("dial_in" IS NULL) OR ("char_length"("dial_in") <= 40))),
+    CONSTRAINT "prayer_call_sessions_join_url_check" CHECK ((("join_url" IS NULL) OR ("char_length"("join_url") <= 500))),
+    CONSTRAINT "prayer_call_sessions_pin_check" CHECK ((("pin" IS NULL) OR ("char_length"("pin") <= 20))),
+    CONSTRAINT "prayer_call_sessions_weekday_check" CHECK ((("weekday" >= 0) AND ("weekday" <= 6)))
+);
+
+
+ALTER TABLE "public"."prayer_call_sessions" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."prayer_requests" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "author_id" "uuid" NOT NULL,
+    "body" "text" NOT NULL,
+    "category" "text" NOT NULL,
+    "is_anonymous" boolean DEFAULT false NOT NULL,
+    "visible_to_warriors" boolean DEFAULT false NOT NULL,
+    "is_answered" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "prayer_requests_body_check" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 2000))),
+    CONSTRAINT "prayer_requests_category_check" CHECK (("category" = ANY (ARRAY['health'::"text", 'family'::"text", 'thanksgiving'::"text", 'prodigal'::"text", 'guidance'::"text", 'grief'::"text"])))
+);
+
+
+ALTER TABLE "public"."prayer_requests" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."prayer_responses" (
+    "request_id" "uuid" NOT NULL,
+    "profile_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."prayer_responses" OWNER TO "postgres";
+
+
+CREATE OR REPLACE VIEW "public"."prayer_wall" WITH ("security_invoker"='true') AS
+ SELECT "r"."id",
+    "r"."body",
+    "r"."category",
+    "r"."is_anonymous",
+    "r"."visible_to_warriors",
+    "r"."is_answered",
+    "r"."created_at",
+    ("r"."author_id" = "auth"."uid"()) AS "mine",
+        CASE
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            ELSE "p"."first_name"
+        END AS "first_name",
+        CASE
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            ELSE "p"."last_name"
+        END AS "last_name",
+        CASE
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            ELSE "p"."preferred_name"
+        END AS "preferred_name",
+        CASE
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            ELSE "p"."avatar_url"
+        END AS "avatar_url",
+    ( SELECT ("count"(*))::integer AS "count"
+           FROM "public"."prayer_responses" "pr"
+          WHERE ("pr"."request_id" = "r"."id")) AS "praying_count",
+    (EXISTS ( SELECT 1
+           FROM "public"."prayer_responses" "pr"
+          WHERE (("pr"."request_id" = "r"."id") AND ("pr"."profile_id" = "auth"."uid"())))) AS "i_am_praying"
+   FROM ("public"."prayer_requests" "r"
+     LEFT JOIN "public"."profiles" "p" ON (("p"."id" = "r"."author_id")));
+
+
+ALTER VIEW "public"."prayer_wall" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."profile_groups" (
@@ -831,6 +936,21 @@ ALTER TABLE ONLY "public"."page_content"
 
 
 
+ALTER TABLE ONLY "public"."prayer_call_sessions"
+    ADD CONSTRAINT "prayer_call_sessions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."prayer_requests"
+    ADD CONSTRAINT "prayer_requests_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."prayer_responses"
+    ADD CONSTRAINT "prayer_responses_pkey" PRIMARY KEY ("request_id", "profile_id");
+
+
+
 ALTER TABLE ONLY "public"."profile_groups"
     ADD CONSTRAINT "profile_groups_pkey" PRIMARY KEY ("profile_id", "group_id");
 
@@ -910,6 +1030,10 @@ CREATE INDEX "member_groups_display_order_idx" ON "public"."member_groups" USING
 
 
 CREATE INDEX "member_groups_functional_role_idx" ON "public"."member_groups" USING "btree" ("functional_role");
+
+
+
+CREATE INDEX "prayer_requests_created_at_idx" ON "public"."prayer_requests" USING "btree" ("created_at" DESC);
 
 
 
@@ -1029,6 +1153,14 @@ CREATE OR REPLACE TRIGGER "member_groups_touch_updated_at" BEFORE UPDATE ON "pub
 
 
 
+CREATE OR REPLACE TRIGGER "prayer_call_sessions_touch_updated_at" BEFORE UPDATE ON "public"."prayer_call_sessions" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "prayer_requests_touch_updated_at" BEFORE UPDATE ON "public"."prayer_requests" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
+
+
+
 CREATE OR REPLACE TRIGGER "profiles_touch_updated_at" BEFORE UPDATE ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
 
 
@@ -1135,6 +1267,31 @@ ALTER TABLE ONLY "public"."member_groups"
 
 ALTER TABLE ONLY "public"."page_content"
     ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+
+
+
+ALTER TABLE ONLY "public"."prayer_call_sessions"
+    ADD CONSTRAINT "prayer_call_sessions_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."prayer_call_sessions"
+    ADD CONSTRAINT "prayer_call_sessions_leader_id_fkey" FOREIGN KEY ("leader_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."prayer_requests"
+    ADD CONSTRAINT "prayer_requests_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."prayer_responses"
+    ADD CONSTRAINT "prayer_responses_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."prayer_responses"
+    ADD CONSTRAINT "prayer_responses_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "public"."prayer_requests"("id") ON DELETE CASCADE;
 
 
 
@@ -1272,6 +1429,10 @@ CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DE
 
 
 
+CREATE POLICY "Admins can delete prayer call sessions" ON "public"."prayer_call_sessions" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+
+
+
 CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FOR DELETE USING ("public"."is_admin"());
 
 
@@ -1316,6 +1477,10 @@ CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR 
 
 
 
+CREATE POLICY "Admins can insert prayer call sessions" ON "public"."prayer_call_sessions" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+
+
+
 CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT WITH CHECK ("public"."is_admin"());
 
 
@@ -1357,6 +1522,10 @@ CREATE POLICY "Admins can update lectures" ON "public"."lectures" FOR UPDATE USI
 
 
 CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR UPDATE USING ("public"."is_admin"());
+
+
+
+CREATE POLICY "Admins can update prayer call sessions" ON "public"."prayer_call_sessions" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
@@ -1506,6 +1675,16 @@ CREATE POLICY "Members can insert own rsvp" ON "public"."rsvps" FOR INSERT WITH 
 
 
 
+CREATE POLICY "Members can post own prayer requests" ON "public"."prayer_requests" FOR INSERT WITH CHECK ((( SELECT "public"."is_member"() AS "is_member") AND ("author_id" = "auth"."uid"())));
+
+
+
+CREATE POLICY "Members can pray for visible requests" ON "public"."prayer_responses" FOR INSERT WITH CHECK ((( SELECT "public"."is_member"() AS "is_member") AND ("profile_id" = "auth"."uid"()) AND (EXISTS ( SELECT 1
+   FROM "public"."prayer_requests" "r"
+  WHERE ("r"."id" = "prayer_responses"."request_id")))));
+
+
+
 CREATE POLICY "Members can update own family unit" ON "public"."family_units" FOR UPDATE USING ((("id" = "public"."current_family_id"()) AND "public"."is_member"()));
 
 
@@ -1554,6 +1733,16 @@ CREATE POLICY "Members can view own subscription token" ON "public"."calendar_su
 
 
 
+CREATE POLICY "Members can view prayer call sessions" ON "public"."prayer_call_sessions" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+
+
+
+CREATE POLICY "Members can view prayer responses" ON "public"."prayer_responses" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+   FROM "public"."prayer_requests" "r"
+  WHERE ("r"."id" = "prayer_responses"."request_id")))));
+
+
+
 CREATE POLICY "Members can view profile groups" ON "public"."profile_groups" FOR SELECT USING ("public"."is_member"());
 
 
@@ -1571,6 +1760,22 @@ CREATE POLICY "Members can view serving settings" ON "public"."serving_team_sett
 
 
 CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT USING ("public"."is_member"());
+
+
+
+CREATE POLICY "Members can view visible prayer requests" ON "public"."prayer_requests" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") AND (("author_id" = "auth"."uid"()) OR (NOT "visible_to_warriors") OR ("visible_to_warriors" AND ( SELECT "public"."is_prayer_warrior"() AS "is_prayer_warrior")))));
+
+
+
+CREATE POLICY "Members can withdraw own prayer responses" ON "public"."prayer_responses" FOR DELETE USING (("profile_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "Posters and admins can delete prayer requests" ON "public"."prayer_requests" FOR DELETE USING ((("author_id" = "auth"."uid"()) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+
+
+
+CREATE POLICY "Posters and admins can update prayer requests" ON "public"."prayer_requests" FOR UPDATE USING ((("author_id" = "auth"."uid"()) OR ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
@@ -1642,6 +1847,15 @@ ALTER TABLE "public"."member_groups" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."page_content" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."prayer_call_sessions" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."prayer_requests" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."prayer_responses" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."profile_groups" ENABLE ROW LEVEL SECURITY;
@@ -1732,6 +1946,12 @@ GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "service
 GRANT ALL ON FUNCTION "public"."is_member"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_member"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_member"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "anon";
+GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "service_role";
 
 
 
@@ -1846,6 +2066,30 @@ GRANT ALL ON TABLE "public"."member_groups" TO "service_role";
 GRANT ALL ON TABLE "public"."page_content" TO "anon";
 GRANT ALL ON TABLE "public"."page_content" TO "authenticated";
 GRANT ALL ON TABLE "public"."page_content" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."prayer_call_sessions" TO "anon";
+GRANT ALL ON TABLE "public"."prayer_call_sessions" TO "authenticated";
+GRANT ALL ON TABLE "public"."prayer_call_sessions" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."prayer_requests" TO "anon";
+GRANT ALL ON TABLE "public"."prayer_requests" TO "authenticated";
+GRANT ALL ON TABLE "public"."prayer_requests" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."prayer_responses" TO "anon";
+GRANT ALL ON TABLE "public"."prayer_responses" TO "authenticated";
+GRANT ALL ON TABLE "public"."prayer_responses" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."prayer_wall" TO "anon";
+GRANT ALL ON TABLE "public"."prayer_wall" TO "authenticated";
+GRANT ALL ON TABLE "public"."prayer_wall" TO "service_role";
 
 
 
