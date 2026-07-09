@@ -1,3 +1,10 @@
+# [0.14.0](https://github.com/cwaits6/small-group-hub/compare/v0.13.0...v0.14.0) (2026-07-09)
+
+
+### Features
+
+* **prayer:** prayer wall with audience-scoped requests and synced call sessions ([#184](https://github.com/cwaits6/small-group-hub/issues/184)) ([03b7e7a](https://github.com/cwaits6/small-group-hub/commit/03b7e7a14d2418592af1c049dba80acad50249c3))
+
 # [0.13.0](https://github.com/cwaits6/small-group-hub/compare/v0.12.1...v0.13.0) (2026-07-08)
 
 
