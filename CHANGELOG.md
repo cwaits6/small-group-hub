@@ -1,3 +1,10 @@
+# [0.15.0](https://github.com/cwaits6/small-group-hub/compare/v0.14.0...v0.15.0) (2026-07-09)
+
+
+### Features
+
+* **events:** time-aware Zoom join button on dashboard and event page ([#185](https://github.com/cwaits6/small-group-hub/issues/185)) ([a3edb51](https://github.com/cwaits6/small-group-hub/commit/a3edb51e9ffa484a815315bca91174ffde34713a))
+
 # [0.14.0](https://github.com/cwaits6/small-group-hub/compare/v0.13.0...v0.14.0) (2026-07-09)
 
 
