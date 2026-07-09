@@ -6,7 +6,10 @@ import Link from "next/link";
 import { siteConfig } from "@/lib/config";
 import { formatServiceDate, toDateString } from "@/lib/serving/sundays";
 import { RsvpSegmented } from "./RsvpSegmented";
-import type { Rsvp } from "@/lib/types";
+import { JoinMeetingBlock } from "@/components/events/JoinMeetingBlock";
+import { expandUpcomingEvents } from "@/lib/recurrence";
+import { meetingEndMs, ENDED_GRACE_MS, type MeetingFields } from "@/lib/meetings";
+import type { Event, Rsvp } from "@/lib/types";
 
 export const metadata = { title: `Dashboard | ${siteConfig.name}` };
 
@@ -105,17 +108,48 @@ export default async function DashboardPage() {
 
   // ── data fetching ──────────────────────────────────────────────────────────
 
-  const now = new Date().toISOString();
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
 
-  // Upcoming events (5 max; first = hero)
-  const { data: events } = await supabase
+  // Next event for the hero. Recurring series are stored as a single anchor
+  // row and expanded at render time, so fetch a window that also includes
+  // anchors and recently-started occurrences (for the live/ended join states).
+  const windowStart = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000);
+  const windowStartISO = windowStart.toISOString();
+  const { data: rawEvents } = await supabase
     .from("events")
     .select("*")
-    .gte("start_time", now)
+    .or(
+      `start_time.gte.${windowStartISO},` +
+      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${windowStartISO}))`
+    )
     .order("start_time", { ascending: true })
-    .limit(5);
+    .limit(500);
 
-  const nextEvent = events?.[0] ?? null;
+  // Keep the current occurrence on the hero through its live window plus a
+  // short grace period (ended state points to the recording), then roll over.
+  const occurrences = expandUpcomingEvents((rawEvents ?? []) as Event[], windowStart);
+  const nextEvent =
+    occurrences.find(
+      (e) => meetingEndMs(e.start_time, e.end_time) + ENDED_GRACE_MS > nowDate.getTime()
+    ) ?? null;
+
+  // Meeting fields live on the series anchor; exception rows inherit them.
+  let meeting: MeetingFields | null = null;
+  if (nextEvent) {
+    let source: MeetingFields = nextEvent;
+    if (nextEvent.series_id) {
+      const { data: anchor } = await supabase
+        .from("events")
+        .select(
+          "meeting_url, meeting_id, meeting_passcode, meeting_show_on_dashboard, meeting_lead_minutes"
+        )
+        .eq("id", nextEvent.series_id)
+        .maybeSingle();
+      if (anchor) source = anchor;
+    }
+    if (source.meeting_url && source.meeting_show_on_dashboard) meeting = source;
+  }
 
   // User RSVPs
   let userRsvps: Record<string, Rsvp> = {};
@@ -386,6 +420,21 @@ export default async function DashboardPage() {
                     currentStatus={userRsvps[nextEvent.id]?.status ?? null}
                   />
                 </div>
+
+                {/* Join the call — time-aware, set on the recurring event */}
+                {meeting?.meeting_url && (
+                  <div className="mt-4">
+                    <JoinMeetingBlock
+                      meetingUrl={meeting.meeting_url}
+                      meetingId={meeting.meeting_id}
+                      passcode={meeting.meeting_passcode}
+                      startTime={nextEvent.start_time}
+                      endTime={nextEvent.end_time}
+                      leadMinutes={meeting.meeting_lead_minutes}
+                      recordingsHref={lectureCount && lectureCount > 0 ? "/lectures" : null}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ) : (

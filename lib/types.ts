@@ -157,6 +157,12 @@ export interface Event {
   // Per-occurrence exception support
   series_id: string | null;           // set on exception events; points to the anchor series
   series_occurrence_date: string | null; // the original occurrence ISO date this row replaces
+  // Meeting / video call (set on the series anchor; exceptions inherit)
+  meeting_url: string | null;
+  meeting_id: string | null;
+  meeting_passcode: string | null;
+  meeting_show_on_dashboard: boolean;
+  meeting_lead_minutes: number;
 }
 
 export interface Rsvp {
