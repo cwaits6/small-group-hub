@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DynamicIcon, iconNames, type IconName } from "lucide-react/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,34 @@ interface IconPickerProps {
 export function IconPicker({ value, onChange }: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Dismiss on outside press or Escape, matching the app's menus/dialogs so the
+  // picker doesn't linger when the admin clicks away from it.
+  useEffect(() => {
+    if (!open) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+        // Return focus to the trigger so keyboard users don't land on <body>.
+        triggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   const { results, total } = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -75,8 +103,9 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" ref={containerRef}>
       <Button
+        ref={triggerRef}
         type="button"
         variant="outline"
         onClick={() => setOpen(!open)}

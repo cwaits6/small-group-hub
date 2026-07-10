@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Rss, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { EventCalendarView } from "@/components/events/EventCalendarView";
@@ -12,6 +12,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -41,7 +42,15 @@ export function EventsPageClient({
   subscriptionToken,
 }: EventsPageClientProps) {
   const [view, setView] = useState<View>("calendar");
-  const [showSubscribeMenu, setShowSubscribeMenu] = useState(false);
+
+  // webcal:// feed links need an absolute host, but this component still SSRs,
+  // where `window` is undefined. Resolve the host on the client after mount.
+  const [host, setHost] = useState("");
+  useEffect(() => setHost(window.location.host), []);
+  const feedBase =
+    host && subscriptionToken
+      ? `webcal://${host}/api/calendar/feed.ics?token=${subscriptionToken}`
+      : undefined;
 
   // For the list view, expand recurring events from the ±1-year window and
   // filter to upcoming occurrences (so "never-ending" series show future dates).
@@ -117,47 +126,42 @@ export function EventsPageClient({
               </>
             )}
 
-            <div className="relative">
-              <Button
-                onClick={() => setShowSubscribeMenu(!showSubscribeMenu)}
-                variant="outline"
-                className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
-              >
-                <Rss className="h-4 w-4" />
-                Subscribe to Calendar
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-
-              {showSubscribeMenu && (
-                <div className="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                  <button
-                    onClick={() => {
-                      window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?token=${subscriptionToken}`;
-                      setShowSubscribeMenu(false);
-                    }}
-                    className="w-full cursor-pointer border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+            {subscriptionToken && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={
+                  <Button
+                    variant="outline"
+                    className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                   >
+                    <Rss className="h-4 w-4" />
+                    Subscribe to Calendar
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                } />
+                <DropdownMenuContent align="end" className="w-56 rounded-2xl">
+                  <DropdownMenuItem render={<a href={feedBase} />}>
                     All Calendars
-                  </button>
+                  </DropdownMenuItem>
                   {calendars.map((cal) => (
-                    <button
+                    <DropdownMenuItem
                       key={cal.id}
-                      onClick={() => {
-                        window.location.href = `webcal://${window.location.host}/api/calendar/feed.ics?token=${subscriptionToken}&calendar=${cal.id}`;
-                        setShowSubscribeMenu(false);
-                      }}
-                      className="flex w-full cursor-pointer items-center gap-2 border-b border-slate-100 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 last:border-b-0"
+                      className="gap-2"
+                      render={
+                        <a
+                          href={feedBase ? `${feedBase}&calendar=${cal.id}` : undefined}
+                        />
+                      }
                     >
                       <span
                         className="inline-block h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
                       />
                       {cal.name}
-                    </button>
+                    </DropdownMenuItem>
                   ))}
-                </div>
-              )}
-            </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 
