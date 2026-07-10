@@ -18,13 +18,12 @@ create policy "Admins and household primary can insert family invites"
   on public.family_invites for insert
   with check (
     public.is_admin()
-    or (
-      public.is_member()
-      and family_id in (
-        select family_id from public.profiles
-        where id = (select auth.uid())
-          and family_id is not null
-      )
+    or exists (
+      select 1 from public.profiles self
+      where self.id = (select auth.uid())
+        and self.family_id = family_invites.family_id
+        and self.family_id is not null
+        and self.relationship = 'primary'
     )
   );
 
@@ -35,24 +34,22 @@ create policy "Admins and household primary can update family invites"
   on public.family_invites for update
   using (
     public.is_admin()
-    or (
-      public.is_member()
-      and family_id in (
-        select family_id from public.profiles
-        where id = (select auth.uid())
-          and family_id is not null
-      )
+    or exists (
+      select 1 from public.profiles self
+      where self.id = (select auth.uid())
+        and self.family_id = family_invites.family_id
+        and self.family_id is not null
+        and self.relationship = 'primary'
     )
   )
   with check (
     public.is_admin()
-    or (
-      public.is_member()
-      and family_id in (
-        select family_id from public.profiles
-        where id = (select auth.uid())
-          and family_id is not null
-      )
+    or exists (
+      select 1 from public.profiles self
+      where self.id = (select auth.uid())
+        and self.family_id = family_invites.family_id
+        and self.family_id is not null
+        and self.relationship = 'primary'
     )
   );
 
