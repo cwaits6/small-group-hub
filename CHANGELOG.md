@@ -1,3 +1,10 @@
+## [0.16.1](https://github.com/cwaits6/small-group-hub/compare/v0.16.0...v0.16.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* **ui:** consistent button hover + click-off dismissal ([#187](https://github.com/cwaits6/small-group-hub/issues/187)) ([4525c85](https://github.com/cwaits6/small-group-hub/commit/4525c8555c74fad33d182643f22134ae04eb038d))
+
 # [0.16.0](https://github.com/cwaits6/small-group-hub/compare/v0.15.0...v0.16.0) (2026-07-09)
 
 
