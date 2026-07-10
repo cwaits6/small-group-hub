@@ -1,3 +1,10 @@
+## [0.16.2](https://github.com/cwaits6/small-group-hub/compare/v0.16.1...v0.16.2) (2026-07-10)
+
+
+### Performance Improvements
+
+* optimize Supabase RLS policies ([#189](https://github.com/cwaits6/small-group-hub/issues/189)) ([d59c2c0](https://github.com/cwaits6/small-group-hub/commit/d59c2c0929e9a7d372f8f7e719c6f5b51b7386fd))
+
 ## [0.16.1](https://github.com/cwaits6/small-group-hub/compare/v0.16.0...v0.16.1) (2026-07-10)
 
 
