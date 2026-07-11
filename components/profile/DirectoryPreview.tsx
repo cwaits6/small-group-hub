@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { ProfileSheetContent } from "@/components/directory/ProfileSheetContent";
+import { PersonCard } from "@/components/directory/PersonCard";
 import type {
   DirectoryProfile,
   FamilyDirectoryFull,
@@ -146,7 +146,11 @@ export function DirectoryPreview() {
               </p>
             </div>
           ) : (
-            entry && <ProfileSheetContent profile={entry} family={family} />
+            entry && (
+              <div className="px-4 pb-6 pt-2 overflow-y-auto flex-1">
+                <PersonCard profile={entry} family={family} />
+              </div>
+            )
           )}
         </SheetContent>
       </Sheet>

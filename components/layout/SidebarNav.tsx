@@ -20,7 +20,7 @@ import {
   BarChart2,
   Info,
 } from "lucide-react";
-import { useState, useEffect, type ComponentType } from "react";
+import { Fragment, useState, useEffect, type ComponentType } from "react";
 import type { PageContent, Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -44,6 +44,13 @@ const memberNav = [
   { href: "/give", label: "Give", icon: HandCoins },
   { href: "/about", label: "About", icon: Info },
   { href: "/profile", label: "My Profile", icon: UserCircle },
+];
+
+const directorySubNav = [
+  { href: "/directory/families", label: "Families" },
+  { href: "/directory/groups", label: "Groups" },
+  { href: "/directory/birthdays", label: "Birthdays" },
+  { href: "/directory/anniversaries", label: "Anniversaries" },
 ];
 
 const adminNav = [
@@ -114,11 +121,39 @@ export function SidebarNav({
     );
   };
 
+  // Directory sub-pages, shown while browsing the directory section
+  const renderDirectorySubNav = () => {
+    if (collapsed || !isActive("/directory")) return null;
+    return directorySubNav.map((item) => {
+      const active = isActive(item.href);
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={`flex items-center pl-11 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            active
+              ? "bg-brand-bg-light text-brand-primary"
+              : "text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light/50"
+          }`}
+          aria-current={active ? "page" : undefined}
+          onClick={onNavigate}
+        >
+          {item.label}
+        </Link>
+      );
+    });
+  };
+
   return (
     <>
       {memberNav
         .filter((item) => item.href !== "/serving" || hasServingAccess)
-        .map(renderLink)}
+        .map((item) => (
+          <Fragment key={item.href}>
+            {renderLink(item)}
+            {item.href === "/directory" && renderDirectorySubNav()}
+          </Fragment>
+        ))}
 
       {pages.length > 0 && (
         <>
