@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Cake, ChevronRight, Heart, House, Printer, Users } from "lucide-react";
+import { Cake, ChevronRight, Heart, House, Users } from "lucide-react";
 import type { ComponentType } from "react";
 
 export const metadata = {
@@ -10,32 +10,11 @@ const tiles: {
   href: string;
   icon: ComponentType<{ className?: string }>;
   title: string;
-  description: string;
 }[] = [
-  {
-    href: "/directory/families",
-    icon: House,
-    title: "Families",
-    description: "Everyone in our group, A to Z by last name.",
-  },
-  {
-    href: "/directory/groups",
-    icon: Users,
-    title: "Groups",
-    description: "Teams, studies, and who's in each one.",
-  },
-  {
-    href: "/directory/birthdays",
-    icon: Cake,
-    title: "Birthdays",
-    description: "This month's birthdays and the months ahead.",
-  },
-  {
-    href: "/directory/anniversaries",
-    icon: Heart,
-    title: "Anniversaries",
-    description: "Wedding anniversaries through the year.",
-  },
+  { href: "/directory/families", icon: House, title: "Families" },
+  { href: "/directory/groups", icon: Users, title: "Groups" },
+  { href: "/directory/birthdays", icon: Cake, title: "Birthdays" },
+  { href: "/directory/anniversaries", icon: Heart, title: "Anniversaries" },
 ];
 
 export default function DirectoryPage() {
@@ -50,30 +29,19 @@ export default function DirectoryPage() {
           <Link
             key={tile.href}
             href={tile.href}
-            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-7 hover:border-brand-primary transition-colors"
+            className="flex items-center gap-4 rounded-xl border border-border bg-card p-7 hover:border-brand-primary transition-colors"
           >
-            <span className="flex items-center w-full">
-              <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-warm">
-                <tile.icon className="h-6 w-6 text-brand-primary" aria-hidden="true" />
-              </span>
-              <ChevronRight
-                className="ml-auto h-6 w-6 text-muted-foreground"
-                aria-hidden="true"
-              />
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-warm">
+              <tile.icon className="h-6 w-6 text-brand-primary" aria-hidden="true" />
             </span>
             <span className="text-xl font-bold text-foreground">{tile.title}</span>
-            <span className="text-base text-muted-foreground">{tile.description}</span>
+            <ChevronRight
+              className="ml-auto h-6 w-6 text-muted-foreground"
+              aria-hidden="true"
+            />
           </Link>
         ))}
       </div>
-
-      <Link
-        href="/directory/print"
-        className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-brand-primary underline underline-offset-4 hover:text-brand-primary/80"
-      >
-        <Printer className="h-4 w-4" aria-hidden="true" />
-        Printable directory
-      </Link>
     </div>
   );
 }
