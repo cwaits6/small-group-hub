@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Calendar,
   CalendarDays,
+  ChevronDown,
   Megaphone,
   BookOpen,
   FileText,
@@ -77,6 +78,13 @@ export function SidebarNav({
   const isAdmin = profile.role === "admin";
   const isEditor = profile.role === "content_editor" || isAdmin;
 
+  // Directory sub-menu: auto-opens while browsing the section, manually collapsible
+  const inDirectory = pathname === "/directory" || pathname.startsWith("/directory/");
+  const [directoryOpen, setDirectoryOpen] = useState(inDirectory);
+  useEffect(() => {
+    setDirectoryOpen(inDirectory);
+  }, [inDirectory]);
+
   useEffect(() => {
     const supabase = createClient();
     supabase
@@ -95,11 +103,12 @@ export function SidebarNav({
   const isActive = (href: string, exact = false) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
 
+  // Soft-blue active state with a primary left bar, per the design system
   const linkClass = (active: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-4 transition-colors ${
       active
-        ? "bg-brand-bg-light text-brand-primary"
-        : "text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light/50"
+        ? "bg-brand-warm text-brand-primary font-bold border-brand-primary"
+        : "border-transparent font-medium text-slate-600 hover:text-brand-primary hover:bg-brand-warm/50"
     }`;
 
   const renderLink = (
@@ -121,19 +130,60 @@ export function SidebarNav({
     );
   };
 
-  // Directory sub-pages, shown while browsing the directory section
+  // Directory item with a chevron that expands/collapses its sub-menu
+  const renderDirectoryItem = () => {
+    const active = isActive("/directory");
+    return (
+      <div
+        className={`flex items-center rounded-lg border-l-4 transition-colors ${
+          active
+            ? "bg-brand-warm border-brand-primary"
+            : "border-transparent hover:bg-brand-warm/50"
+        }`}
+      >
+        <Link
+          href="/directory"
+          className={`flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+            active
+              ? "text-brand-primary font-bold"
+              : "font-medium text-slate-600 hover:text-brand-primary"
+          }`}
+          aria-current={active ? "page" : undefined}
+          onClick={onNavigate}
+        >
+          <Users className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <span>Directory</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setDirectoryOpen((open) => !open)}
+          aria-label={directoryOpen ? "Collapse directory menu" : "Expand directory menu"}
+          aria-expanded={directoryOpen}
+          className={`self-stretch px-2.5 transition-colors ${
+            active ? "text-brand-primary" : "text-slate-600 hover:text-brand-primary"
+          }`}
+        >
+          <ChevronDown
+            className={`h-4 w-4 transition-transform ${directoryOpen ? "" : "-rotate-90"}`}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+    );
+  };
+
   const renderDirectorySubNav = () => {
-    if (collapsed || !isActive("/directory")) return null;
+    if (collapsed || !directoryOpen) return null;
     return directorySubNav.map((item) => {
       const active = isActive(item.href);
       return (
         <Link
           key={item.href}
           href={item.href}
-          className={`flex items-center pl-11 pr-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          className={`flex items-center pl-11 pr-3 py-2 rounded-lg text-sm border-l-4 transition-colors ${
             active
-              ? "bg-brand-bg-light text-brand-primary"
-              : "text-slate-600 hover:text-brand-primary hover:bg-brand-bg-light/50"
+              ? "bg-brand-warm text-brand-primary font-bold border-brand-primary"
+              : "border-transparent font-medium text-slate-600 hover:text-brand-primary hover:bg-brand-warm/50"
           }`}
           aria-current={active ? "page" : undefined}
           onClick={onNavigate}
@@ -150,7 +200,7 @@ export function SidebarNav({
         .filter((item) => item.href !== "/serving" || hasServingAccess)
         .map((item) => (
           <Fragment key={item.href}>
-            {renderLink(item)}
+            {item.href === "/directory" && !collapsed ? renderDirectoryItem() : renderLink(item)}
             {item.href === "/directory" && renderDirectorySubNav()}
           </Fragment>
         ))}
