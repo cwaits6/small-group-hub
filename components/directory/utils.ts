@@ -46,3 +46,38 @@ export function resolveAddress(
 export function downloadVCard(profileId: string) {
   window.location.href = `/api/members/${profileId}/vcard`;
 }
+
+/** Days until the next occurrence of a recurring month/day date */
+export function daysUntilNextOccurrence(month: number, day: number, today: Date): number {
+  return Math.round(
+    (nextOccurrence(month, day, today).getTime() - today.getTime()) / 86400000,
+  );
+}
+
+/** The next calendar date a recurring month/day date falls on */
+export function nextOccurrence(month: number, day: number, today: Date): Date {
+  const year = today.getFullYear();
+  const thisYear = new Date(year, month - 1, day);
+  return thisYear >= today ? thisYear : new Date(year + 1, month - 1, day);
+}
+
+/** "Friday, July 11" — weekday and date of the next occurrence */
+export function formatNextOccurrence(month: number, day: number, today: Date): string {
+  return nextOccurrence(month, day, today).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/** Month numbers (1-12) starting at the current month and wrapping the year */
+export function monthCycle(currentMonth: number): number[] {
+  return Array.from({ length: 12 }, (_, i) => ((currentMonth - 1 + i) % 12) + 1);
+}
+
+/** "Today", "Tomorrow", or "In N days" for the upcoming-soon pill */
+export function formatDaysUntil(days: number): string {
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `In ${days} days`;
+}
