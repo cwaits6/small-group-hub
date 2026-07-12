@@ -126,7 +126,7 @@ export default function AnniversariesPage() {
                     subtitle={`${formatNextOccurrence(entry.month, entry.day, today)} · married ${entry.marriedYear}`}
                     trailing={
                       soon ? (
-                        <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-brand-accent bg-brand-bg-light px-3.5 py-1 text-sm font-semibold text-[#7A5411]">
+                        <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-brand-accent bg-brand-bg-light px-3.5 py-1 text-sm font-semibold text-brand-accent-text">
                           <Heart className="h-4 w-4" aria-hidden="true" />
                           {entry.years} years
                         </span>

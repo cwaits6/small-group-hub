@@ -49,7 +49,7 @@ export function downloadVCard(profileId: string) {
 
 /** Days until the next occurrence of a recurring month/day date */
 export function daysUntilNextOccurrence(month: number, day: number, today: Date): number {
-  return Math.floor(
+  return Math.round(
     (nextOccurrence(month, day, today).getTime() - today.getTime()) / 86400000,
   );
 }

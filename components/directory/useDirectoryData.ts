@@ -14,6 +14,7 @@ export function useDirectoryData() {
   const [families, setFamilies] = useState<FamilyDirectoryFull[]>([]);
   const [groups, setGroups] = useState<DirectoryGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -48,6 +49,7 @@ export function useDirectoryData() {
           hint: err?.hint,
           code: err?.code,
         });
+        setError(true);
         setLoading(false);
         return;
       }
@@ -87,5 +89,5 @@ export function useDirectoryData() {
     return map;
   }, [members]);
 
-  return { members, families, groups, loading, profileMap, familyMap, groupRosters };
+  return { members, families, groups, loading, error, profileMap, familyMap, groupRosters };
 }

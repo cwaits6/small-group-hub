@@ -57,9 +57,7 @@ function FamiliesPageInner() {
     } else if (familyParam && familyMap[familyParam]) {
       setPanel({ kind: "family", family: familyMap[familyParam] });
     }
-    // Only resolve the deep link once data arrives
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, familyParam, personParam, profileMap, familyMap]);
 
   // Households plus members without a family, filtered by search
   const entries = useMemo<ListEntry[]>(() => {

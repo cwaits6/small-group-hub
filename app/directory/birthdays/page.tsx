@@ -159,7 +159,7 @@ export default function BirthdaysPage() {
                         subtitle={formatNextOccurrence(entry.month, entry.day, today)}
                         trailing={
                           soon ? (
-                            <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-brand-accent bg-brand-bg-light px-3.5 py-1 text-sm font-semibold text-[#7A5411]">
+                            <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-brand-accent bg-brand-bg-light px-3.5 py-1 text-sm font-semibold text-brand-accent-text">
                               <Cake className="h-4 w-4" aria-hidden="true" />
                               {formatDaysUntil(entry.daysUntil)}
                             </span>
