@@ -1,3 +1,10 @@
+# [0.17.0](https://github.com/cwaits6/small-group-hub/compare/v0.16.2...v0.17.0) (2026-07-12)
+
+
+### Features
+
+* **directory:** directory redesign — 4 sub-pages, collapsible sidebar, remove print route ([#195](https://github.com/cwaits6/small-group-hub/issues/195)) ([12020e4](https://github.com/cwaits6/small-group-hub/commit/12020e4b1c5007ad1c1ad4d7d67b13d5a1ccd22d)), closes [#7A5411](https://github.com/cwaits6/small-group-hub/issues/7A5411)
+
 ## [0.16.2](https://github.com/cwaits6/small-group-hub/compare/v0.16.1...v0.16.2) (2026-07-10)
 
 
