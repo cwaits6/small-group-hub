@@ -23,7 +23,6 @@ type View = "calendar" | "list";
 
 interface EventsPageClientProps {
   allEvents: (Event & { calendar?: EventCalendar | null })[];
-  upcomingEvents: (Event & { calendar?: EventCalendar | null })[];
   calendars: EventCalendar[];
   userRsvps: Record<string, Rsvp>;
   userId: string | null;

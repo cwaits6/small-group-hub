@@ -30,7 +30,6 @@ export default async function EventsPage() {
   const now = new Date();
   const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
   const oneYearAhead = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-  const nowISO = now.toISOString();
 
   // Fetch events within a bounded window for calendar view.
   // Include non-recurring events whose start_time falls in the window, AND
@@ -47,27 +46,9 @@ export default async function EventsPage() {
     .order("start_time", { ascending: true })
     .limit(500);
 
-  // Fetch upcoming events for list view.
-  // Include non-recurring events starting from now, AND recurring anchors whose
-  // series hasn't ended yet (recurrence_until IS NULL or >= now).
-  const upcomingEventsQuery = supabase
-    .from("events")
-    .select("*, calendar:event_calendars(*)")
-    .or(
-      `start_time.gte.${nowISO},` +
-      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${nowISO}))`
-    )
-    .order("start_time", { ascending: true })
-    .limit(1000);
-
   const { data: allEventsRaw, error: allEventsError } = await allEventsQuery;
   if (allEventsError) {
     console.error("Failed to fetch events:", allEventsError);
-  }
-
-  const { data: upcomingEventsRaw, error: upcomingEventsError } = await upcomingEventsQuery;
-  if (upcomingEventsError) {
-    console.error("Failed to fetch upcoming events:", upcomingEventsError);
   }
 
   // Fetch event calendars
@@ -115,16 +96,12 @@ export default async function EventsPage() {
   const allEvents = (allEventsRaw ?? []) as (Event & {
     calendar?: EventCalendar | null;
   })[];
-  const upcomingEvents = (upcomingEventsRaw ?? []) as (Event & {
-    calendar?: EventCalendar | null;
-  })[];
   const calendars = (calendarsRaw ?? []) as EventCalendar[];
 
   return (
     <div className="container mx-auto px-4 py-12">
       <EventsPageClient
         allEvents={allEvents}
-        upcomingEvents={upcomingEvents}
         calendars={calendars}
         userRsvps={userRsvps}
         userId={user?.id ?? null}
