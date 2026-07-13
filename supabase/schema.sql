@@ -25,6 +25,7 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 CREATE OR REPLACE FUNCTION "public"."current_family_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select family_id from public.profiles where id = auth.uid();
 $$;
@@ -62,7 +63,8 @@ ALTER FUNCTION "public"."get_profile_role"("profile_id" "uuid") OWNER TO "postgr
 
 
 CREATE OR REPLACE FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select public.is_admin() or (
     public.giving_stewards_can_manage() and exists (
@@ -77,7 +79,8 @@ ALTER FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") OWNER TO "po
 
 
 CREATE OR REPLACE FUNCTION "public"."giving_stewards_can_manage"() RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select coalesce(
     (select value from public.site_settings where key = 'giving_manage_mode'),
@@ -91,6 +94,7 @@ ALTER FUNCTION "public"."giving_stewards_can_manage"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
 declare
   _role text := 'pending';
@@ -127,7 +131,8 @@ ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_admin"() RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select exists (
     select 1 from public.profiles
@@ -140,7 +145,8 @@ ALTER FUNCTION "public"."is_admin"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_content_editor"() RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select exists (
     select 1 from public.profiles
@@ -153,7 +159,8 @@ ALTER FUNCTION "public"."is_content_editor"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_group_leader"("_group_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select exists (
     select 1 from public.profile_groups
@@ -168,7 +175,8 @@ ALTER FUNCTION "public"."is_group_leader"("_group_id" "uuid") OWNER TO "postgres
 
 
 CREATE OR REPLACE FUNCTION "public"."is_member"() RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
     AS $$
   select exists (
     select 1 from public.profiles
@@ -725,31 +733,31 @@ CREATE OR REPLACE VIEW "public"."prayer_wall" WITH ("security_invoker"='true') A
     "r"."visible_to_warriors",
     "r"."is_answered",
     "r"."created_at",
-    ("r"."author_id" = "auth"."uid"()) AS "mine",
+    ("r"."author_id" = ( SELECT "auth"."uid"() AS "uid")) AS "mine",
         CASE
-            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> ( SELECT "auth"."uid"() AS "uid"))) THEN NULL::"text"
             ELSE "p"."first_name"
         END AS "first_name",
         CASE
-            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> ( SELECT "auth"."uid"() AS "uid"))) THEN NULL::"text"
             ELSE "p"."last_name"
         END AS "last_name",
         CASE
-            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> ( SELECT "auth"."uid"() AS "uid"))) THEN NULL::"text"
             ELSE "p"."preferred_name"
         END AS "preferred_name",
         CASE
-            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> "auth"."uid"())) THEN NULL::"text"
+            WHEN ("r"."is_anonymous" AND ("r"."author_id" <> ( SELECT "auth"."uid"() AS "uid"))) THEN NULL::"text"
             ELSE "p"."avatar_url"
         END AS "avatar_url",
-    ( SELECT ("count"(*))::integer AS "count"
+    COALESCE("pc"."praying_count", 0) AS "praying_count",
+    COALESCE("pc"."i_am_praying", false) AS "i_am_praying"
+   FROM (("public"."prayer_requests" "r"
+     LEFT JOIN "public"."profiles" "p" ON (("p"."id" = "r"."author_id")))
+     LEFT JOIN LATERAL ( SELECT ("count"(*))::integer AS "praying_count",
+            "bool_or"(("pr"."profile_id" = ( SELECT "auth"."uid"() AS "uid"))) AS "i_am_praying"
            FROM "public"."prayer_responses" "pr"
-          WHERE ("pr"."request_id" = "r"."id")) AS "praying_count",
-    (EXISTS ( SELECT 1
-           FROM "public"."prayer_responses" "pr"
-          WHERE (("pr"."request_id" = "r"."id") AND ("pr"."profile_id" = "auth"."uid"())))) AS "i_am_praying"
-   FROM ("public"."prayer_requests" "r"
-     LEFT JOIN "public"."profiles" "p" ON (("p"."id" = "r"."author_id")));
+          WHERE ("pr"."request_id" = "r"."id")) "pc" ON (true));
 
 
 ALTER VIEW "public"."prayer_wall" OWNER TO "postgres";
@@ -1051,15 +1059,23 @@ CREATE INDEX "access_requests_invite_token_idx" ON "public"."access_requests" US
 
 
 
+CREATE INDEX "events_calendar_id_idx" ON "public"."events" USING "btree" ("calendar_id");
+
+
+
+CREATE INDEX "events_series_id_idx" ON "public"."events" USING "btree" ("series_id") WHERE ("series_id" IS NOT NULL);
+
+
+
+CREATE INDEX "events_start_time_idx" ON "public"."events" USING "btree" ("start_time");
+
+
+
 CREATE INDEX "family_invites_family_id_idx" ON "public"."family_invites" USING "btree" ("family_id");
 
 
 
 CREATE INDEX "family_invites_family_member_id_idx" ON "public"."family_invites" USING "btree" ("family_member_id");
-
-
-
-CREATE INDEX "family_invites_token_idx" ON "public"."family_invites" USING "btree" ("token");
 
 
 
@@ -1071,7 +1087,7 @@ CREATE INDEX "family_members_family_id_idx" ON "public"."family_members" USING "
 
 
 
-CREATE INDEX "member_groups_display_order_idx" ON "public"."member_groups" USING "btree" ("display_order");
+CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("series_id");
 
 
 
@@ -1079,7 +1095,15 @@ CREATE INDEX "member_groups_functional_role_idx" ON "public"."member_groups" USI
 
 
 
+CREATE INDEX "prayer_requests_author_id_idx" ON "public"."prayer_requests" USING "btree" ("author_id");
+
+
+
 CREATE INDEX "prayer_requests_created_at_idx" ON "public"."prayer_requests" USING "btree" ("created_at" DESC);
+
+
+
+CREATE INDEX "prayer_responses_profile_id_idx" ON "public"."prayer_responses" USING "btree" ("profile_id");
 
 
 
@@ -1095,7 +1119,7 @@ CREATE INDEX "profiles_last_first_idx" ON "public"."profiles" USING "btree" ("la
 
 
 
-CREATE INDEX "profiles_relationship_idx" ON "public"."profiles" USING "btree" ("relationship");
+CREATE INDEX "rsvps_user_id_idx" ON "public"."rsvps" USING "btree" ("user_id");
 
 
 
@@ -1212,7 +1236,7 @@ CREATE OR REPLACE TRIGGER "profiles_touch_updated_at" BEFORE UPDATE ON "public".
 
 
 ALTER TABLE ONLY "public"."about_page"
-    ADD CONSTRAINT "about_page_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+    ADD CONSTRAINT "about_page_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -1222,12 +1246,12 @@ ALTER TABLE ONLY "public"."access_requests"
 
 
 ALTER TABLE ONLY "public"."access_requests"
-    ADD CONSTRAINT "access_requests_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id");
+    ADD CONSTRAINT "access_requests_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
 ALTER TABLE ONLY "public"."announcements"
-    ADD CONSTRAINT "announcements_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "announcements_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1242,7 +1266,7 @@ ALTER TABLE ONLY "public"."class_teachers"
 
 
 ALTER TABLE ONLY "public"."event_calendars"
-    ADD CONSTRAINT "event_calendars_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "event_calendars_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1252,7 +1276,7 @@ ALTER TABLE ONLY "public"."events"
 
 
 ALTER TABLE ONLY "public"."events"
-    ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1307,7 +1331,7 @@ ALTER TABLE ONLY "public"."giving_funds"
 
 
 ALTER TABLE ONLY "public"."lectures"
-    ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
 
 
@@ -1322,7 +1346,7 @@ ALTER TABLE ONLY "public"."member_groups"
 
 
 ALTER TABLE ONLY "public"."page_content"
-    ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+    ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -1367,7 +1391,7 @@ ALTER TABLE ONLY "public"."profile_groups"
 
 
 ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "auth"."users"("id");
+    ADD CONSTRAINT "profiles_approved_by_fkey" FOREIGN KEY ("approved_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
@@ -1387,7 +1411,7 @@ ALTER TABLE ONLY "public"."rsvps"
 
 
 ALTER TABLE ONLY "public"."rsvps"
-    ADD CONSTRAINT "rsvps_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id");
+    ADD CONSTRAINT "rsvps_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
 
 
 
@@ -1437,85 +1461,85 @@ ALTER TABLE ONLY "public"."serving_team_settings"
 
 
 ALTER TABLE ONLY "public"."site_settings"
-    ADD CONSTRAINT "site_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id");
+    ADD CONSTRAINT "site_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
-CREATE POLICY "Admins and household leaders can delete family members" ON "public"."family_members" FOR DELETE USING (("public"."is_admin"() OR (("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can delete family members" ON "public"."family_members" FOR DELETE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
 
 
 
-CREATE POLICY "Admins and household leaders can insert family members" ON "public"."family_members" FOR INSERT WITH CHECK (("public"."is_admin"() OR (("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can insert family members" ON "public"."family_members" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
 
 
 
-CREATE POLICY "Admins and household leaders can update family members" ON "public"."family_members" FOR UPDATE USING (("public"."is_admin"() OR (("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can update family members" ON "public"."family_members" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))) WITH CHECK (("public"."is_admin"() OR (("family_id" = "public"."current_family_id"()) AND "public"."is_member"() AND (EXISTS ( SELECT 1
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
 
 
 
-CREATE POLICY "Admins and household primary can insert family invites" ON "public"."family_invites" FOR INSERT WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household primary can insert family invites" ON "public"."family_invites" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text"))))));
 
 
 
-CREATE POLICY "Admins and household primary can update family invites" ON "public"."family_invites" FOR UPDATE USING (("public"."is_admin"() OR (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household primary can update family invites" ON "public"."family_invites" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text")))))) WITH CHECK (("public"."is_admin"() OR (EXISTS ( SELECT 1
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text")))))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
   WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text"))))));
 
 
 
-CREATE POLICY "Admins and members can update family units" ON "public"."family_units" FOR UPDATE USING (("public"."is_admin"() OR (("id" = "public"."current_family_id"()) AND "public"."is_member"()))) WITH CHECK (("public"."is_admin"() OR (("id" = "public"."current_family_id"()) AND "public"."is_member"())));
+CREATE POLICY "Admins and members can update family units" ON "public"."family_units" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member")))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member"))));
 
 
 
-CREATE POLICY "Admins and self-stewards can create funds" ON "public"."giving_funds" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND ("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND "public"."is_member"() AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+CREATE POLICY "Admins and self-stewards can create funds" ON "public"."giving_funds" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ( SELECT "public"."is_member"() AS "is_member") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
-CREATE POLICY "Admins and stewards can delete funds" ON "public"."giving_funds" FOR DELETE USING (("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
+CREATE POLICY "Admins and stewards can delete funds" ON "public"."giving_funds" FOR DELETE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
 
 
 
-CREATE POLICY "Admins and stewards can update funds" ON "public"."giving_funds" FOR UPDATE USING (("public"."is_admin"() OR ("public"."giving_stewards_can_manage"() AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
+CREATE POLICY "Admins and stewards can update funds" ON "public"."giving_funds" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
 
 
 
-CREATE POLICY "Admins can delete announcements" ON "public"."announcements" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete announcements" ON "public"."announcements" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete event calendars" ON "public"."event_calendars" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete event calendars" ON "public"."event_calendars" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete family units" ON "public"."family_units" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete family units" ON "public"."family_units" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete member groups" ON "public"."member_groups" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete member groups" ON "public"."member_groups" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
@@ -1523,39 +1547,39 @@ CREATE POLICY "Admins can delete prayer call sessions" ON "public"."prayer_call_
 
 
 
-CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can delete serving settings" ON "public"."serving_team_settings" FOR DELETE USING ("public"."is_admin"());
+CREATE POLICY "Admins can delete serving settings" ON "public"."serving_team_settings" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert event calendars" ON "public"."event_calendars" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert event calendars" ON "public"."event_calendars" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert family units" ON "public"."family_units" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert family units" ON "public"."family_units" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert lectures" ON "public"."lectures" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert lectures" ON "public"."lectures" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
@@ -1563,35 +1587,35 @@ CREATE POLICY "Admins can insert prayer call sessions" ON "public"."prayer_call_
 
 
 
-CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT WITH CHECK ("public"."is_admin"());
+CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update access requests" ON "public"."access_requests" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update access requests" ON "public"."access_requests" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update event calendars" ON "public"."event_calendars" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update event calendars" ON "public"."event_calendars" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update events" ON "public"."events" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update events" ON "public"."events" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update lectures" ON "public"."lectures" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update lectures" ON "public"."lectures" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
@@ -1599,19 +1623,19 @@ CREATE POLICY "Admins can update prayer call sessions" ON "public"."prayer_call_
 
 
 
-CREATE POLICY "Admins can update profile groups" ON "public"."profile_groups" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update profile groups" ON "public"."profile_groups" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update series" ON "public"."lecture_series" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update series" ON "public"."lecture_series" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can update settings" ON "public"."site_settings" FOR UPDATE USING ("public"."is_admin"());
+CREATE POLICY "Admins can update settings" ON "public"."site_settings" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
-CREATE POLICY "Admins can view access requests" ON "public"."access_requests" FOR SELECT USING ("public"."is_admin"());
+CREATE POLICY "Admins can view access requests" ON "public"."access_requests" FOR SELECT USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
 
@@ -1631,31 +1655,31 @@ CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" F
 
 
 
-CREATE POLICY "Editors can delete class teachers" ON "public"."class_teachers" FOR DELETE USING ("public"."is_content_editor"());
+CREATE POLICY "Editors can delete class teachers" ON "public"."class_teachers" FOR DELETE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can insert about page" ON "public"."about_page" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+CREATE POLICY "Editors can insert about page" ON "public"."about_page" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can insert class teachers" ON "public"."class_teachers" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+CREATE POLICY "Editors can insert class teachers" ON "public"."class_teachers" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT WITH CHECK ("public"."is_content_editor"());
+CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can update about page" ON "public"."about_page" FOR UPDATE USING ("public"."is_content_editor"());
+CREATE POLICY "Editors can update about page" ON "public"."about_page" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can update class teachers" ON "public"."class_teachers" FOR UPDATE USING ("public"."is_content_editor"());
+CREATE POLICY "Editors can update class teachers" ON "public"."class_teachers" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
-CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR UPDATE USING ("public"."is_content_editor"());
+CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
 
 
 
@@ -1671,19 +1695,19 @@ CREATE POLICY "Fund managers can update methods" ON "public"."giving_fund_method
 
 
 
-CREATE POLICY "Leaders and admins can insert serving settings" ON "public"."serving_team_settings" FOR INSERT WITH CHECK (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can insert serving settings" ON "public"."serving_team_settings" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
 
 
 
-CREATE POLICY "Leaders and admins can log serving broadcasts" ON "public"."serving_broadcasts" FOR INSERT WITH CHECK ((("sent_by" = ( SELECT "auth"."uid"() AS "uid")) AND ("public"."is_admin"() OR "public"."is_group_leader"("group_id"))));
+CREATE POLICY "Leaders and admins can log serving broadcasts" ON "public"."serving_broadcasts" FOR INSERT WITH CHECK ((("sent_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Leaders and admins can update serving settings" ON "public"."serving_team_settings" FOR UPDATE USING (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can update serving settings" ON "public"."serving_team_settings" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
 
 
 
-CREATE POLICY "Leaders and admins can view serving broadcasts" ON "public"."serving_broadcasts" FOR SELECT USING (("public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can view serving broadcasts" ON "public"."serving_broadcasts" FOR SELECT USING ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
 
 
 
@@ -1691,23 +1715,23 @@ CREATE POLICY "Lectures visible to all" ON "public"."lectures" FOR SELECT USING 
 
 
 
-CREATE POLICY "Members and admins can delete rsvps" ON "public"."rsvps" FOR DELETE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_member"()) OR "public"."is_admin"()));
+CREATE POLICY "Members and admins can delete rsvps" ON "public"."rsvps" FOR DELETE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Members and admins can insert rsvps" ON "public"."rsvps" FOR INSERT WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_member"()) OR "public"."is_admin"()));
+CREATE POLICY "Members and admins can insert rsvps" ON "public"."rsvps" FOR INSERT WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Members and admins can update rsvps" ON "public"."rsvps" FOR UPDATE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_member"()) OR "public"."is_admin"())) WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND "public"."is_member"()) OR "public"."is_admin"()));
+CREATE POLICY "Members and admins can update rsvps" ON "public"."rsvps" FOR UPDATE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin"))) WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Members and admins can view rsvps" ON "public"."rsvps" FOR SELECT USING (("public"."is_member"() OR "public"."is_admin"()));
+CREATE POLICY "Members and admins can view rsvps" ON "public"."rsvps" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") OR ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Members and published announcements are visible" ON "public"."announcements" FOR SELECT USING (("public"."is_member"() OR ("is_published" = true)));
+CREATE POLICY "Members and published announcements are visible" ON "public"."announcements" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") OR ("is_published" = true)));
 
 
 
@@ -1715,13 +1739,13 @@ CREATE POLICY "Members can create own subscription token" ON "public"."calendar_
 
 
 
-CREATE POLICY "Members can create serving signups" ON "public"."serving_signups" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND ("public"."is_admin"() OR "public"."is_group_leader"("group_id") OR (EXISTS ( SELECT 1
+CREATE POLICY "Members can create serving signups" ON "public"."serving_signups" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id") OR (EXISTS ( SELECT 1
    FROM "public"."profile_groups" "pg"
   WHERE (("pg"."profile_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("pg"."group_id" = "serving_signups"."group_id")))))));
 
 
 
-CREATE POLICY "Members can delete own serving signups" ON "public"."serving_signups" FOR DELETE USING ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) OR "public"."is_admin"() OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Members can delete own serving signups" ON "public"."serving_signups" FOR DELETE USING ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
 
 
 
@@ -1735,39 +1759,39 @@ CREATE POLICY "Members can pray for visible requests" ON "public"."prayer_respon
 
 
 
-CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view family invites" ON "public"."family_invites" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view family invites" ON "public"."family_invites" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view family members" ON "public"."family_members" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view family members" ON "public"."family_members" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view fund methods" ON "public"."giving_fund_methods" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view fund methods" ON "public"."giving_fund_methods" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view giving funds" ON "public"."giving_funds" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view giving funds" ON "public"."giving_funds" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view member groups" ON "public"."member_groups" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view member groups" ON "public"."member_groups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
@@ -1785,19 +1809,19 @@ CREATE POLICY "Members can view prayer responses" ON "public"."prayer_responses"
 
 
 
-CREATE POLICY "Members can view profile groups" ON "public"."profile_groups" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view profile groups" ON "public"."profile_groups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view serving attendees" ON "public"."serving_signup_attendees" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view serving attendees" ON "public"."serving_signup_attendees" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view serving settings" ON "public"."serving_team_settings" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view serving settings" ON "public"."serving_team_settings" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
-CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT USING ("public"."is_member"());
+CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
@@ -1817,13 +1841,13 @@ CREATE POLICY "Posters and admins can update prayer requests" ON "public"."praye
 
 
 
-CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR "public"."is_admin"() OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = "public"."current_family_id"()) AND (EXISTS ( SELECT 1
+CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])) AND ("self"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))))))) WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "id") OR "public"."is_admin"() OR (("family_id" = "public"."current_family_id"()) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id"))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])) AND ("self"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))))))) WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id"))))));
 
 
 
-CREATE POLICY "Profiles are visible per access rules" ON "public"."profiles" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR "public"."is_admin"() OR (("family_id" IS NOT NULL) AND ("family_id" = "public"."current_family_id"()) AND (( SELECT "auth"."uid"() AS "uid") <> "id") AND "public"."is_member"()) OR ("public"."is_member"() AND ("is_unlisted" = false) AND ("role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))));
+CREATE POLICY "Profiles are visible per access rules" ON "public"."profiles" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND (( SELECT "auth"."uid"() AS "uid") <> "id") AND ( SELECT "public"."is_member"() AS "is_member")) OR (( SELECT "public"."is_member"() AS "is_member") AND ("is_unlisted" = false) AND ("role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))));
 
 
 
@@ -1833,13 +1857,13 @@ CREATE POLICY "Series visible to all" ON "public"."lecture_series" FOR SELECT US
 
 CREATE POLICY "Signup owners can add attendees" ON "public"."serving_signup_attendees" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."serving_signups" "s"
-  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR "public"."is_admin"() OR "public"."is_group_leader"("s"."group_id"))))));
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id"))))));
 
 
 
 CREATE POLICY "Signup owners can remove attendees" ON "public"."serving_signup_attendees" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."serving_signups" "s"
-  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR "public"."is_admin"() OR "public"."is_group_leader"("s"."group_id"))))));
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id"))))));
 
 
 
