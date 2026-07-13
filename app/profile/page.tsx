@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { DirectoryPreview } from "@/components/profile/DirectoryPreview";
+import { TextSizeControl } from "@/components/settings/TextSizeControl";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/lib/config";
 import { Home } from "lucide-react";
@@ -53,6 +54,14 @@ export default async function ProfilePage() {
       </div>
 
       <ProfileForm profile={profile} families={families} isAdmin={false} />
+
+      <div className="mt-8 pt-6 border-t">
+        <h2 className="text-lg font-semibold text-foreground mb-1">Text size</h2>
+        <p className="text-sm text-muted-foreground mb-3">
+          Choose the text size that is easiest for you to read.
+        </p>
+        <TextSizeControl />
+      </div>
 
       {profile.family_id && (
         <div className="mt-8 pt-6 border-t">

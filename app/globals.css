@@ -23,6 +23,8 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-hover: var(--hover);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -49,6 +51,8 @@
   --color-brand-warm: #E2ECF7;
   --color-brand-bg-light: #FAEBC2;
   --color-brand-bg-muted: #E5E0D4;
+  --text-body: var(--fs-body);
+  --text-label: var(--fs-label);
 }
 
 :root {
@@ -63,23 +67,47 @@
   --secondary: #E2ECF7;
   --secondary-foreground: #2F6BA8;
   --muted: #E5E0D4;
-  --muted-foreground: #6E7E94;
+  --muted-foreground: #435066;
   --accent: #E8A93C;
   --accent-foreground: #15243A;
-  --destructive: #EF4444;
-  --border: #E5E0D4;
-  --input: #E5E0D4;
+  --destructive: #B42318;
+  --border: #D8D2C4;
+  --border-strong: #B9C4D4;
+  --hover: #F1EEE4;
+  --input: #D8D2C4;
   --ring: #2F6BA8;
-  --radius: 0.5rem;
+  --radius: 12px;
   --sidebar: #FBFAF5;
   --sidebar-foreground: #15243A;
   --sidebar-primary: #2F6BA8;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E8A93C;
   --sidebar-accent-foreground: #15243A;
-  --sidebar-border: #E5E0D4;
+  --sidebar-border: #D8D2C4;
   --sidebar-ring: #2F6BA8;
 
+  /* Senior-legibility type scale; scaled up by the data-textsize comfort setting */
+  --fs-body: 19px;
+  --fs-label: 17px;
+  --fs-h1: 40px;
+  --fs-h2: 30px;
+  --fs-h3: 23px;
+}
+
+[data-textsize="large"] {
+  --fs-body: 21px;
+  --fs-label: 18px;
+  --fs-h1: 44px;
+  --fs-h2: 33px;
+  --fs-h3: 25px;
+}
+
+[data-textsize="larger"] {
+  --fs-body: 23px;
+  --fs-label: 19px;
+  --fs-h1: 48px;
+  --fs-h2: 36px;
+  --fs-h3: 27px;
 }
 
 @keyframes float {
@@ -139,7 +167,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-size: 18px;
+    font-size: var(--fs-body);
     line-height: 1.55;
   }
   html {
@@ -151,13 +179,13 @@
     font-weight: 500;
   }
   h1 {
-    font-size: 2.5rem;
+    font-size: var(--fs-h1);
   }
   h2 {
-    font-size: 1.75rem;
+    font-size: var(--fs-h2);
   }
   h3 {
-    font-size: 1.25rem;
+    font-size: var(--fs-h3);
   }
   h4, h5, h6 {
     line-height: 1.35;

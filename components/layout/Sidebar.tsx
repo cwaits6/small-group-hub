@@ -15,7 +15,7 @@ export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
   return (
     <aside
       className={`hidden md:flex flex-col border-r border-border bg-white shrink-0 transition-all duration-200 ${
-        collapsed ? "w-16" : "w-60"
+        collapsed ? "w-16" : "w-[236px]"
       }`}
     >
       <nav
