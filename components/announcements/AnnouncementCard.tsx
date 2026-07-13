@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import DOMPurify from "dompurify";
 import { Megaphone } from "lucide-react";
 import { StaticBlockContent } from "@/components/editor/StaticBlockContent";
@@ -33,7 +34,7 @@ function parseBlocks(content: string): PartialBlock[] | null {
 
 export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const date = new Date(announcement.published_at || announcement.created_at);
-  const blocks = parseBlocks(announcement.content);
+  const blocks = useMemo(() => parseBlocks(announcement.content), [announcement.content]);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-border overflow-hidden hover:border-brand-accent/40 hover:shadow-lg transition-all duration-200">

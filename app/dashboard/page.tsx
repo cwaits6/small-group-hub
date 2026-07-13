@@ -185,6 +185,7 @@ export default async function DashboardPage() {
       .from("announcements")
       .select("id", { count: "exact", head: true })
       .eq("is_published", true)
+      .lte("published_at", now)
       .gte("published_at", thirtyDaysAgo),
     supabase
       .from("lectures")

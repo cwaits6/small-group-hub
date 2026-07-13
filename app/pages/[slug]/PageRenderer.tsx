@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { StaticBlockContent } from "@/components/editor/StaticBlockContent";
 import type { PartialBlock } from "@blocknote/core";
 
@@ -8,13 +9,14 @@ interface PageRendererProps {
 }
 
 export function PageRenderer({ body }: PageRendererProps) {
-  let blocks: PartialBlock[] | undefined;
-  try {
-    const parsed = JSON.parse(body);
-    blocks = Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    blocks = undefined;
-  }
+  const blocks = useMemo<PartialBlock[] | undefined>(() => {
+    try {
+      const parsed = JSON.parse(body);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  }, [body]);
 
   if (!blocks?.length) {
     return <p className="text-lg text-muted-foreground">This page has no content yet.</p>;
