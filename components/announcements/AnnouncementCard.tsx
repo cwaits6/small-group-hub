@@ -1,8 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import DOMPurify from "dompurify";
 import { Megaphone } from "lucide-react";
-import { BlockEditor } from "@/components/editor";
+import { StaticBlockContent } from "@/components/editor/StaticBlockContent";
 import type { Announcement } from "@/lib/types";
 import type { PartialBlock } from "@blocknote/core";
 
@@ -33,7 +34,7 @@ function parseBlocks(content: string): PartialBlock[] | null {
 
 export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
   const date = new Date(announcement.published_at || announcement.created_at);
-  const blocks = parseBlocks(announcement.content);
+  const blocks = useMemo(() => parseBlocks(announcement.content), [announcement.content]);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-border overflow-hidden hover:border-brand-accent/40 hover:shadow-lg transition-all duration-200">
@@ -66,7 +67,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
 
         {blocks ? (
           <div className="text-base text-slate-600 leading-relaxed">
-            <BlockEditor initialContent={blocks} editable={false} />
+            <StaticBlockContent blocks={blocks} />
           </div>
         ) : (
           <div
