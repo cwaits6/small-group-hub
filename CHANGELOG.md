@@ -1,3 +1,10 @@
+## [0.17.1](https://github.com/cwaits6/small-group-hub/compare/v0.17.0...v0.17.1) (2026-07-13)
+
+
+### Performance Improvements
+
+* **db:** RLS helper perf, index tune-up, FK delete behavior ([#196](https://github.com/cwaits6/small-group-hub/issues/196)) ([fc4a352](https://github.com/cwaits6/small-group-hub/commit/fc4a352fda8d92ea0639679526863bb2227e897a))
+
 # [0.17.0](https://github.com/cwaits6/small-group-hub/compare/v0.16.2...v0.17.0) (2026-07-12)
 
 
