@@ -1,6 +1,6 @@
 "use client";
 
-import { BlockEditor } from "@/components/editor";
+import { StaticBlockContent } from "@/components/editor/StaticBlockContent";
 import type { PartialBlock } from "@blocknote/core";
 
 interface PageRendererProps {
@@ -20,5 +20,5 @@ export function PageRenderer({ body }: PageRendererProps) {
     return <p className="text-lg text-muted-foreground">This page has no content yet.</p>;
   }
 
-  return <BlockEditor initialContent={blocks} editable={false} />;
+  return <StaticBlockContent blocks={blocks} />;
 }

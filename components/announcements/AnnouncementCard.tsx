@@ -2,7 +2,7 @@
 
 import DOMPurify from "dompurify";
 import { Megaphone } from "lucide-react";
-import { BlockEditor } from "@/components/editor";
+import { StaticBlockContent } from "@/components/editor/StaticBlockContent";
 import type { Announcement } from "@/lib/types";
 import type { PartialBlock } from "@blocknote/core";
 
@@ -66,7 +66,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
 
         {blocks ? (
           <div className="text-base text-slate-600 leading-relaxed">
-            <BlockEditor initialContent={blocks} editable={false} />
+            <StaticBlockContent blocks={blocks} />
           </div>
         ) : (
           <div
