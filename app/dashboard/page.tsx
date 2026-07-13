@@ -116,15 +116,94 @@ export default async function DashboardPage() {
   // anchors and recently-started occurrences (for the live/ended join states).
   const windowStart = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000);
   const windowStartISO = windowStart.toISOString();
-  const { data: rawEvents } = await supabase
-    .from("events")
-    .select("*")
-    .or(
-      `start_time.gte.${windowStartISO},` +
-      `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${windowStartISO}))`
-    )
-    .order("start_time", { ascending: true })
-    .limit(500);
+
+  // Give tile — live funds, gated by the admin toggle. UTC date to match
+  // the retirement filtering on /give and /admin/giving.
+  const today = new Date().toISOString().slice(0, 10);
+  const thirtyDaysAgo = new Date(new Date(now).getTime() - 30 * 86400000).toISOString();
+
+  // Phase A — every query below is independent of `nextEvent`; fire them
+  // together instead of awaiting one at a time.
+  const [
+    { data: rawEvents },
+    { data: rsvps },
+    { data: announcements },
+    { data: giveTileSetting },
+    { data: liveFunds, count: liveFundCount },
+    { count: eventCount },
+    { count: memberCount },
+    { count: announcementCount },
+    { count: lectureCount },
+    { data: lectures },
+    { data: myServings },
+  ] = await Promise.all([
+    supabase
+      .from("events")
+      .select("*")
+      .or(
+        `start_time.gte.${windowStartISO},` +
+        `and(recurrence_frequency.not.is.null,or(recurrence_until.is.null,recurrence_until.gte.${windowStartISO}))`
+      )
+      .order("start_time", { ascending: true })
+      .limit(500),
+    // User RSVPs
+    supabase
+      .from("rsvps")
+      .select("*")
+      .eq("user_id", user.id),
+    // Announcements (latest 3)
+    supabase
+      .from("announcements")
+      .select("*")
+      .eq("is_published", true)
+      .lte("published_at", now)
+      .order("published_at", { ascending: false })
+      .limit(3),
+    supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "giving_dashboard_tile")
+      .maybeSingle(),
+    supabase
+      .from("giving_funds")
+      .select("name", { count: "exact" })
+      .eq("is_active", true)
+      .or(`retire_on.is.null,retire_on.gte.${today}`)
+      .order("display_order")
+      .order("created_at")
+      .limit(1),
+    // Counts for quick-actions
+    supabase
+      .from("events")
+      .select("id", { count: "exact", head: true })
+      .gte("start_time", now),
+    supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .neq("role", "pending"),
+    supabase
+      .from("announcements")
+      .select("id", { count: "exact", head: true })
+      .eq("is_published", true)
+      .gte("published_at", thirtyDaysAgo),
+    supabase
+      .from("lectures")
+      .select("id", { count: "exact", head: true }),
+    // Recent lectures for "Continue listening" panel
+    supabase
+      .from("lectures")
+      .select("id, title, description, lecture_date")
+      .order("lecture_date", { ascending: false })
+      .limit(3),
+    // Upcoming serving commitments for this member (inner join filters to user's rows)
+    supabase
+      .from("serving_signups")
+      .select("id, service_date, group_id, member_groups(id, name), serving_signup_attendees!inner(profile_id)")
+      .eq("serving_signup_attendees.profile_id", profile.id)
+      .gte("service_date", toDateString(new Date()))
+      .order("service_date", { ascending: true })
+      .limit(3),
+  ]);
 
   // Keep the current occurrence on the hero through its live window plus a
   // short grace period (ended state points to the recording), then roll over.
@@ -134,43 +213,59 @@ export default async function DashboardPage() {
       (e) => meetingEndMs(e.start_time, e.end_time) + ENDED_GRACE_MS > nowDate.getTime()
     ) ?? null;
 
-  // Meeting fields live on the series anchor; exception rows inherit them.
-  let meeting: MeetingFields | null = null;
-  if (nextEvent) {
-    let source: MeetingFields = nextEvent;
-    if (nextEvent.series_id) {
-      const { data: anchor } = await supabase
-        .from("events")
-        .select(
-          "meeting_url, meeting_id, meeting_passcode, meeting_show_on_dashboard, meeting_lead_minutes"
-        )
-        .eq("id", nextEvent.series_id)
-        .maybeSingle();
-      if (anchor) source = anchor;
-    }
-    if (source.meeting_url && source.meeting_show_on_dashboard) meeting = source;
-  }
-
   // User RSVPs
   let userRsvps: Record<string, Rsvp> = {};
-  const { data: rsvps } = await supabase
-    .from("rsvps")
-    .select("*")
-    .eq("user_id", user.id);
   if (rsvps) {
     userRsvps = Object.fromEntries(rsvps.map((r) => [r.event_id, r]));
   }
 
+  const showGiveTile =
+    (giveTileSetting?.value ?? "on") === "on" &&
+    (liveFundCount ?? 0) > 0;
+  const giveTileSubtitle =
+    liveFundCount === 1 && liveFunds?.[0]
+      ? liveFunds[0].name
+      : `${liveFundCount} funds collecting`;
+
+  const hasLectures = lectures && lectures.length > 0;
+
+  const upcomingServings = (myServings ?? []) as Array<{
+    id: string;
+    service_date: string;
+    group_id: string;
+    member_groups: { id: string; name: string } | Array<{ id: string; name: string }> | null;
+  }>;
+
+  // Meeting fields live on the series anchor; exception rows inherit them.
+  let meeting: MeetingFields | null = null;
   // RSVP counts + attendee names for hero card
   let goingCount = 0;
   let maybeCount = 0;
   let attendeeInitials: string[] = [];
 
+  // Phase B — these depend on `nextEvent`. The anchor lookup and the event's
+  // RSVP list are mutually independent, so fetch them together.
   if (nextEvent) {
-    const { data: eventRsvps } = await supabase
-      .from("rsvps")
-      .select("status, user_id")
-      .eq("event_id", nextEvent.id);
+    const [anchor, { data: eventRsvps }] = await Promise.all([
+      nextEvent.series_id
+        ? supabase
+            .from("events")
+            .select(
+              "meeting_url, meeting_id, meeting_passcode, meeting_show_on_dashboard, meeting_lead_minutes"
+            )
+            .eq("id", nextEvent.series_id)
+            .maybeSingle()
+            .then(({ data }) => data)
+        : Promise.resolve(null),
+      supabase
+        .from("rsvps")
+        .select("status, user_id")
+        .eq("event_id", nextEvent.id),
+    ]);
+
+    let source: MeetingFields = nextEvent;
+    if (anchor) source = anchor;
+    if (source.meeting_url && source.meeting_show_on_dashboard) meeting = source;
 
     if (eventRsvps) {
       goingCount = eventRsvps.filter((r) => r.status === "yes").length;
@@ -198,89 +293,6 @@ export default async function DashboardPage() {
       }
     }
   }
-
-  // Announcements (latest 3)
-  const { data: announcements } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("is_published", true)
-    .lte("published_at", now)
-    .order("published_at", { ascending: false })
-    .limit(3);
-
-  // Give tile — live funds, gated by the admin toggle. UTC date to match
-  // the retirement filtering on /give and /admin/giving.
-  const today = new Date().toISOString().slice(0, 10);
-  const [{ data: giveTileSetting }, { data: liveFunds, count: liveFundCount }] =
-    await Promise.all([
-      supabase
-        .from("site_settings")
-        .select("value")
-        .eq("key", "giving_dashboard_tile")
-        .maybeSingle(),
-      supabase
-        .from("giving_funds")
-        .select("name", { count: "exact" })
-        .eq("is_active", true)
-        .or(`retire_on.is.null,retire_on.gte.${today}`)
-        .order("display_order")
-        .order("created_at")
-        .limit(1),
-    ]);
-  const showGiveTile =
-    (giveTileSetting?.value ?? "on") === "on" &&
-    (liveFundCount ?? 0) > 0;
-  const giveTileSubtitle =
-    liveFundCount === 1 && liveFunds?.[0]
-      ? liveFunds[0].name
-      : `${liveFundCount} funds collecting`;
-
-  // Counts for quick-actions
-  const { count: eventCount } = await supabase
-    .from("events")
-    .select("id", { count: "exact", head: true })
-    .gte("start_time", now);
-
-  const { count: memberCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .neq("role", "pending");
-
-  const thirtyDaysAgo = new Date(new Date(now).getTime() - 30 * 86400000).toISOString();
-  const { count: announcementCount } = await supabase
-    .from("announcements")
-    .select("id", { count: "exact", head: true })
-    .eq("is_published", true)
-    .gte("published_at", thirtyDaysAgo);
-
-  const { count: lectureCount } = await supabase
-    .from("lectures")
-    .select("id", { count: "exact", head: true });
-
-  // Recent lectures for "Continue listening" panel
-  const { data: lectures } = await supabase
-    .from("lectures")
-    .select("id, title, description, lecture_date")
-    .order("lecture_date", { ascending: false })
-    .limit(3);
-
-  const hasLectures = lectures && lectures.length > 0;
-
-  // Upcoming serving commitments for this member (inner join filters to user's rows)
-  const { data: myServings } = await supabase
-    .from("serving_signups")
-    .select("id, service_date, group_id, member_groups(id, name), serving_signup_attendees!inner(profile_id)")
-    .eq("serving_signup_attendees.profile_id", profile.id)
-    .gte("service_date", toDateString(new Date()))
-    .order("service_date", { ascending: true })
-    .limit(3);
-
-  const upcomingServings = (myServings ?? []) as Array<{
-    id: string;
-    service_date: string;
-    group_id: string;
-    member_groups: { id: string; name: string } | Array<{ id: string; name: string }> | null;
-  }>;
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
