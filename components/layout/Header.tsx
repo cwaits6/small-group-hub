@@ -64,10 +64,7 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
         scrolled ? "bg-white/95 backdrop-blur shadow-sm" : "bg-white"
       }`}
     >
-      {/* Top accent bar */}
-      <div className="h-1 w-full bg-gradient-to-r from-brand-primary-light via-brand-primary to-brand-accent" />
-
-      <div className="flex h-16 w-full items-center justify-between px-4">
+      <div className="flex h-[72px] w-full items-center justify-between px-4">
         <div className="flex items-center gap-1">
           {/* Desktop: menu button collapses/expands the sidebar pane */}
           {hasDesktopSidebar && (
@@ -109,12 +106,12 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
                 <SheetTitle className="sr-only">Navigation menu</SheetTitle>
                 <div className="flex flex-col h-full p-4">
                   <div className="flex items-center gap-2 mb-6 mt-1">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center">
-                      <span className="text-white font-bold text-sm font-display">
+                    <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center">
+                      <span className="text-white font-bold text-[24px] font-display">
                         {siteConfig.logoMonogram}
                       </span>
                     </div>
-                    <span className="text-xl font-bold font-display text-brand-primary">
+                    <span className="text-[26px] font-bold font-display text-brand-primary">
                       {siteConfig.name}
                     </span>
                   </div>
@@ -148,12 +145,12 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
             href={isMember ? "/dashboard" : "/"}
             className="flex items-center gap-2 group"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-              <span className="text-white font-bold text-sm font-display">
+            <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+              <span className="text-white font-bold text-[24px] font-display">
                 {siteConfig.logoMonogram}
               </span>
             </div>
-            <span className="text-xl font-bold font-display text-brand-primary tracking-tight">
+            <span className="text-[26px] font-bold font-display text-brand-primary tracking-tight">
               {siteConfig.name}
             </span>
           </Link>

@@ -105,10 +105,10 @@ export function SidebarNav({
 
   // Soft-blue active state with a primary left bar, per the design system
   const linkClass = (active: boolean) =>
-    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l-4 transition-colors ${
+    `flex items-center gap-3 min-h-[52px] px-3 rounded-lg text-label border-l-4 transition-colors ${
       active
         ? "bg-brand-warm text-brand-primary font-bold border-brand-primary"
-        : "border-transparent font-medium text-slate-600 hover:text-brand-primary hover:bg-brand-warm/50"
+        : "border-transparent font-medium text-muted-foreground hover:text-brand-primary hover:bg-hover"
     }`;
 
   const renderLink = (
@@ -124,7 +124,7 @@ export function SidebarNav({
         title={collapsed ? item.label : undefined}
         onClick={onNavigate}
       >
-        <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
         {!collapsed && <span>{item.label}</span>}
       </Link>
     );
@@ -138,20 +138,20 @@ export function SidebarNav({
         className={`flex items-center rounded-lg border-l-4 transition-colors ${
           active
             ? "bg-brand-warm border-brand-primary"
-            : "border-transparent hover:bg-brand-warm/50"
+            : "border-transparent hover:bg-hover"
         }`}
       >
         <Link
           href="/directory"
-          className={`flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+          className={`flex flex-1 min-w-0 items-center gap-3 min-h-[52px] px-3 text-label transition-colors ${
             active
               ? "text-brand-primary font-bold"
-              : "font-medium text-slate-600 hover:text-brand-primary"
+              : "font-medium text-muted-foreground hover:text-brand-primary"
           }`}
           aria-current={active ? "page" : undefined}
           onClick={onNavigate}
         >
-          <Users className="h-5 w-5 shrink-0" aria-hidden="true" />
+          <Users className="h-6 w-6 shrink-0" aria-hidden="true" />
           <span>Directory</span>
         </Link>
         <button
@@ -160,7 +160,7 @@ export function SidebarNav({
           aria-label={directoryOpen ? "Collapse directory menu" : "Expand directory menu"}
           aria-expanded={directoryOpen}
           className={`self-stretch px-2.5 transition-colors ${
-            active ? "text-brand-primary" : "text-slate-600 hover:text-brand-primary"
+            active ? "text-brand-primary" : "text-muted-foreground hover:text-brand-primary"
           }`}
         >
           <ChevronDown
@@ -180,10 +180,10 @@ export function SidebarNav({
         <Link
           key={item.href}
           href={item.href}
-          className={`flex items-center pl-11 pr-3 py-2 rounded-lg text-sm border-l-4 transition-colors ${
+          className={`flex items-center min-h-[48px] pl-11 pr-3 rounded-lg text-label border-l-4 transition-colors ${
             active
               ? "bg-brand-warm text-brand-primary font-bold border-brand-primary"
-              : "border-transparent font-medium text-slate-600 hover:text-brand-primary hover:bg-brand-warm/50"
+              : "border-transparent font-medium text-muted-foreground hover:text-brand-primary hover:bg-hover"
           }`}
           aria-current={active ? "page" : undefined}
           onClick={onNavigate}
@@ -208,7 +208,7 @@ export function SidebarNav({
       {pages.length > 0 && (
         <>
           {!collapsed && (
-            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
+            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
               Pages
             </p>
           )}
@@ -225,7 +225,7 @@ export function SidebarNav({
                 title={collapsed ? page.title : undefined}
                 onClick={onNavigate}
               >
-                <FileText className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <FileText className="h-6 w-6 shrink-0" aria-hidden="true" />
                 {!collapsed && <span className="truncate">{page.title}</span>}
               </Link>
             );
@@ -236,7 +236,7 @@ export function SidebarNav({
       {isEditor && (
         <>
           {!collapsed && (
-            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
+            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
               Admin
             </p>
           )}

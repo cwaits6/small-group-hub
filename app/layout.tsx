@@ -74,7 +74,7 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <style
           dangerouslySetInnerHTML={{
@@ -88,6 +88,13 @@ export default async function RootLayout({
                 --color-brand-bg-muted: ${siteConfig.colors.backgroundMuted};
               }
             `,
+          }}
+        />
+        {/* Apply the saved comfort text size before first paint to avoid a flash.
+            Must be a raw script (next/script defers past paint). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem("textsize");document.documentElement.setAttribute("data-textsize",s==="large"||s==="larger"?s:"normal");}catch(e){document.documentElement.setAttribute("data-textsize","normal");}})();`,
           }}
         />
       </head>
