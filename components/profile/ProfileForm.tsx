@@ -29,10 +29,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { Camera } from "lucide-react";
+import { Camera, Check } from "lucide-react";
 import type { Profile, FamilyUnit } from "@/lib/types";
 
 interface ProfileFormProps {
@@ -134,6 +133,36 @@ const MONTHS = [
   { value: "11", label: "November" },
   { value: "12", label: "December" },
 ];
+
+function Required() {
+  return <span className="font-normal text-muted-foreground">(required)</span>;
+}
+
+function Optional() {
+  return <span className="font-normal text-muted-foreground">(optional)</span>;
+}
+
+/** Inline privacy switch rendered directly under the field it hides */
+function HideRow({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 pt-2">
+      <Label htmlFor={id} className="cursor-pointer font-medium">
+        {label}
+      </Label>
+      <Switch id={id} checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
 
 export function ProfileForm({
   profile,
@@ -326,542 +355,494 @@ export function ProfileForm({
     "??";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Avatar — always visible, not in a tab */}
+    <form onSubmit={handleSubmit}>
       <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-6">
-            <div className="relative">
-              <Avatar className="h-24 w-24">
-                {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile photo" />}
-                <AvatarFallback className="text-2xl bg-brand-primary text-white">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute -bottom-1 -right-1 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-full p-2 shadow-md transition-colors disabled:opacity-50"
-                aria-label="Upload photo"
-              >
-                <Camera className="h-4 w-4" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                className="hidden"
+        <CardContent className="space-y-5 pt-6">
+          {!isAdmin && !relaxValidation && (
+            <p className="text-base text-muted-foreground">
+              Anything you fill in here is listed in the group directory. If
+              you&apos;d rather keep something private, leave it blank or turn
+              on its hide switch.
+            </p>
+          )}
+
+          {/* Photo */}
+          <div className="flex items-center gap-5">
+            <Avatar className="h-20 w-20 shrink-0">
+              {avatarUrl && <AvatarImage src={avatarUrl} alt="Profile photo" />}
+              <AvatarFallback className="bg-brand-primary text-2xl text-white">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingAvatar}
+            >
+              <Camera className="mr-2 h-4 w-4" />
+              {uploadingAvatar
+                ? "Uploading..."
+                : relaxValidation
+                  ? "Change their photo"
+                  : "Change my photo"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              className="hidden"
+            />
+          </div>
+
+          {/* Name */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="first_name" className="text-base">
+                First name <Required />
+              </Label>
+              <Input
+                id="first_name"
+                value={state.first_name}
+                onChange={(e) => update("first_name", e.target.value)}
+                onBlur={(e) =>
+                  update("first_name", titleCaseName(e.target.value) || "")
+                }
+                required
+                className="py-5 text-base"
               />
             </div>
-            <div className="flex-1">
-              <p className="text-lg font-semibold">
-                {state.preferred_name || state.first_name || "Your profile"}{" "}
-                {state.last_name}
-              </p>
+            <div className="space-y-2">
+              <Label htmlFor="last_name" className="text-base">
+                Last name <Required />
+              </Label>
+              <Input
+                id="last_name"
+                value={state.last_name}
+                onChange={(e) => update("last_name", e.target.value)}
+                onBlur={(e) =>
+                  update("last_name", titleCaseName(e.target.value) || "")
+                }
+                required
+                className="py-5 text-base"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="preferred_name" className="text-base">
+              Nickname <Optional />
+            </Label>
+            <Input
+              id="preferred_name"
+              value={state.preferred_name}
+              onChange={(e) => update("preferred_name", e.target.value)}
+              onBlur={(e) =>
+                update("preferred_name", titleCaseName(e.target.value) || "")
+              }
+              className="py-5 text-base"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="bio" className="text-base">
+              About me <Optional />
+            </Label>
+            <Textarea
+              id="bio"
+              value={state.bio}
+              onChange={(e) => update("bio", e.target.value)}
+              rows={3}
+              className="text-base"
+              placeholder="A sentence or two about yourself"
+            />
+          </div>
+
+          <Separator />
+
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-base">
+              Email
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={state.email}
+              onChange={(e) => update("email", e.target.value)}
+              disabled={!isAdmin}
+              className="py-5 text-base"
+            />
+            {!isAdmin && (
               <p className="text-sm text-muted-foreground">
-                {uploadingAvatar
-                  ? "Uploading photo..."
-                  : relaxValidation
-                    ? "Click the camera icon to update their photo."
-                    : "Click the camera icon to update your photo."}
+                Contact an admin to change your login email.
+              </p>
+            )}
+            <HideRow
+              id="hide_email"
+              label="Hide my email from the directory"
+              checked={state.hide_email}
+              onChange={(v) => update("hide_email", v)}
+            />
+          </div>
+
+          {/* Phones */}
+          <div className="space-y-2">
+            <Label htmlFor="phone_mobile" className="text-base">
+              Mobile phone
+            </Label>
+            <Input
+              id="phone_mobile"
+              type="tel"
+              inputMode="tel"
+              value={state.phone_mobile}
+              onChange={(e) =>
+                update("phone_mobile", formatPhoneAsYouType(e.target.value))
+              }
+              placeholder="(555) 123-4567"
+              className="py-5 text-base"
+            />
+            <HideRow
+              id="hide_phone_mobile"
+              label="Hide my mobile number"
+              checked={state.hide_phone_mobile}
+              onChange={(v) => update("hide_phone_mobile", v)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone_home" className="text-base">
+              Home phone <Optional />
+            </Label>
+            <Input
+              id="phone_home"
+              type="tel"
+              inputMode="tel"
+              value={state.phone_home}
+              onChange={(e) =>
+                update("phone_home", formatPhoneAsYouType(e.target.value))
+              }
+              placeholder="(555) 123-4567"
+              className="py-5 text-base"
+            />
+            {state.phone_home && (
+              <HideRow
+                id="hide_phone_home"
+                label="Hide my home number"
+                checked={state.hide_phone_home}
+                onChange={(v) => update("hide_phone_home", v)}
+              />
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone_work" className="text-base">
+              Work phone <Optional />
+            </Label>
+            <Input
+              id="phone_work"
+              type="tel"
+              inputMode="tel"
+              value={state.phone_work}
+              onChange={(e) =>
+                update("phone_work", formatPhoneAsYouType(e.target.value))
+              }
+              placeholder="(555) 123-4567"
+              className="py-5 text-base"
+            />
+            {state.phone_work && (
+              <HideRow
+                id="hide_phone_work"
+                label="Hide my work number"
+                checked={state.hide_phone_work}
+                onChange={(v) => update("hide_phone_work", v)}
+              />
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Birthday */}
+          <div className="space-y-2">
+            <Label className="text-base">
+              Birthday {relaxValidation ? <Optional /> : <Required />}
+            </Label>
+            <div className="grid grid-cols-3 gap-3">
+              <Select
+                items={MONTHS}
+                value={state.birth_month}
+                onValueChange={(v) => update("birth_month", v ?? "")}
+              >
+                <SelectTrigger className="py-5 text-base">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                min="1"
+                max="31"
+                placeholder="Day"
+                value={state.birth_day}
+                onChange={(e) => update("birth_day", e.target.value)}
+                className="py-5 text-base"
+                aria-label="Day"
+              />
+              <Input
+                type="number"
+                min="1900"
+                max="2100"
+                placeholder="Year (optional)"
+                value={state.birth_year}
+                onChange={(e) => update("birth_year", e.target.value)}
+                className="py-5 text-base"
+                aria-label="Year (optional)"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              The year is optional — the directory only shows the month and
+              day.
+            </p>
+            <HideRow
+              id="hide_birthday"
+              label="Hide my birthday"
+              checked={state.hide_birthday}
+              onChange={(v) => update("hide_birthday", v)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="anniversary" className="text-base">
+              Anniversary <Optional />
+            </Label>
+            <Input
+              id="anniversary"
+              type="date"
+              value={state.anniversary}
+              onChange={(e) => update("anniversary", e.target.value)}
+              className="py-5 text-base"
+            />
+            {state.anniversary && (
+              <HideRow
+                id="hide_anniversary"
+                label="Hide my anniversary"
+                checked={state.hide_anniversary}
+                onChange={(v) => update("hide_anniversary", v)}
+              />
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Address */}
+          <div className="space-y-2">
+            <Label htmlFor="address_line1" className="text-base">
+              Street address <Optional />
+            </Label>
+            <Input
+              id="address_line1"
+              value={state.address_line1}
+              onChange={(e) => update("address_line1", e.target.value)}
+              onBlur={(e) =>
+                update("address_line1", titleCaseStreet(e.target.value) || "")
+              }
+              placeholder="123 Main St"
+              className="py-5 text-base"
+            />
+            {profile.family_id && (
+              <p className="text-sm text-muted-foreground">
+                Leave blank to use your family&apos;s shared address.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="address_line2" className="text-base">
+              Apt / unit <Optional />
+            </Label>
+            <Input
+              id="address_line2"
+              value={state.address_line2}
+              onChange={(e) => update("address_line2", e.target.value)}
+              onBlur={(e) =>
+                update("address_line2", titleCaseStreet(e.target.value) || "")
+              }
+              placeholder="Apt 4B"
+              className="py-5 text-base"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+            <div className="space-y-2 sm:col-span-3">
+              <Label htmlFor="city" className="text-base">
+                City
+              </Label>
+              <Input
+                id="city"
+                value={state.city}
+                onChange={(e) => update("city", e.target.value)}
+                onBlur={(e) =>
+                  update("city", titleCaseCity(e.target.value) || "")
+                }
+                className="py-5 text-base"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-1">
+              <Label htmlFor="state" className="text-base">
+                State
+              </Label>
+              <Input
+                id="state"
+                value={state.state}
+                onChange={(e) => update("state", e.target.value.toUpperCase())}
+                maxLength={2}
+                placeholder="TX"
+                className="py-5 text-base uppercase"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="postal_code" className="text-base">
+                ZIP
+              </Label>
+              <Input
+                id="postal_code"
+                value={state.postal_code}
+                onChange={(e) => update("postal_code", e.target.value)}
+                placeholder="12345"
+                className="py-5 text-base"
+              />
+            </div>
+          </div>
+          <HideRow
+            id="hide_address"
+            label="Hide my address from the directory"
+            checked={state.hide_address}
+            onChange={(v) => update("hide_address", v)}
+          />
+
+          <Separator />
+
+          {/* Occupation */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="occupation" className="text-base">
+                Occupation <Optional />
+              </Label>
+              <Input
+                id="occupation"
+                value={state.occupation}
+                onChange={(e) => update("occupation", e.target.value)}
+                placeholder="e.g. Plumber, Teacher"
+                className="py-5 text-base"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="employer" className="text-base">
+                Employer <Optional />
+              </Label>
+              <Input
+                id="employer"
+                value={state.employer}
+                onChange={(e) => update("employer", e.target.value)}
+                placeholder="Company / organization"
+                className="py-5 text-base"
+              />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Sharing what you do helps others in the class find help from
+            someone they know.
+          </p>
+          {(state.occupation || state.employer) && (
+            <HideRow
+              id="hide_occupation"
+              label="Hide my occupation and employer"
+              checked={state.hide_occupation}
+              onChange={(v) => update("hide_occupation", v)}
+            />
+          )}
+
+          {/* Family assignment (admin only) */}
+          {isAdmin && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <Label htmlFor="family_id" className="text-base">
+                  Family
+                </Label>
+                <Select
+                  value={state.family_id || "none"}
+                  onValueChange={(v) =>
+                    update("family_id", !v || v === "none" ? "" : v)
+                  }
+                >
+                  <SelectTrigger className="py-5 text-base">
+                    <SelectValue placeholder="No family assigned">
+                      {(v: string | null | undefined) => {
+                        if (!v || v === "none") return "No family assigned";
+                        return families.find((f) => f.id === v)?.family_name ?? "(Unknown family)";
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— No family —</SelectItem>
+                    {families.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.family_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  Manage families on the{" "}
+                  <a
+                    href="/admin/families"
+                    className="text-brand-primary underline"
+                  >
+                    Families page
+                  </a>
+                  .
+                </p>
+              </div>
+            </>
+          )}
+
+          <Separator />
+
+          {/* Master directory switch */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <Label htmlFor="is_unlisted" className="cursor-pointer text-base">
+                Hide me from the directory completely
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Your profile will not appear in the member directory at all.
+                Admins can always see all fields.
               </p>
             </div>
+            <Switch
+              id="is_unlisted"
+              checked={state.is_unlisted}
+              onCheckedChange={(v) => update("is_unlisted", v)}
+            />
+          </div>
+
+          <div className="border-t pt-5">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={saving}
+              className="bg-brand-primary text-base text-white hover:bg-brand-primary/90"
+            >
+              <Check className="mr-2 h-4 w-4" />
+              {saving ? "Saving..." : "Save my changes"}
+            </Button>
           </div>
         </CardContent>
       </Card>
-
-      <Tabs defaultValue="personal">
-        <TabsList className={`grid w-full ${isAdmin ? "grid-cols-5" : "grid-cols-4"}`}>
-          <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="contact">Contact</TabsTrigger>
-          <TabsTrigger value="address">Address</TabsTrigger>
-          {isAdmin && <TabsTrigger value="family">Family</TabsTrigger>}
-          <TabsTrigger value="privacy">Privacy</TabsTrigger>
-        </TabsList>
-
-        {/* =========================================================
-            PERSONAL
-            ========================================================= */}
-        <TabsContent value="personal">
-          <Card>
-            <CardContent className="pt-6 space-y-5">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name" className="text-base">
-                    First name{" "}
-                    <span className="text-destructive" aria-hidden>*</span>
-                  </Label>
-                  <Input
-                    id="first_name"
-                    value={state.first_name}
-                    onChange={(e) => update("first_name", e.target.value)}
-                    onBlur={(e) =>
-                      update("first_name", titleCaseName(e.target.value) || "")
-                    }
-                    required
-                    className="text-base py-5"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name" className="text-base">
-                    Last name{" "}
-                    <span className="text-destructive" aria-hidden>*</span>
-                  </Label>
-                  <Input
-                    id="last_name"
-                    value={state.last_name}
-                    onChange={(e) => update("last_name", e.target.value)}
-                    onBlur={(e) =>
-                      update("last_name", titleCaseName(e.target.value) || "")
-                    }
-                    required
-                    className="text-base py-5"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="preferred_name" className="text-base">
-                  Preferred name / nickname{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="preferred_name"
-                  value={state.preferred_name}
-                  onChange={(e) => update("preferred_name", e.target.value)}
-                  onBlur={(e) =>
-                    update(
-                      "preferred_name",
-                      titleCaseName(e.target.value) || "",
-                    )
-                  }
-                  className="text-base py-5"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="bio" className="text-base">
-                  About me{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Textarea
-                  id="bio"
-                  value={state.bio}
-                  onChange={(e) => update("bio", e.target.value)}
-                  rows={3}
-                  className="text-base"
-                  placeholder="A sentence or two about yourself"
-                />
-              </div>
-
-              <Separator />
-
-              <div>
-                <Label className="text-base">
-                  Birthday{" "}
-                  <span className="text-destructive" aria-hidden>*</span>
-                </Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Month and day are required. Year is optional.
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <Select
-                    items={MONTHS}
-                    value={state.birth_month}
-                    onValueChange={(v) => update("birth_month", v ?? "")}
-                  >
-                    <SelectTrigger className="text-base py-5">
-                      <SelectValue placeholder="Month" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map((m) => (
-                        <SelectItem key={m.value} value={m.value}>
-                          {m.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="Day"
-                    value={state.birth_day}
-                    onChange={(e) => update("birth_day", e.target.value)}
-                    className="text-base py-5"
-                  />
-                  <Input
-                    type="number"
-                    min="1900"
-                    max="2100"
-                    placeholder="Year (optional)"
-                    value={state.birth_year}
-                    onChange={(e) => update("birth_year", e.target.value)}
-                    className="text-base py-5"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="anniversary" className="text-base">
-                  Anniversary{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="anniversary"
-                  type="date"
-                  value={state.anniversary}
-                  onChange={(e) => update("anniversary", e.target.value)}
-                  className="text-base py-5"
-                />
-              </div>
-
-              <Separator />
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="occupation" className="text-base">
-                    Occupation{" "}
-                    <span className="text-muted-foreground font-normal">
-                      (optional)
-                    </span>
-                  </Label>
-                  <Input
-                    id="occupation"
-                    value={state.occupation}
-                    onChange={(e) => update("occupation", e.target.value)}
-                    placeholder="e.g. Plumber, Teacher"
-                    className="text-base py-5"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="employer" className="text-base">
-                    Employer{" "}
-                    <span className="text-muted-foreground font-normal">
-                      (optional)
-                    </span>
-                  </Label>
-                  <Input
-                    id="employer"
-                    value={state.employer}
-                    onChange={(e) => update("employer", e.target.value)}
-                    placeholder="Company / organization"
-                    className="text-base py-5"
-                  />
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Sharing what you do helps others in the class find help from
-                someone they know.
-              </p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* =========================================================
-            CONTACT
-            ========================================================= */}
-        <TabsContent value="contact">
-          <Card>
-            <CardContent className="pt-6 space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-base">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={state.email}
-                  onChange={(e) => update("email", e.target.value)}
-                  disabled={!isAdmin}
-                  className="text-base py-5"
-                />
-                {!isAdmin && (
-                  <p className="text-xs text-muted-foreground">
-                    Contact an admin to change your login email.
-                  </p>
-                )}
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label htmlFor="phone_mobile" className="text-base">
-                  Mobile phone
-                </Label>
-                <Input
-                  id="phone_mobile"
-                  type="tel"
-                  inputMode="tel"
-                  value={state.phone_mobile}
-                  onChange={(e) =>
-                    update("phone_mobile", formatPhoneAsYouType(e.target.value))
-                  }
-                  placeholder="(555) 123-4567"
-                  className="text-base py-5"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone_home" className="text-base">
-                  Home phone
-                </Label>
-                <Input
-                  id="phone_home"
-                  type="tel"
-                  inputMode="tel"
-                  value={state.phone_home}
-                  onChange={(e) =>
-                    update("phone_home", formatPhoneAsYouType(e.target.value))
-                  }
-                  placeholder="(555) 123-4567"
-                  className="text-base py-5"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone_work" className="text-base">
-                  Work phone{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="phone_work"
-                  type="tel"
-                  inputMode="tel"
-                  value={state.phone_work}
-                  onChange={(e) =>
-                    update("phone_work", formatPhoneAsYouType(e.target.value))
-                  }
-                  placeholder="(555) 123-4567"
-                  className="text-base py-5"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* =========================================================
-            ADDRESS
-            ========================================================= */}
-        <TabsContent value="address">
-          <Card>
-            <CardContent className="pt-6 space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="address_line1" className="text-base">
-                  Street address
-                </Label>
-                <Input
-                  id="address_line1"
-                  value={state.address_line1}
-                  onChange={(e) => update("address_line1", e.target.value)}
-                  onBlur={(e) =>
-                    update(
-                      "address_line1",
-                      titleCaseStreet(e.target.value) || "",
-                    )
-                  }
-                  placeholder="123 Main St"
-                  className="text-base py-5"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="address_line2" className="text-base">
-                  Apt / unit{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
-                </Label>
-                <Input
-                  id="address_line2"
-                  value={state.address_line2}
-                  onChange={(e) => update("address_line2", e.target.value)}
-                  onBlur={(e) =>
-                    update(
-                      "address_line2",
-                      titleCaseStreet(e.target.value) || "",
-                    )
-                  }
-                  placeholder="Apt 4B"
-                  className="text-base py-5"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
-                <div className="sm:col-span-3 space-y-2">
-                  <Label htmlFor="city" className="text-base">
-                    City
-                  </Label>
-                  <Input
-                    id="city"
-                    value={state.city}
-                    onChange={(e) => update("city", e.target.value)}
-                    onBlur={(e) =>
-                      update("city", titleCaseCity(e.target.value) || "")
-                    }
-                    className="text-base py-5"
-                  />
-                </div>
-                <div className="sm:col-span-1 space-y-2">
-                  <Label htmlFor="state" className="text-base">
-                    State
-                  </Label>
-                  <Input
-                    id="state"
-                    value={state.state}
-                    onChange={(e) =>
-                      update("state", e.target.value.toUpperCase())
-                    }
-                    maxLength={2}
-                    placeholder="TX"
-                    className="text-base py-5 uppercase"
-                  />
-                </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="postal_code" className="text-base">
-                    ZIP
-                  </Label>
-                  <Input
-                    id="postal_code"
-                    value={state.postal_code}
-                    onChange={(e) => update("postal_code", e.target.value)}
-                    placeholder="12345"
-                    className="text-base py-5"
-                  />
-                </div>
-              </div>
-              {profile.family_id && (
-                <p className="text-sm text-muted-foreground">
-                  Leave blank to use your family&apos;s shared address.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* =========================================================
-            FAMILY (admin only)
-            ========================================================= */}
-        {isAdmin && (
-          <TabsContent value="family">
-            <Card>
-              <CardContent className="pt-6 space-y-5">
-                <div className="space-y-2">
-                  <Label htmlFor="family_id" className="text-base">
-                    Family
-                  </Label>
-                  <Select
-                    value={state.family_id || "none"}
-                    onValueChange={(v) =>
-                      update("family_id", !v || v === "none" ? "" : v)
-                    }
-                  >
-                    <SelectTrigger className="text-base py-5">
-                      <SelectValue placeholder="No family assigned">
-                        {(v: string | null | undefined) => {
-                          if (!v || v === "none") return "No family assigned";
-                          return families.find((f) => f.id === v)?.family_name ?? "(Unknown family)";
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— No family —</SelectItem>
-                      {families.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.family_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    Manage families on the{" "}
-                    <a
-                      href="/admin/families"
-                      className="text-brand-primary underline"
-                    >
-                      Families page
-                    </a>
-                    .
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-
-        {/* =========================================================
-            PRIVACY
-            ========================================================= */}
-        <TabsContent value="privacy">
-          <Card>
-            <CardContent className="pt-6 space-y-5">
-              <div className="flex items-start justify-between gap-4 pb-4 border-b">
-                <div>
-                  <Label className="text-base">Hide from directory</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Your profile will not appear in the member directory at all.
-                  </p>
-                </div>
-                <Switch
-                  checked={state.is_unlisted}
-                  onCheckedChange={(v) => update("is_unlisted", v)}
-                />
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                Hide specific fields while still appearing in the directory.
-                Admins can always see all fields.
-              </p>
-
-              {[
-                { key: "hide_email" as const, label: "Hide email" },
-                { key: "hide_phone_mobile" as const, label: "Hide mobile phone" },
-                { key: "hide_phone_home" as const, label: "Hide home phone" },
-                { key: "hide_phone_work" as const, label: "Hide work phone" },
-                { key: "hide_address" as const, label: "Hide address" },
-                { key: "hide_birthday" as const, label: "Hide birthday" },
-                {
-                  key: "hide_birth_year" as const,
-                  label: "Hide birth year (show month/day only)",
-                },
-                { key: "hide_anniversary" as const, label: "Hide anniversary" },
-                { key: "hide_occupation" as const, label: "Hide occupation / employer" },
-              ].map(({ key, label }) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between gap-4"
-                >
-                  <Label htmlFor={key} className="text-base cursor-pointer">
-                    {label}
-                  </Label>
-                  <Switch
-                    id={key}
-                    checked={state[key]}
-                    onCheckedChange={(v) => update(key, v)}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <div className="flex justify-end gap-3">
-        <Button
-          type="submit"
-          size="lg"
-          disabled={saving}
-          className="text-base bg-brand-primary hover:bg-brand-primary/90 text-white"
-        >
-          {saving ? "Saving..." : "Save Profile"}
-        </Button>
-      </div>
     </form>
   );
 }
