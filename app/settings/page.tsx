@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { siteConfig } from "@/lib/config";
+import { DisplayCard } from "./DisplayCard";
 import { SignInSecurityCard } from "./SignInSecurityCard";
+import { NotificationsCard } from "./NotificationsCard";
+import { FeedbackCard } from "./FeedbackCard";
 
 export const metadata = { title: `Settings | ${siteConfig.name}` };
 
@@ -15,7 +18,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, email_announcements")
     .eq("id", user.id)
     .single();
 
@@ -25,11 +28,22 @@ export default async function SettingsPage() {
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-6 text-3xl font-bold text-brand-primary md:text-4xl">
+      <h1 className="mb-2 text-3xl font-bold text-brand-primary md:text-4xl">
         Settings
       </h1>
+      <p className="mb-8 text-muted-foreground">
+        Make the app comfortable for you. Your choices are saved automatically.
+      </p>
 
-      <SignInSecurityCard currentEmail={user.email ?? ""} />
+      <div className="space-y-6">
+        <DisplayCard />
+        <SignInSecurityCard currentEmail={user.email ?? ""} />
+        <NotificationsCard
+          userId={user.id}
+          initialEmailAnnouncements={profile.email_announcements ?? true}
+        />
+        <FeedbackCard />
+      </div>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export const SIDEBAR_ROUTES = [
   "/serving",
   "/prayer",
   "/profile",
+  "/settings",
 ];
 
 export function AppShell({ profile, hasServingAccess, children }: AppShellProps) {

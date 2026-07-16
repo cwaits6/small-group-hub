@@ -45,6 +45,7 @@ const memberNav = [
   { href: "/give", label: "Give", icon: HandCoins },
   { href: "/about", label: "About", icon: Info },
   { href: "/profile", label: "My Profile", icon: UserCircle },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 const directorySubNav = [

@@ -7,7 +7,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { AppShell } from "@/components/layout/AppShell";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
 import "./globals.css";
@@ -46,6 +46,8 @@ export default async function RootLayout({
   // Skip the getUser() call entirely when there are no auth cookies.
   // This avoids noisy "Invalid Refresh Token" errors for unauthenticated visitors.
   const cookieStore = await cookies();
+  // CSP allows inline scripts only with the per-request nonce
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   const hasAuthCookie = cookieStore.getAll().some((c) => c.name.includes("auth-token"));
 
   let profile = null;
@@ -74,8 +76,19 @@ export default async function RootLayout({
   }
 
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    // suppressHydrationWarning: the head script sets data-textsize/-contrast
+    // on <html> before React hydrates, and browsers mask script nonces so the
+    // client always reads them as "" — both are expected mismatches.
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
+        {/* Apply saved display preferences before first paint */}
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: `try{var d=document.documentElement,t=localStorage.getItem("pref-textsize");if(t==="large"||t==="larger")d.dataset.textsize=t;if(localStorage.getItem("pref-contrast")==="high")d.dataset.contrast="high"}catch(e){}`,
+          }}
+        />
         <style
           dangerouslySetInnerHTML={{
             __html: `
