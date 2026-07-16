@@ -76,9 +76,11 @@ export async function POST(request: Request) {
 
   // Email a copy to the admins — best effort, the row above is the record.
   // Runs after the response so a slow email provider never delays the user.
+  // Uses the service client: the user client's request-scoped cookie store
+  // isn't reliable once the response has been sent.
   after(async () => {
     try {
-      const { data: admins } = await supabase
+      const { data: admins } = await service
         .from("profiles")
         .select("email")
         .eq("role", "admin")
