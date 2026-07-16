@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { uploadImage } from "@/lib/uploadImage";
 import {
@@ -17,7 +18,6 @@ import {
 } from "@/lib/sanitize";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +37,12 @@ import type { Profile, FamilyUnit } from "@/lib/types";
 interface ProfileFormProps {
   profile: Profile;
   families: FamilyUnit[];
+  /**
+   * The member's own family. When set, last name and address default to the
+   * family's and only appear as fields behind a "different from my family"
+   * checkbox.
+   */
+  family?: FamilyUnit | null;
   /** Admin mode allows editing family assignment + ignores privacy enforcement on save */
   isAdmin?: boolean;
   /**
@@ -55,7 +61,6 @@ interface FormState {
   first_name: string;
   last_name: string;
   preferred_name: string;
-  bio: string;
   email: string;
   phone_mobile: string;
   phone_home: string;
@@ -72,7 +77,6 @@ interface FormState {
   occupation: string;
   employer: string;
   family_id: string;
-  is_unlisted: boolean;
   hide_phone_mobile: boolean;
   hide_phone_home: boolean;
   hide_phone_work: boolean;
@@ -89,7 +93,6 @@ function initialState(profile: Profile): FormState {
     first_name: profile.first_name || "",
     last_name: profile.last_name || "",
     preferred_name: profile.preferred_name || "",
-    bio: profile.bio || "",
     email: profile.email || "",
     phone_mobile: formatPhone(profile.phone_mobile),
     phone_home: formatPhone(profile.phone_home),
@@ -106,7 +109,6 @@ function initialState(profile: Profile): FormState {
     occupation: profile.occupation || "",
     employer: profile.employer || "",
     family_id: profile.family_id || "",
-    is_unlisted: profile.is_unlisted ?? false,
     hide_phone_mobile: profile.hide_phone_mobile ?? false,
     hide_phone_home: profile.hide_phone_home ?? false,
     hide_phone_work: profile.hide_phone_work ?? false,
@@ -142,6 +144,35 @@ function Optional() {
   return <span className="font-normal text-muted-foreground">(optional)</span>;
 }
 
+/** Checkbox that reveals fields for info that differs from the family's */
+function CheckRow({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className="flex cursor-pointer items-center gap-3 py-1 text-base font-medium"
+    >
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-5 shrink-0 accent-brand-primary"
+      />
+      {label}
+    </label>
+  );
+}
+
 /** Inline privacy switch rendered directly under the field it hides */
 function HideRow({
   id,
@@ -167,12 +198,26 @@ function HideRow({
 export function ProfileForm({
   profile,
   families,
+  family = null,
   isAdmin = false,
   relaxValidation = false,
   onSaved,
 }: ProfileFormProps) {
   const [state, setState] = useState<FormState>(initialState(profile));
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
+
+  // Family defaults: last name falls back to the family surname and address
+  // to the family's home address unless the member marks theirs different.
+  const familySurname =
+    (!isAdmin && family?.family_name?.replace(/\s+family$/i, "").trim()) || "";
+  const [differentLastName, setDifferentLastName] = useState(
+    !familySurname || (profile.last_name || "") !== familySurname,
+  );
+  const familyHasAddress = !!(family?.address_line1 || family?.city);
+  const [differentAddress, setDifferentAddress] = useState(
+    !familyHasAddress ||
+      !!(profile.address_line1 || profile.address_line2 || profile.city),
+  );
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,13 +262,19 @@ export function ProfileForm({
 
     // Sanitize + normalize everything before writing.
     const firstName = titleCaseName(state.first_name);
-    const lastName = titleCaseName(state.last_name);
+    const lastName =
+      familySurname && !differentLastName
+        ? familySurname
+        : titleCaseName(state.last_name);
     const preferredName = titleCaseName(state.preferred_name);
-    const city = titleCaseCity(state.city);
-    const stateCode = normalizeState(state.state);
-    const postal = state.postal_code
-      ? normalizePostalCode(state.postal_code)
-      : null;
+    // Unchecked "different address" means: use the family's address (blank).
+    const ownAddress = !familyHasAddress || differentAddress;
+    const city = ownAddress ? titleCaseCity(state.city) : null;
+    const stateCode = ownAddress ? normalizeState(state.state) : null;
+    const postal =
+      ownAddress && state.postal_code
+        ? normalizePostalCode(state.postal_code)
+        : null;
 
     // Validate required fields.
     if (!firstName) {
@@ -257,12 +308,12 @@ export function ProfileForm({
     }
 
     // Validate required shapes — state/zip return null on malformed input.
-    if (state.state && !stateCode) {
+    if (ownAddress && state.state && !stateCode) {
       toast.error("State must be a valid 2-letter code or full state name.");
       setSaving(false);
       return;
     }
-    if (state.postal_code && !postal) {
+    if (ownAddress && state.postal_code && !postal) {
       toast.error("ZIP code must be 5 digits or ZIP+4 format.");
       setSaving(false);
       return;
@@ -302,13 +353,12 @@ export function ProfileForm({
       first_name: firstName,
       last_name: lastName,
       preferred_name: preferredName,
-      bio: trimText(state.bio),
       email: normalizeEmail(state.email),
       phone_mobile: phoneMobile,
       phone_home: phoneHome,
       phone_work: phoneWork,
-      address_line1: titleCaseStreet(state.address_line1),
-      address_line2: titleCaseStreet(state.address_line2),
+      address_line1: ownAddress ? titleCaseStreet(state.address_line1) : null,
+      address_line2: ownAddress ? titleCaseStreet(state.address_line2) : null,
       city,
       state: stateCode,
       postal_code: postal,
@@ -321,7 +371,6 @@ export function ProfileForm({
       ...(isAdmin
         ? { family_id: state.family_id || null }
         : {}),
-      is_unlisted: state.is_unlisted,
       hide_phone_mobile: state.hide_phone_mobile,
       hide_phone_home: state.hide_phone_home,
       hide_phone_work: state.hide_phone_work,
@@ -397,10 +446,10 @@ export function ProfileForm({
           </div>
 
           {/* Name */}
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className={familySurname ? "space-y-2" : "grid gap-4 sm:grid-cols-2"}>
             <div className="space-y-2">
               <Label htmlFor="first_name" className="text-base">
-                First name <Required />
+                First name
               </Label>
               <Input
                 id="first_name"
@@ -413,21 +462,31 @@ export function ProfileForm({
                 className="py-5 text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="last_name" className="text-base">
-                Last name <Required />
-              </Label>
-              <Input
-                id="last_name"
-                value={state.last_name}
-                onChange={(e) => update("last_name", e.target.value)}
-                onBlur={(e) =>
-                  update("last_name", titleCaseName(e.target.value) || "")
-                }
-                required
-                className="py-5 text-base"
+            {familySurname && (
+              <CheckRow
+                id="different_last_name"
+                label={`My last name is different from my family's (${familySurname})`}
+                checked={differentLastName}
+                onChange={setDifferentLastName}
               />
-            </div>
+            )}
+            {(!familySurname || differentLastName) && (
+              <div className="space-y-2">
+                <Label htmlFor="last_name" className="text-base">
+                  Last name
+                </Label>
+                <Input
+                  id="last_name"
+                  value={state.last_name}
+                  onChange={(e) => update("last_name", e.target.value)}
+                  onBlur={(e) =>
+                    update("last_name", titleCaseName(e.target.value) || "")
+                  }
+                  required
+                  className="py-5 text-base"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -442,20 +501,6 @@ export function ProfileForm({
                 update("preferred_name", titleCaseName(e.target.value) || "")
               }
               className="py-5 text-base"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bio" className="text-base">
-              About me <Optional />
-            </Label>
-            <Textarea
-              id="bio"
-              value={state.bio}
-              onChange={(e) => update("bio", e.target.value)}
-              rows={3}
-              className="text-base"
-              placeholder="A sentence or two about yourself"
             />
           </div>
 
@@ -476,7 +521,14 @@ export function ProfileForm({
             />
             {!isAdmin && (
               <p className="text-sm text-muted-foreground">
-                Contact an admin to change your login email.
+                To change your email, use the{" "}
+                <Link
+                  href="/settings"
+                  className="text-brand-primary underline underline-offset-4"
+                >
+                  Settings page
+                </Link>
+                .
               </p>
             )}
             <HideRow
@@ -618,7 +670,7 @@ export function ProfileForm({
 
           <div className="space-y-2">
             <Label htmlFor="anniversary" className="text-base">
-              Anniversary <Optional />
+              Anniversary
             </Label>
             <Input
               id="anniversary"
@@ -640,88 +692,103 @@ export function ProfileForm({
           <Separator />
 
           {/* Address */}
-          <div className="space-y-2">
-            <Label htmlFor="address_line1" className="text-base">
-              Street address <Optional />
-            </Label>
-            <Input
-              id="address_line1"
-              value={state.address_line1}
-              onChange={(e) => update("address_line1", e.target.value)}
-              onBlur={(e) =>
-                update("address_line1", titleCaseStreet(e.target.value) || "")
-              }
-              placeholder="123 Main St"
-              className="py-5 text-base"
+          {familyHasAddress && (
+            <CheckRow
+              id="different_address"
+              label="My address is different from my family's home address"
+              checked={differentAddress}
+              onChange={setDifferentAddress}
             />
-            {profile.family_id && (
-              <p className="text-sm text-muted-foreground">
-                Leave blank to use your family&apos;s shared address.
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="address_line2" className="text-base">
-              Apt / unit <Optional />
-            </Label>
-            <Input
-              id="address_line2"
-              value={state.address_line2}
-              onChange={(e) => update("address_line2", e.target.value)}
-              onBlur={(e) =>
-                update("address_line2", titleCaseStreet(e.target.value) || "")
-              }
-              placeholder="Apt 4B"
-              className="py-5 text-base"
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-            <div className="space-y-2 sm:col-span-3">
-              <Label htmlFor="city" className="text-base">
-                City
-              </Label>
-              <Input
-                id="city"
-                value={state.city}
-                onChange={(e) => update("city", e.target.value)}
-                onBlur={(e) =>
-                  update("city", titleCaseCity(e.target.value) || "")
-                }
-                className="py-5 text-base"
+          )}
+          {(!familyHasAddress || differentAddress) && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="address_line1" className="text-base">
+                  Street address <Optional />
+                </Label>
+                <Input
+                  id="address_line1"
+                  value={state.address_line1}
+                  onChange={(e) => update("address_line1", e.target.value)}
+                  onBlur={(e) =>
+                    update(
+                      "address_line1",
+                      titleCaseStreet(e.target.value) || "",
+                    )
+                  }
+                  placeholder="123 Main St"
+                  className="py-5 text-base"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="address_line2" className="text-base">
+                  Apt / unit <Optional />
+                </Label>
+                <Input
+                  id="address_line2"
+                  value={state.address_line2}
+                  onChange={(e) => update("address_line2", e.target.value)}
+                  onBlur={(e) =>
+                    update(
+                      "address_line2",
+                      titleCaseStreet(e.target.value) || "",
+                    )
+                  }
+                  placeholder="Apt 4B"
+                  className="py-5 text-base"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+                <div className="space-y-2 sm:col-span-3">
+                  <Label htmlFor="city" className="text-base">
+                    City
+                  </Label>
+                  <Input
+                    id="city"
+                    value={state.city}
+                    onChange={(e) => update("city", e.target.value)}
+                    onBlur={(e) =>
+                      update("city", titleCaseCity(e.target.value) || "")
+                    }
+                    className="py-5 text-base"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-1">
+                  <Label htmlFor="state" className="text-base">
+                    State
+                  </Label>
+                  <Input
+                    id="state"
+                    value={state.state}
+                    onChange={(e) =>
+                      update("state", e.target.value.toUpperCase())
+                    }
+                    maxLength={2}
+                    placeholder="TX"
+                    className="py-5 text-base uppercase"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="postal_code" className="text-base">
+                    ZIP
+                  </Label>
+                  <Input
+                    id="postal_code"
+                    value={state.postal_code}
+                    onChange={(e) => update("postal_code", e.target.value)}
+                    placeholder="12345"
+                    className="py-5 text-base"
+                  />
+                </div>
+              </div>
+              <HideRow
+                id="hide_address"
+                label="Hide my address from the directory"
+                checked={state.hide_address}
+                onChange={(v) => update("hide_address", v)}
               />
-            </div>
-            <div className="space-y-2 sm:col-span-1">
-              <Label htmlFor="state" className="text-base">
-                State
-              </Label>
-              <Input
-                id="state"
-                value={state.state}
-                onChange={(e) => update("state", e.target.value.toUpperCase())}
-                maxLength={2}
-                placeholder="TX"
-                className="py-5 text-base uppercase"
-              />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="postal_code" className="text-base">
-                ZIP
-              </Label>
-              <Input
-                id="postal_code"
-                value={state.postal_code}
-                onChange={(e) => update("postal_code", e.target.value)}
-                placeholder="12345"
-                className="py-5 text-base"
-              />
-            </div>
-          </div>
-          <HideRow
-            id="hide_address"
-            label="Hide my address from the directory"
-            checked={state.hide_address}
-            onChange={(v) => update("hide_address", v)}
-          />
+            </>
+          )}
 
           <Separator />
 
@@ -809,26 +876,6 @@ export function ProfileForm({
               </div>
             </>
           )}
-
-          <Separator />
-
-          {/* Master directory switch */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Label htmlFor="is_unlisted" className="cursor-pointer text-base">
-                Hide me from the directory completely
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Your profile will not appear in the member directory at all.
-                Admins can always see all fields.
-              </p>
-            </div>
-            <Switch
-              id="is_unlisted"
-              checked={state.is_unlisted}
-              onCheckedChange={(v) => update("is_unlisted", v)}
-            />
-          </div>
 
           <div className="border-t pt-5">
             <Button

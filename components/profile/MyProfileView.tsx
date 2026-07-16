@@ -283,6 +283,7 @@ export function MyProfileView({
           <ProfileForm
             profile={profile}
             families={[]}
+            family={family}
             isAdmin={false}
             onSaved={() => {
               if (family) setEditing(false);
