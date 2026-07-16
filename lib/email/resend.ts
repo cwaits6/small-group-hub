@@ -137,9 +137,15 @@ export async function sendFeedbackEmail(
         <div style="background: #F3F7FB; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <p style="font-size: 18px; line-height: 1.6; margin: 0; color: #44403c;">${safeMessage}</p>
         </div>
-        <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
+        ${
+          senderEmail
+            ? `<p style="font-size: 14px; color: #78716c; margin-top: 40px;">
           Reply to this email to answer them directly.
-        </p>
+        </p>`
+            : `<p style="font-size: 14px; color: #78716c; margin-top: 40px;">
+          They don't have an email address on file, so this email can't be replied to directly.
+        </p>`
+        }
       </div>
     `,
   });

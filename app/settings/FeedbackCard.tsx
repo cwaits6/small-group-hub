@@ -30,20 +30,25 @@ export function FeedbackCard() {
     }
 
     setSending(true);
-    const res = await fetch("/api/feedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type, message: trimmed }),
-    });
-    setSending(false);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, message: trimmed }),
+      });
 
-    if (!res.ok) {
+      if (!res.ok) {
+        toast.error("Failed to send your feedback. Please try again.");
+        return;
+      }
+
+      setMessage("");
+      toast.success("Thank you — your feedback has been sent.");
+    } catch {
       toast.error("Failed to send your feedback. Please try again.");
-      return;
+    } finally {
+      setSending(false);
     }
-
-    setMessage("");
-    toast.success("Thank you — your feedback has been sent.");
   };
 
   return (

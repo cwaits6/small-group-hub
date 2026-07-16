@@ -35,7 +35,7 @@ export default async function ProfilePage() {
   let familyMembers: FamilyMember[] = [];
 
   if (profile.family_id) {
-    const [{ data: f }, { data: others }, { data: fms }] = await Promise.all([
+    const [familyRes, othersRes, fmsRes] = await Promise.all([
       supabase
         .from("family_units")
         .select("*")
@@ -61,9 +61,15 @@ export default async function ProfilePage() {
         .order("relationship")
         .returns<FamilyMember[]>(),
     ]);
-    family = f ?? null;
-    householdProfiles = others ?? [];
-    familyMembers = fms ?? [];
+    // Fail loudly rather than rendering an empty household over a query error.
+    const queryError = familyRes.error ?? othersRes.error ?? fmsRes.error;
+    if (queryError) {
+      console.error("Failed to load household data:", queryError);
+      throw new Error("Failed to load your household information.");
+    }
+    family = familyRes.data ?? null;
+    householdProfiles = othersRes.data ?? [];
+    familyMembers = fmsRes.data ?? [];
   }
 
   return (

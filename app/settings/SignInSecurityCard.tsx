@@ -213,9 +213,9 @@ export function SignInSecurityCard({ currentEmail }: SignInSecurityCardProps) {
                 autoComplete="new-password"
               />
               <p className="text-sm text-muted-foreground">
-                At least 8 characters. Tip: a short phrase like{" "}
-                <strong>Coffee-Garden-1968!</strong> is easy to remember and
-                very strong.
+                At least 8 characters. Tip: a short phrase of a few unrelated
+                words with a number or symbol is easy to remember and very
+                strong.
               </p>
             </div>
 

@@ -86,6 +86,7 @@ interface FormState {
   hide_birth_year: boolean;
   hide_anniversary: boolean;
   hide_occupation: boolean;
+  is_unlisted: boolean;
 }
 
 function initialState(profile: Profile): FormState {
@@ -118,6 +119,7 @@ function initialState(profile: Profile): FormState {
     hide_birth_year: profile.hide_birth_year ?? false,
     hide_anniversary: profile.hide_anniversary ?? false,
     hide_occupation: profile.hide_occupation ?? false,
+    is_unlisted: profile.is_unlisted ?? false,
   };
 }
 
@@ -309,7 +311,7 @@ export function ProfileForm({
 
     // Validate required shapes — state/zip return null on malformed input.
     if (ownAddress && state.state && !stateCode) {
-      toast.error("State must be a valid 2-letter code or full state name.");
+      toast.error("State must be a 2-letter abbreviation, like TX.");
       setSaving(false);
       return;
     }
@@ -349,11 +351,26 @@ export function ProfileForm({
     const birthDay = state.birth_day ? Number(state.birth_day) : null;
     const birthYear = state.birth_year ? Number(state.birth_year) : null;
 
+    // Calendar-aware birthday check — rejects impossible dates like Feb 31.
+    // Without a year, leap year 2000 is assumed so Feb 29 stays allowed.
+    if (birthDay !== null) {
+      const maxDay = birthMonth
+        ? new Date(birthYear ?? 2000, birthMonth, 0).getDate()
+        : 31;
+      if (!Number.isInteger(birthDay) || birthDay < 1 || birthDay > maxDay) {
+        toast.error("That birthday day doesn't exist in the selected month.");
+        setSaving(false);
+        return;
+      }
+    }
+
     const updates = {
       first_name: firstName,
       last_name: lastName,
       preferred_name: preferredName,
-      email: normalizeEmail(state.email),
+      // The email field is disabled for non-admins (changed via Settings),
+      // and RLS pins profiles.email on non-admin updates — don't send it.
+      ...(isAdmin ? { email: normalizeEmail(state.email) } : {}),
       phone_mobile: phoneMobile,
       phone_home: phoneHome,
       phone_work: phoneWork,
@@ -380,6 +397,7 @@ export function ProfileForm({
       hide_birth_year: state.hide_birth_year,
       hide_anniversary: state.hide_anniversary,
       hide_occupation: state.hide_occupation,
+      is_unlisted: state.is_unlisted,
     };
 
     const { error } = await supabase
@@ -831,6 +849,21 @@ export function ProfileForm({
               onChange={(v) => update("hide_occupation", v)}
             />
           )}
+
+          <Separator />
+
+          {/* Directory listing */}
+          <div className="space-y-1">
+            <HideRow
+              id="is_unlisted"
+              label="Hide me from the directory entirely"
+              checked={state.is_unlisted}
+              onChange={(v) => update("is_unlisted", v)}
+            />
+            <p className="text-sm text-muted-foreground">
+              The profile will not appear in the member directory at all.
+            </p>
+          </div>
 
           {/* Family assignment (admin only) */}
           {isAdmin && (

@@ -19,9 +19,13 @@ export function NotificationsCard({
   const [emailAnnouncements, setEmailAnnouncements] = useState(
     initialEmailAnnouncements,
   );
+  const [saving, setSaving] = useState(false);
   const supabase = createClient();
 
+  // The switch is disabled while a save is pending, so updates can't
+  // overlap and a stale response can't clobber a newer selection.
   const handleChange = async (next: boolean) => {
+    setSaving(true);
     setEmailAnnouncements(next);
     const { error } = await supabase
       .from("profiles")
@@ -32,6 +36,7 @@ export function NotificationsCard({
       setEmailAnnouncements(!next);
       toast.error("Couldn't save that. Please try again.");
     }
+    setSaving(false);
   };
 
   return (
@@ -46,6 +51,7 @@ export function NotificationsCard({
             id="email-announcements"
             checked={emailAnnouncements}
             onCheckedChange={handleChange}
+            disabled={saving}
           />
         </div>
       </CardContent>

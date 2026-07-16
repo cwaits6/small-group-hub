@@ -20,6 +20,22 @@ as $$
   );
 $$;
 
+-- Own-row lookups for the self-update branch. get_profile_role/email are
+-- household-scoped (family_id = current_family_id()) so they return null
+-- for profiles without a family — e.g. during the setup wizard. These read
+-- the caller's own row unconditionally.
+create or replace function public.get_own_role() returns text
+language sql stable security definer set search_path = ''
+as $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+create or replace function public.get_own_email() returns text
+language sql stable security definer set search_path = ''
+as $$
+  select email from public.profiles where id = auth.uid();
+$$;
+
 drop policy if exists "Profiles are updatable per access rules" on public.profiles;
 create policy "Profiles are updatable per access rules"
   on public.profiles for update
@@ -34,7 +50,15 @@ create policy "Profiles are updatable per access rules"
     )
   )
   with check (
-    (select auth.uid()) = id
+    (
+      -- Self-updates cannot change role (privilege escalation) or email
+      -- (login identity — kept in sync from auth.users by trigger).
+      -- family_id and relationship stay self-editable: the setup wizard
+      -- sets one's own family and the household picker sets relationship.
+      (select auth.uid()) = id
+      and role = (select public.get_own_role())
+      and (email is not distinct from (select public.get_own_email()))
+    )
     or (select public.is_admin())
     or (
       family_id = (select public.current_family_id())
