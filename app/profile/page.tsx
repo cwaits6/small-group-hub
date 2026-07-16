@@ -1,12 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { ProfileForm } from "@/components/profile/ProfileForm";
-import { DirectoryPreview } from "@/components/profile/DirectoryPreview";
-import { Button } from "@/components/ui/button";
+import { MyProfileView, type HouseholdEntry } from "@/components/profile/MyProfileView";
 import { siteConfig } from "@/lib/config";
-import { Home } from "lucide-react";
-import type { Profile, FamilyUnit } from "@/lib/types";
+import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 
 export const metadata = { title: `My Profile | ${siteConfig.name}` };
 
@@ -34,42 +30,60 @@ export default async function ProfilePage() {
     redirect("/profile/setup");
   }
 
-  // Members don't reassign their own family — but we still need the form
-  // component to render the family tab disabled, so pass an empty list.
-  const families: FamilyUnit[] = [];
+  let family: FamilyUnit | null = null;
+  let householdProfiles: HouseholdEntry[] = [];
+  let familyMembers: FamilyMember[] = [];
+
+  if (profile.family_id) {
+    const [familyRes, othersRes, fmsRes] = await Promise.all([
+      supabase
+        .from("family_units")
+        .select("*")
+        .eq("id", profile.family_id)
+        .maybeSingle<FamilyUnit>(),
+      // Other enrolled household members, with privacy masking applied so
+      // the tiles show what the directory shows.
+      supabase
+        .from("profiles_directory")
+        .select(
+          "id, first_name, last_name, preferred_name, avatar_url, relationship, email, phone_mobile",
+        )
+        .eq("family_id", profile.family_id)
+        .neq("id", user.id)
+        .order("first_name")
+        .returns<HouseholdEntry[]>(),
+      // Family members without accounts (children etc.)
+      supabase
+        .from("family_members")
+        .select("*")
+        .eq("family_id", profile.family_id)
+        .is("claimed_profile_id", null)
+        .order("relationship")
+        .returns<FamilyMember[]>(),
+    ]);
+    // Fail loudly rather than rendering an empty household over a query error.
+    const queryError = familyRes.error ?? othersRes.error ?? fmsRes.error;
+    if (queryError) {
+      console.error("Failed to load household data:", queryError);
+      throw new Error("Failed to load your household information.");
+    }
+    family = familyRes.data ?? null;
+    householdProfiles = othersRes.data ?? [];
+    familyMembers = fmsRes.data ?? [];
+  }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
+    <div className="container mx-auto max-w-3xl px-4 py-12">
+      <h1 className="mb-6 text-3xl font-bold text-brand-primary md:text-4xl">
         My Profile
       </h1>
-      <p className="text-base text-muted-foreground mb-4">
-        Your contact info for the member directory. Privacy controls let you
-        hide specific fields from other members.
-      </p>
 
-      <div className="mb-8">
-        <DirectoryPreview />
-      </div>
-
-      <ProfileForm profile={profile} families={families} isAdmin={false} />
-
-      {profile.family_id && (
-        <div className="mt-8 pt-6 border-t">
-          <Button
-            variant="outline"
-            nativeButton={false}
-            render={<Link href="/household" />}
-            className="w-full sm:w-auto"
-          >
-            <Home className="mr-2 h-4 w-4" />
-            Manage Household
-          </Button>
-          <p className="text-sm text-muted-foreground mt-2">
-            Update your household&apos;s address, home phone, and family members.
-          </p>
-        </div>
-      )}
+      <MyProfileView
+        profile={profile}
+        family={family}
+        householdProfiles={householdProfiles}
+        familyMembers={familyMembers}
+      />
     </div>
   );
 }

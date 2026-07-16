@@ -110,6 +110,52 @@ export async function sendFamilyInviteEmail(
   }
 }
 
+export async function sendFeedbackEmail(
+  to: string[],
+  senderName: string,
+  senderEmail: string | null,
+  type: "idea" | "problem",
+  message: string
+) {
+  const kind = type === "problem" ? "Something's broken" : "An idea";
+  const safeSenderName = escapeHtml(senderName);
+  const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
+
+  const { error } = await getResend().emails.send({
+    from: siteConfig.email.from,
+    to,
+    ...(senderEmail ? { replyTo: senderEmail } : {}),
+    subject: `${siteConfig.name} feedback from ${senderName}: ${kind}`,
+    html: `
+      <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">Member feedback</h1>
+        <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
+          <strong>${safeSenderName}</strong>${senderEmail ? ` (${escapeHtml(senderEmail)})` : ""}
+          sent feedback from the Settings page.
+        </p>
+        <p style="font-size: 16px; color: #78716c; margin: 0;">Type: <strong>${kind}</strong></p>
+        <div style="background: #F3F7FB; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <p style="font-size: 18px; line-height: 1.6; margin: 0; color: #44403c;">${safeMessage}</p>
+        </div>
+        ${
+          senderEmail
+            ? `<p style="font-size: 14px; color: #78716c; margin-top: 40px;">
+          Reply to this email to answer them directly.
+        </p>`
+            : `<p style="font-size: 14px; color: #78716c; margin-top: 40px;">
+          They don't have an email address on file, so this email can't be replied to directly.
+        </p>`
+        }
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Failed to send feedback email:", error);
+    throw error;
+  }
+}
+
 export async function sendEventReminderEmail(
   email: string,
   name: string,

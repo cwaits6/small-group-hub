@@ -63,12 +63,14 @@
   --secondary: #E2ECF7;
   --secondary-foreground: #2F6BA8;
   --muted: #E5E0D4;
-  --muted-foreground: #6E7E94;
+  /* Locked design tokens: secondary text passes 4.5:1, borders deepened
+     for visible edges (senior-legibility corrections from the redesign) */
+  --muted-foreground: #435066;
   --accent: #E8A93C;
   --accent-foreground: #15243A;
   --destructive: #EF4444;
-  --border: #E5E0D4;
-  --input: #E5E0D4;
+  --border: #D8D2C4;
+  --input: #D8D2C4;
   --ring: #2F6BA8;
   --radius: 0.5rem;
   --sidebar: #FBFAF5;
@@ -77,9 +79,41 @@
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E8A93C;
   --sidebar-accent-foreground: #15243A;
-  --sidebar-border: #E5E0D4;
+  --sidebar-border: #D8D2C4;
   --sidebar-ring: #2F6BA8;
 
+}
+
+/* ============================================================
+   Display preferences (Settings → Display)
+   data-textsize is set on <html> by the inline script in
+   app/layout.tsx (from localStorage) and by the Settings page
+   text-size control.
+   ============================================================ */
+
+/* Text size: scale the Tailwind font-size variables so every
+   text-* utility follows the chosen comfort level. Unlayered
+   :root wins over the @layer theme defaults. Line heights are
+   ratios in Tailwind v4, so they scale along automatically. */
+:root {
+  --text-scale: 1;
+  --text-xs: calc(0.75rem * var(--text-scale));
+  --text-sm: calc(0.875rem * var(--text-scale));
+  --text-base: calc(1rem * var(--text-scale));
+  --text-lg: calc(1.125rem * var(--text-scale));
+  --text-xl: calc(1.25rem * var(--text-scale));
+  --text-2xl: calc(1.5rem * var(--text-scale));
+  --text-3xl: calc(1.875rem * var(--text-scale));
+  --text-4xl: calc(2.25rem * var(--text-scale));
+  --text-5xl: calc(3rem * var(--text-scale));
+}
+
+html[data-textsize="large"] {
+  --text-scale: 1.11;
+}
+
+html[data-textsize="larger"] {
+  --text-scale: 1.22;
 }
 
 @keyframes float {
@@ -139,7 +173,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    font-size: 18px;
+    font-size: calc(18px * var(--text-scale));
     line-height: 1.55;
   }
   html {
@@ -151,13 +185,13 @@
     font-weight: 500;
   }
   h1 {
-    font-size: 2.5rem;
+    font-size: calc(2.5rem * var(--text-scale));
   }
   h2 {
-    font-size: 1.75rem;
+    font-size: calc(1.75rem * var(--text-scale));
   }
   h3 {
-    font-size: 1.25rem;
+    font-size: calc(1.25rem * var(--text-scale));
   }
   h4, h5, h6 {
     line-height: 1.35;

@@ -107,11 +107,6 @@ export function PersonCard({ profile, family }: PersonCardProps) {
         </div>
       )}
 
-      {/* Bio */}
-      {profile.bio && (
-        <p className="text-base italic text-muted-foreground">{profile.bio}</p>
-      )}
-
       <div>
         {/* Phones */}
         {profile.phone_mobile && (

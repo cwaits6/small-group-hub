@@ -43,6 +43,7 @@ export interface Profile {
   is_prayer_team: boolean;
   is_greeter_team: boolean;
   is_prayer_warrior: boolean;
+  email_announcements: boolean;
   setup_completed: boolean;
   approved_at: string | null;
   approved_by: string | null;

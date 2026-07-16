@@ -1,0 +1,106 @@
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { sendFeedbackEmail } from "@/lib/email/resend";
+import { displayName } from "@/lib/names";
+import { NextResponse, after } from "next/server";
+
+// Per-user submission cap. Feedback is a low-volume form; this keeps a
+// stuck client or a hostile script from flooding the table and admin inboxes.
+const RATE_LIMIT = 5;
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+export async function POST(request: Request) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, first_name, last_name, preferred_name")
+    .eq("id", user.id)
+    .single();
+
+  if (
+    !profile ||
+    !["member", "content_editor", "admin"].includes(profile.role)
+  ) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const type = body?.type;
+  const message = typeof body?.message === "string" ? body.message.trim() : "";
+
+  if (
+    (type !== "idea" && type !== "problem") ||
+    !message ||
+    message.length > 2000
+  ) {
+    return NextResponse.json({ error: "Invalid feedback" }, { status: 400 });
+  }
+
+  // Throttle per user. RLS only lets admins read feedback rows, so the
+  // count runs on the service client. Fails open — a broken count
+  // shouldn't block feedback.
+  const service = await createServiceClient();
+  const windowStart = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
+  const { count, error: countError } = await service
+    .from("feedback")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", user.id)
+    .gte("created_at", windowStart);
+  if (countError) {
+    console.error("Failed to check feedback rate limit:", countError);
+  } else if ((count ?? 0) >= RATE_LIMIT) {
+    return NextResponse.json(
+      { error: "Too many submissions — please try again later" },
+      { status: 429 },
+    );
+  }
+
+  const { error: insertError } = await supabase
+    .from("feedback")
+    .insert({ profile_id: user.id, type, message });
+
+  if (insertError) {
+    console.error("Failed to store feedback:", insertError);
+    return NextResponse.json(
+      { error: "Failed to save feedback" },
+      { status: 500 },
+    );
+  }
+
+  // Email a copy to the admins — best effort, the row above is the record.
+  // Runs after the response so a slow email provider never delays the user.
+  // Uses the service client: the user client's request-scoped cookie store
+  // isn't reliable once the response has been sent.
+  after(async () => {
+    try {
+      const { data: admins } = await service
+        .from("profiles")
+        .select("email")
+        .eq("role", "admin")
+        .not("email", "is", null);
+      const emails = (admins ?? [])
+        .map((a) => a.email)
+        .filter((e): e is string => Boolean(e));
+      if (emails.length > 0) {
+        await sendFeedbackEmail(
+          emails,
+          displayName(profile),
+          user.email ?? null,
+          type,
+          message,
+        );
+      }
+    } catch (error) {
+      console.error("Failed to email feedback to admins:", error);
+    }
+  });
+
+  return NextResponse.json({ ok: true });
+}
