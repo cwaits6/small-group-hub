@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Segmented } from "./Segmented";
 
 type TextSize = "normal" | "large" | "larger";
@@ -25,14 +24,11 @@ function persist(key: string, value: string | null) {
 
 export function DisplayCard() {
   const [textSize, setTextSize] = useState<TextSize>("normal");
-  const [highContrast, setHighContrast] = useState(false);
 
-  // The <head> script applied saved prefs before paint; sync state to it.
+  // The <head> script applied the saved pref before paint; sync state to it.
   useEffect(() => {
-    const root = document.documentElement;
-    const saved = root.dataset.textsize;
+    const saved = document.documentElement.dataset.textsize;
     if (saved === "large" || saved === "larger") setTextSize(saved);
-    setHighContrast(root.dataset.contrast === "high");
   }, []);
 
   const applyTextSize = (size: TextSize) => {
@@ -44,18 +40,6 @@ export function DisplayCard() {
     } else {
       root.dataset.textsize = size;
       persist("pref-textsize", size);
-    }
-  };
-
-  const applyContrast = (on: boolean) => {
-    setHighContrast(on);
-    const root = document.documentElement;
-    if (on) {
-      root.dataset.contrast = "high";
-      persist("pref-contrast", "high");
-    } else {
-      delete root.dataset.contrast;
-      persist("pref-contrast", null);
     }
   };
 
@@ -74,22 +58,6 @@ export function DisplayCard() {
               onChange={applyTextSize}
             />
           </div>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
-          <div>
-            <Label htmlFor="high-contrast" className="text-base font-semibold">
-              Higher contrast
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              Darker text and stronger edges — easier to read.
-            </p>
-          </div>
-          <Switch
-            id="high-contrast"
-            checked={highContrast}
-            onCheckedChange={applyContrast}
-          />
         </div>
       </CardContent>
     </Card>

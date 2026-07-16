@@ -76,9 +76,9 @@ export default async function RootLayout({
   }
 
   return (
-    // suppressHydrationWarning: the head script sets data-textsize/-contrast
-    // on <html> before React hydrates, and browsers mask script nonces so the
-    // client always reads them as "" — both are expected mismatches.
+    // suppressHydrationWarning: the head script sets data-textsize on <html>
+    // before React hydrates, and browsers mask script nonces so the client
+    // always reads them as "" — both are expected mismatches.
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* Apply saved display preferences before first paint */}
@@ -86,7 +86,7 @@ export default async function RootLayout({
           nonce={nonce}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `try{var d=document.documentElement,t=localStorage.getItem("pref-textsize");if(t==="large"||t==="larger")d.dataset.textsize=t;if(localStorage.getItem("pref-contrast")==="high")d.dataset.contrast="high"}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("pref-textsize");if(t==="large"||t==="larger")document.documentElement.dataset.textsize=t}catch(e){}`,
           }}
         />
         <style

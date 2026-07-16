@@ -63,12 +63,14 @@
   --secondary: #E2ECF7;
   --secondary-foreground: #2F6BA8;
   --muted: #E5E0D4;
-  --muted-foreground: #6E7E94;
+  /* Locked design tokens: secondary text passes 4.5:1, borders deepened
+     for visible edges (senior-legibility corrections from the redesign) */
+  --muted-foreground: #435066;
   --accent: #E8A93C;
   --accent-foreground: #15243A;
   --destructive: #EF4444;
-  --border: #E5E0D4;
-  --input: #E5E0D4;
+  --border: #D8D2C4;
+  --input: #D8D2C4;
   --ring: #2F6BA8;
   --radius: 0.5rem;
   --sidebar: #FBFAF5;
@@ -77,16 +79,16 @@
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #E8A93C;
   --sidebar-accent-foreground: #15243A;
-  --sidebar-border: #E5E0D4;
+  --sidebar-border: #D8D2C4;
   --sidebar-ring: #2F6BA8;
 
 }
 
 /* ============================================================
    Display preferences (Settings → Display)
-   data-textsize / data-contrast are set on <html> by the inline
-   script in app/layout.tsx (from localStorage) and by the
-   Settings page controls.
+   data-textsize is set on <html> by the inline script in
+   app/layout.tsx (from localStorage) and by the Settings page
+   text-size control.
    ============================================================ */
 
 /* Text size: scale the Tailwind font-size variables so every
@@ -112,16 +114,6 @@ html[data-textsize="large"] {
 
 html[data-textsize="larger"] {
   --text-scale: 1.22;
-}
-
-/* Higher contrast: darker secondary text and stronger edges. */
-html[data-contrast="high"] {
-  --muted-foreground: #435066;
-  --border: #C9C2B0;
-  --input: #C9C2B0;
-  --color-slate-400: #64748B;
-  --color-slate-500: #435066;
-  --color-slate-600: #334155;
 }
 
 @keyframes float {
