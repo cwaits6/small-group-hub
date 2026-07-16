@@ -1,3 +1,10 @@
+# [0.18.0](https://github.com/cwaits6/small-group-hub/compare/v0.17.1...v0.18.0) (2026-07-16)
+
+
+### Features
+
+* My Profile + Settings pages from InCouragers redesign ([#206](https://github.com/cwaits6/small-group-hub/issues/206)) ([a91a73f](https://github.com/cwaits6/small-group-hub/commit/a91a73fdf4a20f843e635bdcee7044ec960255a8)), closes [#435066](https://github.com/cwaits6/small-group-hub/issues/435066) [#D8D2C4](https://github.com/cwaits6/small-group-hub/issues/D8D2C4)
+
 ## [0.17.1](https://github.com/cwaits6/small-group-hub/compare/v0.17.0...v0.17.1) (2026-07-13)
 
 
