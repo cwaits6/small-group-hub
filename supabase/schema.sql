@@ -34,6 +34,28 @@ $$;
 ALTER FUNCTION "public"."current_family_id"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."get_own_email"() RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select email from public.profiles where id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "public"."get_own_email"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."get_own_role"() RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select role from public.profiles where id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "public"."get_own_role"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."get_profile_email"("profile_id" "uuid") RETURNS "text"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -90,6 +112,20 @@ $$;
 
 
 ALTER FUNCTION "public"."giving_stewards_can_manage"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."handle_auth_user_email_change"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+begin
+  update public.profiles set email = new.email where id = new.id;
+  return new;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."handle_auth_user_email_change"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
@@ -172,6 +208,22 @@ $$;
 
 
 ALTER FUNCTION "public"."is_group_leader"("_group_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."is_household_manager"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and relationship in ('primary', 'spouse')
+      and role in ('member', 'content_editor', 'admin')
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_household_manager"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_member"() RETURNS boolean
@@ -491,6 +543,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "is_prayer_team" boolean DEFAULT false NOT NULL,
     "is_greeter_team" boolean DEFAULT false NOT NULL,
     "is_prayer_warrior" boolean DEFAULT false NOT NULL,
+    "email_announcements" boolean DEFAULT true NOT NULL,
     CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
     CONSTRAINT "profiles_birth_month_check" CHECK ((("birth_month" >= 1) AND ("birth_month" <= 12))),
     CONSTRAINT "profiles_birth_year_check" CHECK ((("birth_year" >= 1900) AND ("birth_year" <= 2100))),
@@ -575,6 +628,20 @@ CREATE TABLE IF NOT EXISTS "public"."family_invites" (
 
 
 ALTER TABLE "public"."family_invites" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."feedback" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "profile_id" "uuid",
+    "type" "text" NOT NULL,
+    "message" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "feedback_message_check" CHECK ((("char_length"("message") >= 1) AND ("char_length"("message") <= 2000))),
+    CONSTRAINT "feedback_type_check" CHECK (("type" = ANY (ARRAY['idea'::"text", 'problem'::"text"])))
+);
+
+
+ALTER TABLE "public"."feedback" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."giving_fund_methods" (
@@ -960,6 +1027,11 @@ ALTER TABLE ONLY "public"."family_units"
 
 
 
+ALTER TABLE ONLY "public"."feedback"
+    ADD CONSTRAINT "feedback_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."giving_fund_methods"
     ADD CONSTRAINT "giving_fund_methods_pkey" PRIMARY KEY ("fund_id", "method");
 
@@ -1310,6 +1382,11 @@ ALTER TABLE ONLY "public"."family_members"
 
 
 
+ALTER TABLE ONLY "public"."feedback"
+    ADD CONSTRAINT "feedback_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
 ALTER TABLE ONLY "public"."giving_fund_methods"
     ADD CONSTRAINT "giving_fund_methods_fund_id_fkey" FOREIGN KEY ("fund_id") REFERENCES "public"."giving_funds"("id") ON DELETE CASCADE;
 
@@ -1595,6 +1672,10 @@ CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT
 
 
 
+CREATE POLICY "Admins can read feedback" ON "public"."feedback" FOR SELECT USING (( SELECT "public"."is_admin"() AS "is_admin"));
+
+
+
 CREATE POLICY "Admins can update access requests" ON "public"."access_requests" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
 
 
@@ -1767,6 +1848,10 @@ CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR
 
 
 
+CREATE POLICY "Members can submit their own feedback" ON "public"."feedback" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "profile_id") AND ( SELECT "public"."is_member"() AS "is_member")));
+
+
+
 CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
@@ -1841,9 +1926,7 @@ CREATE POLICY "Posters and admins can update prayer requests" ON "public"."praye
 
 
 
-CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND (EXISTS ( SELECT 1
-   FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])) AND ("self"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))))))) WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id"))))));
+CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_household_manager"() AS "is_household_manager")))) WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "id") AND ("role" = ( SELECT "public"."get_own_role"() AS "get_own_role")) AND (NOT ("email" IS DISTINCT FROM ( SELECT "public"."get_own_email"() AS "get_own_email")))) OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id"))))));
 
 
 
@@ -1895,6 +1978,9 @@ ALTER TABLE "public"."family_members" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."family_units" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."feedback" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."giving_fund_methods" ENABLE ROW LEVEL SECURITY;
@@ -1961,6 +2047,18 @@ GRANT ALL ON FUNCTION "public"."current_family_id"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."get_own_email"() TO "anon";
+GRANT ALL ON FUNCTION "public"."get_own_email"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_own_email"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."get_own_role"() TO "anon";
+GRANT ALL ON FUNCTION "public"."get_own_role"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_own_role"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."get_profile_email"("profile_id" "uuid") TO "service_role";
@@ -1985,6 +2083,12 @@ GRANT ALL ON FUNCTION "public"."giving_stewards_can_manage"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."handle_auth_user_email_change"() TO "anon";
+GRANT ALL ON FUNCTION "public"."handle_auth_user_email_change"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."handle_auth_user_email_change"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
@@ -2006,6 +2110,12 @@ GRANT ALL ON FUNCTION "public"."is_content_editor"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_group_leader"("_group_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_household_manager"() TO "anon";
+GRANT ALL ON FUNCTION "public"."is_household_manager"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_household_manager"() TO "service_role";
 
 
 
@@ -2108,6 +2218,12 @@ GRANT ALL ON TABLE "public"."families_directory_full" TO "service_role";
 GRANT ALL ON TABLE "public"."family_invites" TO "anon";
 GRANT ALL ON TABLE "public"."family_invites" TO "authenticated";
 GRANT ALL ON TABLE "public"."family_invites" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."feedback" TO "anon";
+GRANT ALL ON TABLE "public"."feedback" TO "authenticated";
+GRANT ALL ON TABLE "public"."feedback" TO "service_role";
 
 
 
