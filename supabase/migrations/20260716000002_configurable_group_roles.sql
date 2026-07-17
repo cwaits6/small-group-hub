@@ -45,6 +45,13 @@ returns trigger as $$
 declare
   _profile_id uuid := coalesce(new.profile_id, old.profile_id);
 begin
+  -- Lock the profile row before recomputing so concurrent membership changes
+  -- for the same profile serialize here: under read committed, the statement
+  -- after the lock is granted runs with a fresh snapshot that includes the
+  -- other transaction's committed writes, so the last recompute can't clobber
+  -- the flag with a stale membership view.
+  perform 1 from public.profiles where id = _profile_id for update;
+
   update public.profiles
   set is_prayer_warrior = exists (
     select 1
@@ -68,6 +75,16 @@ create trigger profile_groups_sync_prayer_access
 create or replace function public.sync_prayer_access_for_group()
 returns trigger as $$
 begin
+  -- Same locking discipline as the per-profile sync, and in deterministic
+  -- (id) order so two concurrent group-wide recomputes can't deadlock.
+  perform 1
+  from public.profiles
+  where id in (
+    select profile_id from public.profile_groups where group_id = new.id
+  )
+  order by id
+  for update;
+
   update public.profiles p
   set is_prayer_warrior = exists (
     select 1

@@ -52,6 +52,6 @@ UPDATE public.profiles SET role = 'admin' WHERE id = 'a0000000-0000-0000-0000-00
 -- Dev-only starter group so the prayer wall's restricted-visibility flow is
 -- testable locally. Production deployments create their own groups at
 -- /admin/groups.
-INSERT INTO public.member_groups (name, description, color, icon, display_order, grants_prayer_access, is_serving_role)
-VALUES ('Prayer Warriors', 'Sees prayer requests shared with prayer warriors', '#8A6BB5', 'shield', 0, true, true)
-ON CONFLICT DO NOTHING;
+INSERT INTO public.member_groups (id, name, description, color, icon, display_order, grants_prayer_access, is_serving_role)
+VALUES ('b0000000-0000-0000-0000-000000000001', 'Prayer Warriors', 'Sees prayer requests shared with prayer warriors', '#8A6BB5', 'shield', 0, true, true)
+ON CONFLICT (id) DO NOTHING;
