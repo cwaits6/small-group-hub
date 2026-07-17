@@ -40,8 +40,7 @@ export interface Profile {
   hide_occupation: boolean;
   hide_birth_year: boolean;
   relationship: FamilyMemberRelationship;
-  is_prayer_team: boolean;
-  is_greeter_team: boolean;
+  /** Denormalized from prayer-access group membership; DB triggers own it */
   is_prayer_warrior: boolean;
   email_announcements: boolean;
   setup_completed: boolean;
@@ -221,7 +220,7 @@ export interface FamilyMember {
   updated_at: string;
 }
 
-/** A member group (prayer team, greeter team, custom groups, etc.) */
+/** An admin-defined member group; names and roles vary per deployment */
 export interface MemberGroup {
   id: string;
   name: string;
@@ -229,7 +228,8 @@ export interface MemberGroup {
   color: string | null;
   icon: string | null;
   display_order: number;
-  functional_role: "prayer_team" | "greeter_team" | "prayer_warriors" | null;
+  /** Members can see prayer requests restricted to prayer warriors */
+  grants_prayer_access: boolean;
   show_in_directory_filter: boolean;
   /** Listed on the Serve page as a standing role/team (vs. a directory-only tag) */
   is_serving_role: boolean;

@@ -79,14 +79,10 @@ create policy "Admins can delete profile groups"
   on public.profile_groups for delete
   using (public.is_admin());
 
--- ==================
--- SEED: Default groups (Prayer Team, Greeter Team)
--- ==================
-insert into public.member_groups (name, description, color, icon, display_order, functional_role)
-values
-  ('Prayer Team', 'Available for Sunday prayer assignment', '#059669', 'heart', 0, 'prayer_team'),
-  ('Greeter Team', 'Available to greet on Sundays', '#f59e0b', 'hand-helping', 1, 'greeter_team')
-on conflict do nothing;
+-- No seed rows: groups are deployment-specific and created by admins at
+-- /admin/groups. (Historical note: this migration originally seeded Prayer
+-- Team and Greeter Team; the inserts were removed after this version was
+-- applied to existing databases, so only fresh deployments see the change.)
 
 -- ==================
 -- BACKFILL: Create group assignments from existing is_prayer_team / is_greeter_team flags

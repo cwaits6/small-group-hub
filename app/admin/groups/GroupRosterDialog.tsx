@@ -32,8 +32,8 @@ interface GroupRosterDialogProps {
 /**
  * Group roster management, Okta-style: the default view shows only who is
  * currently in the group (with remove), and an explicit "Add members" mode
- * searches the rest of the class. Functional-role booleans stay in sync via
- * setGroupMembership.
+ * searches the rest of the class. Denormalized role flags on profiles stay
+ * in sync via database triggers.
  */
 export function GroupRosterDialog({
   group,

@@ -40,8 +40,9 @@ export default async function PrayerPage() {
       .order("display_order")
       .order("created_at"),
     loadFundFormData(supabase),
-    // Roster of the Prayer Warriors group so posters can see who a
-    // warrior-restricted request will reach. RLS trims this to listed profiles.
+    // Roster of everyone with prayer-wall access (members of any group that
+    // grants it) so posters can see who a warrior-restricted request will
+    // reach. RLS trims this to listed profiles.
     supabase
       .from("profiles")
       .select("id, first_name, last_name, preferred_name, avatar_url")
