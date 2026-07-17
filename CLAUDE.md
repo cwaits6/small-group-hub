@@ -32,6 +32,6 @@ Next.js + Supabase app for a church small group, deployed on Vercel. Open source
 ## UI conventions
 
 - Plain, functional copy: verb+noun labels, no salesy subtitles or cute metaphors.
-- The audience is 50–85 years old: large type, high contrast, generous touch targets.
+- The audience spans adults 18+ through members in their late 80s. Design for the oldest members — large type, high contrast, generous touch targets — without making the UI feel dated to younger ones.
 - Assignment/roster UIs show current members by default with an explicit "add" mode — never render full toggle lists of every person.
 - Base UI `Select` components must receive the `items` prop, or the trigger renders raw values.
