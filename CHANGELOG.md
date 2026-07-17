@@ -1,3 +1,10 @@
+# [0.19.0](https://github.com/cwaits6/small-group-hub/compare/v0.18.0...v0.19.0) (2026-07-17)
+
+
+### Features
+
+* make group roles deployment-configurable ([#222](https://github.com/cwaits6/small-group-hub/issues/222)) ([568f7e4](https://github.com/cwaits6/small-group-hub/commit/568f7e4df32da8fb5f14845c4de3ac4b5a65d2ff))
+
 # [0.18.0](https://github.com/cwaits6/small-group-hub/compare/v0.17.1...v0.18.0) (2026-07-16)
 
 
