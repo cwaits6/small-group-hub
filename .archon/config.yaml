@@ -8,3 +8,9 @@
 #       model: sonnet
 #   docs:
 #     path: docs
+
+# Copy gitignored local config into each Archon worktree so dev servers
+# and Supabase clients work out of the box.
+worktree:
+  copyFiles:
+    - .env.local
