@@ -11,7 +11,7 @@
 -- with. Prayer call leaders (leader_id on a session) get no special read access.
 
 -- ==================
--- ROLE: prayer warriors (profile flag + seeded member group)
+-- ROLE: prayer warriors (profile flag)
 -- ==================
 alter table public.profiles
   add column is_prayer_warrior boolean not null default false;
@@ -22,17 +22,10 @@ alter table public.member_groups
   add constraint member_groups_functional_role_check
   check (functional_role in ('prayer_team', 'greeter_team', 'prayer_warriors'));
 
-insert into public.member_groups (name, description, color, icon, display_order, functional_role)
-select
-  'Prayer Warriors',
-  'Sees prayer requests shared with prayer warriors',
-  '#8A6BB5',
-  'shield',
-  coalesce((select max(display_order) + 1 from public.member_groups), 0),
-  'prayer_warriors'
-where not exists (
-  select 1 from public.member_groups where functional_role = 'prayer_warriors'
-);
+-- No seed row: each deployment designates its own prayer-access group at
+-- /admin/groups. (Historical note: this migration originally seeded a
+-- "Prayer Warriors" group; the insert was removed after this version was
+-- applied to existing databases, so only fresh deployments see the change.)
 
 -- ==================
 -- PRAYER_CALL_SESSIONS: the weekly prayer call card (supports multiple sessions)

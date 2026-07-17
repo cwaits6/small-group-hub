@@ -16,9 +16,8 @@ interface MemberGroupsSectionProps {
 /**
  * Admin-only section within the member edit page.
  * Displays all member groups as checkboxes — toggling a group
- * assigns or removes the member from that group.
- * When a group has a functional_role, the corresponding boolean on
- * profiles (is_prayer_team / is_greeter_team) is also synced.
+ * assigns or removes the member from that group. Denormalized role
+ * flags on profiles are kept in sync by database triggers.
  */
 export function MemberGroupsSection({ profileId }: MemberGroupsSectionProps) {
   const [groups, setGroups] = useState<MemberGroup[]>([]);
