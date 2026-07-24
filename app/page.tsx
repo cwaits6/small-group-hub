@@ -8,14 +8,6 @@ export default function HomePage() {
     <div>
       {/* ── Hero ── */}
       <section className="relative overflow-hidden bg-background">
-        {/* Subtle paper-grain texture overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.035] pointer-events-none"
-          style={{
-            backgroundImage: "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
-          }}
-        />
-
         <div className="relative container mx-auto px-4 py-20 md:py-32">
           <div className="max-w-2xl">
             {/* Eyebrow label */}
