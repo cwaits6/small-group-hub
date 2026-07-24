@@ -12,6 +12,13 @@ import {
   ComboboxItem,
   ComboboxEmpty,
 } from "@/components/ui/combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { sessionLabel, telHref, WEEKDAY_LABELS } from "@/lib/prayer";
 import { savePrayerCallSessions, type SessionDraft } from "@/lib/prayerCalls";
 import type { MemberOption } from "@/components/giving/FundForm";
@@ -32,6 +39,11 @@ interface Draft {
 }
 
 const NONE = "none";
+
+const WEEKDAY_OPTIONS = WEEKDAY_LABELS.map((label, w) => ({
+  value: String(w),
+  label,
+}));
 
 const toDraft = (s: PrayerCallSession): Draft => ({
   id: s.id,
@@ -224,17 +236,22 @@ export function PrayerCallCard({
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
                     Day
                   </span>
-                  <select
+                  <Select
+                    items={WEEKDAY_OPTIONS}
                     value={d.weekday}
-                    onChange={(e) => setField(i, "weekday", e.target.value)}
-                    className={inputClass}
+                    onValueChange={(v) => setField(i, "weekday", v ?? d.weekday)}
                   >
-                    {WEEKDAY_LABELS.map((label, w) => (
-                      <option key={label} value={w} className="text-foreground">
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full rounded-lg border-white/25 bg-white/10 text-background focus-visible:border-white/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WEEKDAY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">

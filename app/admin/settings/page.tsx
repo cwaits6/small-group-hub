@@ -6,11 +6,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface SettingsMap {
   [key: string]: string;
 }
+
+const SERVING_LINK_MODE_OPTIONS = [
+  { value: "signed", label: "Signed links — members act without logging in (recommended)" },
+  { value: "login", label: "Login required — links redirect to the login page first" },
+];
 
 const SETTINGS_LABELS: Record<string, string> = {
   site_name: "Site Name",
@@ -92,17 +104,24 @@ export default function SettingsPage() {
               <div key={key} className="space-y-2">
                 <Label htmlFor={key} className="text-lg">{label}</Label>
                 {key === "serving_link_mode" ? (
-                  <select
-                    id={key}
+                  <Select
+                    items={SERVING_LINK_MODE_OPTIONS}
                     value={settings[key] || "signed"}
-                    onChange={(e) =>
-                      setSettings((prev) => ({ ...prev, [key]: e.target.value }))
+                    onValueChange={(v) =>
+                      setSettings((prev) => ({ ...prev, [key]: v ?? "signed" }))
                     }
-                    className="w-full rounded-md border border-input bg-background px-3 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
                   >
-                    <option value="signed">Signed links — members act without logging in (recommended)</option>
-                    <option value="login">Login required — links redirect to the login page first</option>
-                  </select>
+                    <SelectTrigger id={key} className="w-full text-lg py-5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVING_LINK_MODE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <Input
                     id={key}
