@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home, Info } from "lucide-react";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
 
 export const metadata = { title: `Admin | ${siteConfig.name}` };
@@ -104,10 +106,8 @@ export default async function AdminPage() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
-        Admin Dashboard
-      </h1>
+    <PageContainer size="wide">
+      <PageHeader title="Admin Dashboard" />
 
       {/* Stats */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
@@ -181,6 +181,6 @@ export default async function AdminPage() {
           </Link>
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }

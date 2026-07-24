@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AnnouncementCard } from "@/components/announcements/AnnouncementCard";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
 
 export const metadata = { title: `Announcements | ${siteConfig.name}` };
@@ -21,13 +23,11 @@ export default async function AnnouncementsPage() {
     .order("published_at", { ascending: false });
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        Announcements
-      </h1>
-      <p className="text-lg text-muted-foreground mb-10">
-        Stay up to date with the latest news from our group.
-      </p>
+    <PageContainer>
+      <PageHeader
+        title="Announcements"
+        subtitle="News and updates from our group."
+      />
 
       {announcements && announcements.length > 0 ? (
         <div className="space-y-6">
@@ -38,6 +38,6 @@ export default async function AnnouncementsPage() {
       ) : (
         <p className="text-xl text-muted-foreground">No announcements yet.</p>
       )}
-    </div>
+    </PageContainer>
   );
 }
