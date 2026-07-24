@@ -22,6 +22,9 @@ import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
 type View = "calendar" | "list";
 
+const outlineButtonClass =
+  "h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary";
+
 interface EventsPageClientProps {
   allEvents: (Event & { calendar?: EventCalendar | null })[];
   calendars: EventCalendar[];
@@ -102,7 +105,7 @@ export function EventsPageClient({
               <>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
+                  className={outlineButtonClass}
                   nativeButton={false}
                   render={<Link href="/admin/events/new" />}
                 >
@@ -110,7 +113,7 @@ export function EventsPageClient({
                 </Button>
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
+                  className={outlineButtonClass}
                   nativeButton={false}
                   render={<Link href="/admin/calendars" />}
                 >

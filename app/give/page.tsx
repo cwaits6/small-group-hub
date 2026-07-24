@@ -146,25 +146,23 @@ export default async function GivePage() {
         }
       />
 
-      <div>
-        {views.length > 0 ? (
-          <GiveList funds={views} />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-            <p className="text-xl text-muted-foreground">No funds yet.</p>
-            {canCreate && (
-              <p className="mt-2 text-muted-foreground">
-                <Link
-                  href="/give/new"
-                  className="font-semibold text-brand-primary hover:underline"
-                >
-                  Add the first fund
-                </Link>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
+      {views.length > 0 ? (
+        <GiveList funds={views} />
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+          <p className="text-xl text-muted-foreground">No funds yet.</p>
+          {canCreate && (
+            <p className="mt-2 text-muted-foreground">
+              <Link
+                href="/give/new"
+                className="font-semibold text-brand-primary hover:underline"
+              >
+                Add the first fund
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
     </PageContainer>
   );
 }
