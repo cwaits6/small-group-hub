@@ -49,6 +49,13 @@
   --color-brand-warm: #E2ECF7;
   --color-brand-bg-light: #FAEBC2;
   --color-brand-bg-muted: #E5E0D4;
+  --color-brand-navy: #1C2B3A;
+  --color-brand-neutral: #6B7280;
+  --color-brand-success: #3E8E5A;
+  --color-avatar-rust: #C4704A;
+  --color-avatar-sage: #7BA68A;
+  --color-avatar-tan: #B58A6B;
+  --color-avatar-slate: #6E7E94;
 }
 
 :root {

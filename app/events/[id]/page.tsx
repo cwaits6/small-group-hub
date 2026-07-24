@@ -296,11 +296,11 @@ export default async function EventDetailPage({
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ background: "#E8A93C" }}
+                  style={{ background: "var(--color-brand-accent)" }}
                 />
                 <span
                   className="font-sans text-[11px] font-bold uppercase tracking-[1.5px]"
-                  style={{ color: "#E8A93C" }}
+                  style={{ color: "var(--color-brand-accent)" }}
                 >
                   {diffDays <= 1
                     ? upcomingLabel
@@ -318,7 +318,7 @@ export default async function EventDetailPage({
             {event.calendar?.name && (
               <p
                 className="font-serif italic text-[22px] mt-2 leading-snug tracking-tight"
-                style={{ color: "#2F6BA8" }}
+                style={{ color: "var(--color-brand-primary)" }}
               >
                 {event.calendar.name}
               </p>
@@ -379,8 +379,9 @@ export default async function EventDetailPage({
               <div
                 className="rounded-[18px] p-6 relative overflow-hidden"
                 style={{
-                  background: "#2F6BA8",
-                  boxShadow: "0 14px 40px rgba(47,107,168,0.2)",
+                  background: "var(--color-brand-primary)",
+                  boxShadow:
+                    "0 14px 40px color-mix(in srgb, var(--color-brand-primary) 20%, transparent)",
                 }}
               >
                 {/* Subtle linen texture overlay */}
@@ -442,8 +443,9 @@ export default async function EventDetailPage({
               <div
                 className="rounded-[18px] p-6 relative overflow-hidden"
                 style={{
-                  background: "#2F6BA8",
-                  boxShadow: "0 14px 40px rgba(47,107,168,0.2)",
+                  background: "var(--color-brand-primary)",
+                  boxShadow:
+                    "0 14px 40px color-mix(in srgb, var(--color-brand-primary) 20%, transparent)",
                 }}
               >
                 <div
@@ -512,7 +514,7 @@ export default async function EventDetailPage({
                       className="absolute inset-0 flex items-center justify-center"
                       style={{
                         background:
-                          "linear-gradient(135deg, #E2ECF7 0%, #FBFAF5 100%)",
+                          "linear-gradient(135deg, var(--color-brand-warm) 0%, var(--background) 100%)",
                       }}
                     >
                       <div

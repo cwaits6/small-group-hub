@@ -327,7 +327,7 @@ function FeaturedCard({
           <div
             className="w-full h-full flex items-center justify-center"
             style={{
-              background: "linear-gradient(135deg, #2F6BA8 0%, #1C2B3A 100%)",
+              background: "linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-navy) 100%)",
             }}
           >
             <span className="font-display italic text-4xl text-white/10 text-center absolute inset-0 flex items-center justify-center px-10">
@@ -346,7 +346,7 @@ function FeaturedCard({
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path d="M8 5.14v14l11-7-11-7z" fill="#1C2B3A" />
+              <path d="M8 5.14v14l11-7-11-7z" fill="var(--color-brand-navy)" />
             </svg>
           </div>
         </div>

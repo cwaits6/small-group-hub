@@ -54,7 +54,7 @@ export default function GroupsPage() {
                   avatar={
                     <span
                       className="flex h-12 w-12 items-center justify-center rounded-full text-white"
-                      style={{ backgroundColor: g.color || "#6b7280" }}
+                      style={{ backgroundColor: g.color || "var(--color-brand-neutral)" }}
                     >
                       <GroupIcon name={g.icon} className="h-6 w-6" />
                     </span>

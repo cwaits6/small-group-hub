@@ -21,7 +21,7 @@ export function GroupCard({ group, members, onOpenPerson }: GroupCardProps) {
       <div className="flex items-center gap-4">
         <div
           className="h-13 w-13 rounded-full flex items-center justify-center text-white shrink-0"
-          style={{ backgroundColor: group.color || "#6b7280" }}
+          style={{ backgroundColor: group.color || "var(--color-brand-neutral)" }}
         >
           <GroupIcon name={group.icon} className="h-6 w-6" />
         </div>

@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import type { EventCalendar } from "@/lib/types";
+import { siteConfig } from "@/lib/config";
 
 export default function AdminCalendarsPage() {
   const [calendars, setCalendars] = useState<EventCalendar[]>([]);
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#6366f1");
+  const [color, setColor] = useState(siteConfig.colors.primary);
   const [adding, setAdding] = useState(false);
   const supabase = useMemo(() => createClient(), []);
 
@@ -54,7 +55,7 @@ export default function AdminCalendarsPage() {
 
     toast.success("Calendar created.");
     setName("");
-    setColor("#6366f1");
+    setColor(siteConfig.colors.primary);
     await load();
   };
 
@@ -124,7 +125,7 @@ export default function AdminCalendarsPage() {
                   <div className="flex items-center gap-3">
                     <span
                       className="inline-block w-4 h-4 rounded-full shrink-0 border border-black/10"
-                      style={{ backgroundColor: cal.color ?? "#e5e7eb" }}
+                      style={{ backgroundColor: cal.color ?? "var(--muted)" }}
                     />
                     <span className="text-base font-medium">{cal.name}</span>
                   </div>

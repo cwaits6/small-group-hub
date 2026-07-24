@@ -70,7 +70,7 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
             {[
               {
-                icon: <Christicon name="church 2" size={28} color="#fff" title="Church" />,
+                icon: <Christicon name="church 2" size={28} color="var(--primary-foreground)" title="Church" />,
                 title: "The Body of Christ",
                 text: "A New Testament Church of the Lord Jesus Christ is the body of Christ, of which Jesus Christ is the head.",
                 color: "var(--color-brand-primary)",
@@ -78,7 +78,7 @@ export default function HomePage() {
                 border: "var(--color-brand-primary)",
               },
               {
-                icon: <Christicon name="bible 1" size={28} color="#fff" title="Bible" />,
+                icon: <Christicon name="bible 1" size={28} color="var(--primary-foreground)" title="Bible" />,
                 title: "The Inspired Word",
                 text: "The entire Bible is the Inspired Word of God, authored by the Holy Spirit and penned through God's chosen men.",
                 color: "var(--color-brand-primary-light)",
@@ -86,7 +86,7 @@ export default function HomePage() {
                 border: "var(--color-brand-primary-light)",
               },
               {
-                icon: <Christicon name="commandments" size={28} color="#fff" title="Commandments" />,
+                icon: <Christicon name="commandments" size={28} color="var(--primary-foreground)" title="Commandments" />,
                 title: "Our Final Authority",
                 text: "Infallible and inerrant — the supreme and final authority for the Christian in all matters of faith and practice.",
                 color: "var(--color-brand-accent)",
@@ -108,7 +108,7 @@ export default function HomePage() {
                 <h3 className="font-serif text-2xl font-medium mb-3" style={{ color: item.color }}>
                   {item.title}
                 </h3>
-                <p className="text-base text-[#3F506B] leading-relaxed">{item.text}</p>
+                <p className="text-base text-brand-primary-light leading-relaxed">{item.text}</p>
               </div>
             ))}
           </div>

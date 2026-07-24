@@ -61,7 +61,7 @@ export function EventRsvpPanel({ eventId, userId, initialStatus }: EventRsvpPane
       </div>
       <div className="font-serif text-[26px] font-medium mb-4 leading-snug">
         {label}
-        {accent && <span className="ml-2" style={{ color: "#E8A93C" }}>✓</span>}
+        {accent && <span className="ml-2" style={{ color: "var(--color-brand-accent)" }}>✓</span>}
       </div>
       <div
         className="grid grid-cols-3 gap-1 rounded-[10px] p-1"
@@ -76,8 +76,8 @@ export function EventRsvpPanel({ eventId, userId, initialStatus }: EventRsvpPane
               disabled={loading}
               className="rounded-[7px] px-3 py-2 text-center text-[13px] font-bold transition-colors disabled:opacity-60"
               style={{
-                background: active ? "#E8A93C" : "transparent",
-                color: active ? "#15243A" : "rgba(255,255,255,0.85)",
+                background: active ? "var(--color-brand-accent)" : "transparent",
+                color: active ? "var(--foreground)" : "rgba(255,255,255,0.85)",
               }}
             >
               {opt.label}
