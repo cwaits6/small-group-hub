@@ -15,7 +15,7 @@ export function GroupBadge({ group, size = "sm" }: GroupBadgeProps) {
   return (
     <span
       className={`inline-flex items-center rounded-full font-medium text-white ${sizing}`}
-      style={{ backgroundColor: group.color || "#6b7280" }}
+      style={{ backgroundColor: group.color || "var(--color-brand-neutral)" }}
     >
       <GroupIcon name={group.icon} className={size === "xs" ? "h-2.5 w-2.5" : "h-3 w-3"} />
       {group.name}

@@ -55,13 +55,13 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
           >
             <div
               className="absolute inset-x-0 top-0 h-1 rounded-t-2xl"
-              style={{ backgroundColor: event.calendar?.color ?? "#2F6BA8" }}
+              style={{ backgroundColor: event.calendar?.color ?? "var(--color-brand-primary)" }}
             />
 
             <div className="flex flex-col gap-4 md:flex-row md:items-start">
               <div
                 className="shrink-0 flex h-16 w-16 flex-col items-center justify-center rounded-2xl text-white shadow-sm"
-                style={{ background: event.calendar?.color ?? "#2F6BA8" }}
+                style={{ background: event.calendar?.color ?? "var(--color-brand-primary)" }}
               >
                 <span className="text-[0.65rem] font-bold tracking-widest leading-none">{month}</span>
                 <span className="text-2xl font-bold font-display leading-tight">{dayNum}</span>

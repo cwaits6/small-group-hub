@@ -59,7 +59,13 @@ function eventMonthLocation(startTime: string, location: string | null): string 
 }
 
 // Avatar colors — deterministic from index
-const AVATAR_BG = ["#E8A93C", "#C4704A", "#7BA68A", "#B58A6B", "#6E7E94"];
+const AVATAR_BG = [
+  "var(--color-brand-accent)",
+  "var(--color-avatar-rust)",
+  "var(--color-avatar-sage)",
+  "var(--color-avatar-tan)",
+  "var(--color-avatar-slate)",
+];
 
 // Tag color sets for announcements (cycle through 3 variants)
 const TAG_STYLES = [
@@ -328,8 +334,9 @@ export default async function DashboardPage() {
             <div
               className="rounded-[18px] p-8 relative overflow-hidden"
               style={{
-                background: "#2F6BA8",
-                boxShadow: "0 14px 40px #2F6BA833",
+                background: "var(--color-brand-primary)",
+                boxShadow:
+                  "0 14px 40px color-mix(in srgb, var(--color-brand-primary) 20%, transparent)",
               }}
             >
               {/* Subtle linen overlay */}
@@ -346,7 +353,7 @@ export default async function DashboardPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/16 text-[11px] font-bold uppercase tracking-[1.5px] mb-6">
                   <span
                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: "#E8A93C" }}
+                    style={{ background: "var(--color-brand-accent)" }}
                   />
                   {eventWeekday(nextEvent.start_time)} · {eventTime(nextEvent.start_time)}
                 </div>
@@ -357,7 +364,7 @@ export default async function DashboardPage() {
                     className="font-serif font-medium leading-none flex-shrink-0"
                     style={{
                       fontSize: 80,
-                      color: "#E8A93C",
+                      color: "var(--color-brand-accent)",
                       letterSpacing: "-1.5px",
                     }}
                   >
@@ -402,7 +409,7 @@ export default async function DashboardPage() {
                             className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-sans text-xs font-semibold text-white flex-shrink-0"
                             style={{
                               background: AVATAR_BG[i % AVATAR_BG.length],
-                              borderColor: "#2F6BA8",
+                              borderColor: "var(--color-brand-primary)",
                               marginLeft: i === 0 ? 0 : -10,
                             }}
                           >
@@ -413,7 +420,7 @@ export default async function DashboardPage() {
                     <div className="font-sans text-sm opacity-90">
                       {goingCount > 0 ? (
                         <>
-                          <strong style={{ color: "#E8A93C" }}>
+                          <strong style={{ color: "var(--color-brand-accent)" }}>
                             {goingCount} going
                           </strong>
                           {maybeCount > 0 && (
@@ -714,13 +721,13 @@ export default async function DashboardPage() {
                       style={{
                         aspectRatio: "16/10",
                         background:
-                          "linear-gradient(135deg, #2F6BA8 0%, #15243A 100%)",
+                          "linear-gradient(135deg, var(--color-brand-primary) 0%, var(--foreground) 100%)",
                       }}
                     >
                       {/* Play circle */}
                       <div
                         className="w-7 h-7 rounded-full flex items-center justify-center"
-                        style={{ background: "#E8A93C" }}
+                        style={{ background: "var(--color-brand-accent)" }}
                       >
                         <svg
                           width="9"
@@ -730,7 +737,7 @@ export default async function DashboardPage() {
                         >
                           <path
                             d="M1 1l7 4.5-7 4.5V1z"
-                            fill="#15243A"
+                            fill="var(--foreground)"
                           />
                         </svg>
                       </div>

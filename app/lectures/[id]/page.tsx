@@ -184,14 +184,14 @@ export default async function LectureDetailPage({
               <div
                 className="w-full h-full"
                 style={{
-                  background: "linear-gradient(135deg, #2F6BA8 0%, #1C2B3A 100%)",
+                  background: "linear-gradient(135deg, var(--color-brand-primary) 0%, var(--color-brand-navy) 100%)",
                 }}
               />
             )}
             <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
               <div className="w-20 h-20 rounded-full bg-brand-accent flex items-center justify-center shadow-xl group-hover:scale-105 transition-transform">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                  <path d="M8 5.14v14l11-7-11-7z" fill="#1C2B3A" />
+                  <path d="M8 5.14v14l11-7-11-7z" fill="var(--color-brand-navy)" />
                 </svg>
               </div>
             </div>
