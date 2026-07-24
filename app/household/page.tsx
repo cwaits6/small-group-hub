@@ -1,8 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
 import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 import { HouseholdClient } from "./HouseholdClient";
@@ -58,23 +57,13 @@ export default async function HouseholdPage() {
   if (!family) redirect("/profile");
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <Button
-        variant="ghost"
-        size="sm"
-        nativeButton={false}
-        render={<Link href="/profile" />}
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to my profile
-      </Button>
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-2">
-        My Household
-      </h1>
-      <p className="text-base text-muted-foreground mb-8">
-        Manage your household&apos;s contact info and family members.
-      </p>
+    <PageContainer>
+      <PageHeader
+        title="My Household"
+        subtitle="Manage your household's contact info and family members."
+        backHref="/profile"
+        backLabel="Back to my profile"
+      />
 
       <HouseholdClient
         currentProfile={profile}
@@ -82,6 +71,6 @@ export default async function HouseholdPage() {
         initialFamilyMembers={familyMembers ?? []}
         householdProfiles={householdProfiles ?? []}
       />
-    </div>
+    </PageContainer>
   );
 }

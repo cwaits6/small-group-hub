@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Rss, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { EventCalendarView } from "@/components/events/EventCalendarView";
 import { EventListView } from "@/components/events/EventListView";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { expandUpcomingEvents } from "@/lib/recurrence";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,18 +93,11 @@ export function EventsPageClient({
 
   return (
     <div>
-      <div className="mb-6 rounded-[2rem] border border-border bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-2">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">Calendar</h1>
-              <p className="mt-2 text-lg text-muted-foreground">
-                Browse the shared calendar for our group.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-3 md:shrink-0">
+      <PageHeader
+        title="Calendar"
+        subtitle="Browse the shared calendar for our group."
+        actions={
+          <>
             {isAdmin && (
               <>
                 <Button
@@ -161,87 +155,87 @@ export function EventsPageClient({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-          </div>
+          </>
+        }
+      />
+
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="inline-flex w-fit items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <Button
+            onClick={() => setView("calendar")}
+            variant="ghost"
+            className={`h-10 rounded-lg px-5 text-sm font-semibold ${
+              view === "calendar"
+                ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
+                : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
+            }`}
+          >
+            Calendar
+          </Button>
+          <Button
+            onClick={() => setView("list")}
+            variant="ghost"
+            className={`h-10 rounded-lg px-5 text-sm font-semibold ${
+              view === "list"
+                ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
+                : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
+            }`}
+          >
+            List
+          </Button>
         </div>
 
-        <div className="mt-5 flex flex-col gap-4 pt-1 md:flex-row md:items-center md:justify-between">
-          <div className="inline-flex w-fit items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-            <Button
-              onClick={() => setView("calendar")}
-              variant="ghost"
-              className={`h-10 rounded-lg px-5 text-sm font-semibold ${
-                view === "calendar"
-                  ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
-              }`}
-            >
-              Calendar
-            </Button>
-            <Button
-              onClick={() => setView("list")}
-              variant="ghost"
-              className={`h-10 rounded-lg px-5 text-sm font-semibold ${
-                view === "list"
-                  ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
-              }`}
-            >
-              List
-            </Button>
+        {view === "calendar" && (calendars.length > 0 || hasUncategorized) && (
+          <div className="flex flex-col gap-2 md:items-end">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Calendars
+            </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={
+                <Button
+                  variant="outline"
+                  className="h-11 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
+                >
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {calendarFilterSummary}
+                  </span>
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              } />
+              <DropdownMenuContent align="end" className="w-64 rounded-2xl">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Visible Calendars</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {calendars.map((cal) => (
+                    <DropdownMenuCheckboxItem
+                      key={cal.id}
+                      checked={visibleCalendarIds.has(cal.id)}
+                      onCheckedChange={() => toggleCalendar(cal.id)}
+                      className="gap-2"
+                    >
+                      <span
+                        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
+                      />
+                      {cal.name}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                  {hasUncategorized && (
+                    <DropdownMenuCheckboxItem
+                      checked={visibleCalendarIds.has(null)}
+                      onCheckedChange={() => toggleCalendar(null)}
+                      className="gap-2"
+                    >
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
+                      Other
+                    </DropdownMenuCheckboxItem>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-
-          {view === "calendar" && (calendars.length > 0 || hasUncategorized) && (
-            <div className="flex flex-col gap-2 md:items-end">
-              <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Calendars
-              </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger render={
-                  <Button
-                    variant="outline"
-                    className="h-11 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
-                  >
-                    <span className="flex items-center gap-2">
-                      <SlidersHorizontal className="h-4 w-4" />
-                      {calendarFilterSummary}
-                    </span>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                } />
-                <DropdownMenuContent align="end" className="w-64 rounded-2xl">
-                  <DropdownMenuGroup>
-                    <DropdownMenuLabel>Visible Calendars</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {calendars.map((cal) => (
-                      <DropdownMenuCheckboxItem
-                        key={cal.id}
-                        checked={visibleCalendarIds.has(cal.id)}
-                        onCheckedChange={() => toggleCalendar(cal.id)}
-                        className="gap-2"
-                      >
-                        <span
-                          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
-                        />
-                        {cal.name}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                    {hasUncategorized && (
-                      <DropdownMenuCheckboxItem
-                        checked={visibleCalendarIds.has(null)}
-                        onCheckedChange={() => toggleCalendar(null)}
-                        className="gap-2"
-                      >
-                        <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
-                        Other
-                      </DropdownMenuCheckboxItem>
-                    )}
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {view === "calendar" ? (

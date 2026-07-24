@@ -18,6 +18,8 @@ import {
 import { BlockEditor } from "@/components/editor";
 import { toast } from "sonner";
 import { ArrowDown, ArrowUp, Pencil, Plus, Search, X } from "lucide-react";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { displayName, initials } from "@/lib/names";
 import type { Block, PartialBlock } from "@blocknote/core";
 import type { ClassTeacherWithProfile } from "@/lib/types";
@@ -215,13 +217,15 @@ export function AboutEditor({ initialBody, initialTeachers }: AboutEditorProps) 
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-4xl space-y-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-brand-primary">About Page</h1>
-        <Button variant="outline" nativeButton={false} render={<Link href="/about" />}>
-          View page
-        </Button>
-      </div>
+    <PageContainer size="default" className="space-y-8">
+      <PageHeader
+        title="About Page"
+        actions={
+          <Button variant="outline" nativeButton={false} render={<Link href="/about" />}>
+            View page
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -449,6 +453,6 @@ export function AboutEditor({ initialBody, initialTeachers }: AboutEditorProps) 
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }
