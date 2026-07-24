@@ -2,14 +2,6 @@ import React from "react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/config";
 
-// Paper-grain texture URI (matches app/page.tsx)
-const PAPER_TEXTURE_URI =
-  "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")";
-
-// Linen texture: subtle white diagonal stripes for the brand panel
-const LINEN_TEXTURE_URI =
-  "repeating-linear-gradient(135deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 8px)";
-
 export interface AuthShellProps {
   eyebrow: string;
   title: string;
@@ -26,7 +18,7 @@ export interface AuthShellProps {
  * Full-bleed two-column auth layout shell.
  *
  * Left column: brand panel (morning blue, devotional quote).
- * Right column: form area (warm cream background, paper texture).
+ * Right column: form area (warm cream background).
  *
  * Mobile: stacks to single column with a short brand banner on top.
  */
@@ -49,13 +41,6 @@ export function AuthShell({
         className="relative bg-brand-primary text-white flex flex-col justify-between px-8 py-12 md:px-14 md:py-14 overflow-hidden"
         // On mobile: cap height so it reads as a banner, not a half-page
       >
-        {/* Linen texture overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ backgroundImage: LINEN_TEXTURE_URI, opacity: 1 }}
-          aria-hidden
-        />
-
         {/* Top: monogram + group name */}
         <div className="relative flex items-center gap-3.5">
           <div className="w-9 h-9 rounded-md border-2 border-white/80 flex items-center justify-center shrink-0">
@@ -98,13 +83,6 @@ export function AuthShell({
 
       {/* ── RIGHT — form panel ── */}
       <div className="relative bg-background flex flex-col justify-center px-6 py-12 md:px-16 md:py-14">
-        {/* Paper-grain texture overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.025]"
-          style={{ backgroundImage: PAPER_TEXTURE_URI }}
-          aria-hidden
-        />
-
         <div className="relative w-full max-w-[420px] mx-auto md:mx-0">
           {/* Eyebrow */}
           <div className="flex items-center gap-2.5 mb-5">

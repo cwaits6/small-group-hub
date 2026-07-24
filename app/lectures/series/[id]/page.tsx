@@ -28,9 +28,6 @@ function formatMonthYear(dateStr: string): string {
   return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
 
-const PAPER_TEXTURE =
-  "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")";
-
 export async function generateMetadata({
   params,
 }: {
@@ -92,11 +89,6 @@ export default async function SeriesDetailPage({
     <div>
       {/* ── Hero ── */}
       <section className="relative overflow-hidden bg-background">
-        <div
-          className="absolute inset-0 opacity-[0.035] pointer-events-none"
-          style={{ backgroundImage: PAPER_TEXTURE }}
-        />
-
         <div className="relative px-6 md:px-14 py-12 md:py-16">
           {/* Back link */}
           <Link
