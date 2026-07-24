@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
 import { displayName, initials } from "@/lib/names";
 import { resolveFundMethods } from "@/lib/giving/methods";
@@ -127,24 +129,24 @@ export default async function GivePage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">
-          Give
-        </h1>
-        {canCreate && (
-          <Button
-            nativeButton={false}
-            render={<Link href="/give/new" />}
-            className="shrink-0 bg-brand-primary hover:bg-brand-primary/90 text-white"
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add fund
-          </Button>
-        )}
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Give"
+        actions={
+          canCreate && (
+            <Button
+              nativeButton={false}
+              render={<Link href="/give/new" />}
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add fund
+            </Button>
+          )
+        }
+      />
 
-      <div className="mt-10">
+      <div>
         {views.length > 0 ? (
           <GiveList funds={views} />
         ) : (
@@ -163,6 +165,6 @@ export default async function GivePage() {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

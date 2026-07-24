@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { EventsPageClient } from "@/components/events/EventsPageClient";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { siteConfig } from "@/lib/config";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
@@ -99,7 +100,7 @@ export default async function EventsPage() {
   const calendars = (calendarsRaw ?? []) as EventCalendar[];
 
   return (
-    <div className="container mx-auto px-4 py-12">
+    <PageContainer size="wide">
       <EventsPageClient
         allEvents={allEvents}
         calendars={calendars}
@@ -109,6 +110,6 @@ export default async function EventsPage() {
         isAdmin={isAdmin}
         subscriptionToken={subscriptionToken}
       />
-    </div>
+    </PageContainer>
   );
 }
