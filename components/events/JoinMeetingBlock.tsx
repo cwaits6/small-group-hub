@@ -155,7 +155,7 @@ export function JoinMeetingBlock({
         style={{ background: "rgba(255,255,255,0.09)", border: "1px solid rgba(255,255,255,0.22)" }}
       >
         <div className={statusRowClass}>
-          <Video className="h-4 w-4" style={{ color: "#E8A93C" }} />
+          <Video className="h-4 w-4" style={{ color: "var(--color-brand-accent)" }} />
           <span className="text-white">
             Join online{provider ? ` · ${provider}` : ""}
           </span>
@@ -187,9 +187,9 @@ export function JoinMeetingBlock({
       <div className={statusRowClass}>
         <span
           className="inline-block h-[9px] w-[9px] rounded-full"
-          style={{ background: "#E8A93C" }}
+          style={{ background: "var(--color-brand-accent)" }}
         />
-        <span style={{ color: "#E8A93C" }}>Live now</span>
+        <span style={{ color: "var(--color-brand-accent)" }}>Live now</span>
       </div>
       <a
         href={meetingUrl}
@@ -197,8 +197,8 @@ export function JoinMeetingBlock({
         rel="noopener noreferrer"
         className="flex w-full items-center justify-center gap-2.5 mt-3 rounded-xl py-[15px] font-sans text-base font-bold transition-opacity hover:opacity-90"
         style={{
-          background: "#E8A93C",
-          color: "#15243A",
+          background: "var(--color-brand-accent)",
+          color: "var(--foreground)",
           boxShadow: "0 8px 22px rgba(0,0,0,0.22)",
         }}
       >

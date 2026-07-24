@@ -155,7 +155,7 @@ export default async function ServingPage() {
                       <div className="flex items-center gap-4">
                         <span
                           className="inline-block w-4 h-4 rounded-full shrink-0"
-                          style={{ backgroundColor: group.color ?? "#2F6BA8" }}
+                          style={{ backgroundColor: group.color ?? "var(--color-brand-primary)" }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-xl font-semibold flex items-center gap-2">
@@ -204,7 +204,7 @@ export default async function ServingPage() {
                     <div className="flex items-center gap-4">
                       <span
                         className="inline-block w-4 h-4 rounded-full shrink-0"
-                        style={{ backgroundColor: group.color ?? "#2F6BA8" }}
+                        style={{ backgroundColor: group.color ?? "var(--color-brand-primary)" }}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-xl font-semibold flex items-center gap-2">

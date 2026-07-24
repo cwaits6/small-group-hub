@@ -55,7 +55,7 @@ export function AdminServingSetup({ groups }: AdminServingSetupProps) {
             <div key={g.id} className="flex items-center gap-3 py-2.5">
               <span
                 className="inline-block w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: g.color ?? "#2F6BA8" }}
+                style={{ backgroundColor: g.color ?? "var(--color-brand-primary)" }}
               />
               <span className="flex-1 min-w-0 font-medium truncate">{g.name}</span>
               <Button

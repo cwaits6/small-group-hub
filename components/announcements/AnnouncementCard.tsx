@@ -47,7 +47,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
         <div className="flex items-center gap-3 mb-4">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ background: "#FAEBC2" }}
+            style={{ background: "var(--color-brand-bg-light)" }}
           >
             <Megaphone className="h-5 w-5 text-brand-accent" />
           </div>

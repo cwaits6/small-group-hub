@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { siteConfig } from "@/lib/config";
 import { nextOccurrence } from "@/lib/prayer";
 import type { PrayerCallSession } from "@/lib/types";
 
@@ -37,7 +38,7 @@ async function ensurePrayerCalendar(
   }
   const { data: created, error } = await supabase
     .from("event_calendars")
-    .insert({ name: "Prayer", color: "#2F6BA8" })
+    .insert({ name: "Prayer", color: siteConfig.colors.primary })
     .select("id")
     .single();
   if (error || !created) return null;

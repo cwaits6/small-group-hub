@@ -29,6 +29,7 @@ import {
   Shield,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
+import { siteConfig } from "@/lib/config";
 import { GroupRosterDialog } from "./GroupRosterDialog";
 import { IconPicker } from "./IconPicker";
 
@@ -45,7 +46,7 @@ interface GroupFormState {
 const EMPTY_FORM: GroupFormState = {
   name: "",
   description: "",
-  color: "#2F6BA8",
+  color: siteConfig.colors.primary,
   icon: "users",
   show_in_directory_filter: true,
   is_serving_role: false,
@@ -56,7 +57,7 @@ function fromGroup(g: MemberGroup): GroupFormState {
   return {
     name: g.name,
     description: g.description || "",
-    color: g.color || "#2F6BA8",
+    color: g.color || siteConfig.colors.primary,
     icon: g.icon || "users",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
     is_serving_role: g.is_serving_role ?? false,
@@ -272,7 +273,7 @@ export default function GroupsPage() {
                   {/* Color swatch */}
                   <div
                     className="w-4 h-4 rounded-full shrink-0"
-                    style={{ backgroundColor: group.color || "#6b7280" }}
+                    style={{ backgroundColor: group.color || "var(--color-brand-neutral)" }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -412,7 +413,7 @@ export default function GroupsPage() {
                   onChange={(e) =>
                     setForm({ ...form, color: e.target.value })
                   }
-                  placeholder="#2F6BA8"
+                  placeholder={siteConfig.colors.primary}
                   className="font-mono text-sm w-32"
                 />
               </div>

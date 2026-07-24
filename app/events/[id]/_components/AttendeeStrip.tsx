@@ -12,7 +12,13 @@ interface AttendeeStripProps {
   attendees: Attendee[];
 }
 
-const PALETTE = ["#2F6BA8", "#E8A93C", "#7BA68A", "#B58A6B", "#3F506B"];
+const PALETTE = [
+  "var(--color-brand-primary)",
+  "var(--color-brand-accent)",
+  "var(--color-avatar-sage)",
+  "var(--color-avatar-tan)",
+  "var(--color-brand-primary-light)",
+];
 
 function initials(first: string | null, last: string | null): string {
   const f = first?.[0] ?? "";
