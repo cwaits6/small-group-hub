@@ -573,6 +573,7 @@ export function HouseholdClient({
                 Their relationship to your household
               </Label>
               <Select
+                items={LINK_RELATIONSHIPS}
                 value={linkRelationship}
                 onValueChange={(v) => setLinkRelationship(v as FamilyMemberRelationship)}
               >

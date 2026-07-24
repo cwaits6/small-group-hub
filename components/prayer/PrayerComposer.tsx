@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown, HandHeart, Lock, Shield, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { displayName, initials } from "@/lib/names";
 import { PRAYER_CATEGORIES, PRAYER_CATEGORY_KEYS } from "@/lib/prayer";
@@ -10,25 +11,24 @@ import type { PrayerCategory, PrayerWarrior } from "@/lib/types";
 import type { Me } from "@/components/prayer/PrayerBoard";
 
 function SwitchRow({
+  id,
   on,
   onToggle,
   title,
   sub,
   icon,
 }: {
+  id: string;
   on: boolean;
-  onToggle: () => void;
+  onToggle: (checked: boolean) => void;
   title: string;
   sub: string;
   icon: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      onClick={onToggle}
-      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+    <label
+      htmlFor={id}
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
         on
           ? "border-brand-primary/40 bg-brand-warm"
           : "border-border bg-card hover:border-brand-primary/30"
@@ -51,19 +51,8 @@ function SwitchRow({
           {sub}
         </span>
       </span>
-      <span
-        aria-hidden="true"
-        className={`h-[23px] w-10 shrink-0 rounded-full p-0.5 transition-colors ${
-          on ? "bg-brand-primary" : "bg-muted"
-        }`}
-      >
-        <span
-          className={`block h-[19px] w-[19px] rounded-full bg-white shadow transition-transform ${
-            on ? "translate-x-[17px]" : ""
-          }`}
-        />
-      </span>
-    </button>
+      <Switch id={id} checked={on} onCheckedChange={onToggle} />
+    </label>
   );
 }
 
@@ -209,8 +198,9 @@ export function PrayerComposer({
 
       <div className="flex flex-col gap-2 p-5">
         <SwitchRow
+          id="prayer-anonymous"
           on={anonymous}
-          onToggle={() => setAnonymous((v) => !v)}
+          onToggle={setAnonymous}
           title="Share anonymously"
           sub="Your name is hidden — only the request is shown."
           icon={<UserRound className="h-4 w-4" aria-hidden="true" />}
@@ -220,8 +210,9 @@ export function PrayerComposer({
           Who can see this
         </div>
         <SwitchRow
+          id="prayer-warriors-only"
           on={toWarriors}
-          onToggle={() => setToWarriors((v) => !v)}
+          onToggle={setToWarriors}
           title="Prayer warriors only"
           sub="Off — everyone in the class can see it."
           icon={<Shield className="h-4 w-4" aria-hidden="true" />}
