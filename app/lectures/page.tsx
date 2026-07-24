@@ -42,11 +42,6 @@ function formatDate(dateStr: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-// ── Paper texture SVG (same as homepage hero) ─────────────────────────────────
-
-const PAPER_TEXTURE =
-  "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")";
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function LecturesPage({
@@ -106,12 +101,6 @@ export default async function LecturesPage({
     <div>
       {/* ── Section 1: Hero Banner ── */}
       <section className="relative overflow-hidden bg-background">
-        {/* Paper-grain texture overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.035] pointer-events-none"
-          style={{ backgroundImage: PAPER_TEXTURE }}
-        />
-
         <div className="relative px-6 md:px-14 py-16 md:py-24">
           {/* Eyebrow */}
           <div className="flex items-center gap-3 mb-6">

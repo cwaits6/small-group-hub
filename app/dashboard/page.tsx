@@ -332,15 +332,6 @@ export default async function DashboardPage() {
                 boxShadow: "0 14px 40px #2F6BA833",
               }}
             >
-              {/* Subtle linen overlay */}
-              <div
-                className="absolute inset-0 opacity-10 pointer-events-none"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(0deg, rgba(255,255,255,0.4) 0px, rgba(255,255,255,0.4) 1px, transparent 1px, transparent 4px)",
-                }}
-              />
-
               <div className="relative text-white">
                 {/* Top pill */}
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/16 text-[11px] font-bold uppercase tracking-[1.5px] mb-6">
