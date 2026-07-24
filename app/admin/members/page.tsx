@@ -19,6 +19,13 @@ import { Check, X, UserCog, Clock, Pencil } from "lucide-react";
 import type { AccessRequest, Profile, UserRole } from "@/lib/types";
 import { displayName } from "@/lib/names";
 
+const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
+  { value: "pending", label: "Pending" },
+  { value: "member", label: "Member" },
+  { value: "content_editor", label: "Content Editor" },
+  { value: "admin", label: "Admin" },
+];
+
 export default function MembersPage() {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [members, setMembers] = useState<Profile[]>([]);
@@ -232,6 +239,7 @@ export default function MembersPage() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <UserCog className="h-5 w-5 text-muted-foreground" />
                       <Select
+                        items={ROLE_OPTIONS}
                         defaultValue={member.role}
                         onValueChange={(v) =>
                           handleRoleChange(member.id, v as UserRole)
@@ -241,12 +249,11 @@ export default function MembersPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="member">Member</SelectItem>
-                          <SelectItem value="content_editor">
-                            Content Editor
-                          </SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
+                          {ROLE_OPTIONS.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <Button

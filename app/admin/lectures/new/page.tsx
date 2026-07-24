@@ -8,6 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 export default function NewLecturePageWrapper() {
@@ -24,6 +31,7 @@ function NewLecturePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedSeries = searchParams.get("series") ?? "";
+  const [seriesId, setSeriesId] = useState(preselectedSeries || "none");
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
@@ -48,7 +56,7 @@ function NewLecturePage() {
       thumbnail_url: (formData.get("thumbnail_url") as string) || null,
       lecture_date: (formData.get("lecture_date") as string) || null,
       created_by: user?.id,
-      series_id: (formData.get("series_id") as string) || null,
+      series_id: seriesId === "none" ? null : seriesId,
       summary: (formData.get("summary") as string) || null,
     });
 
@@ -82,19 +90,29 @@ function NewLecturePage() {
                   + Create new series
                 </a>
               </div>
-              <select
-                id="series_id"
-                name="series_id"
-                defaultValue={preselectedSeries}
-                className="w-full border border-input rounded-md px-3 py-3 text-base bg-background"
+              <Select
+                items={[
+                  { value: "none", label: "No series" },
+                  ...seriesList.map((s) => ({
+                    value: s.id,
+                    label: `${s.name}${s.teacher ? ` — ${s.teacher}` : ""}`,
+                  })),
+                ]}
+                value={seriesId}
+                onValueChange={(v) => setSeriesId(v ?? "none")}
               >
-                <option value="">No series</option>
-                {seriesList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}{s.teacher ? ` — ${s.teacher}` : ""}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="series_id" className="w-full text-base py-5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No series</SelectItem>
+                  {seriesList.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}{s.teacher ? ` — ${s.teacher}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Title */}
