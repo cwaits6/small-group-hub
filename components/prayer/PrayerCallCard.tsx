@@ -40,6 +40,11 @@ interface Draft {
 
 const NONE = "none";
 
+const WEEKDAY_OPTIONS = WEEKDAY_LABELS.map((label, w) => ({
+  value: String(w),
+  label,
+}));
+
 const toDraft = (s: PrayerCallSession): Draft => ({
   id: s.id,
   weekday: String(s.weekday),
@@ -232,10 +237,7 @@ export function PrayerCallCard({
                     Day
                   </span>
                   <Select
-                    items={WEEKDAY_LABELS.map((label, w) => ({
-                      value: String(w),
-                      label,
-                    }))}
+                    items={WEEKDAY_OPTIONS}
                     value={d.weekday}
                     onValueChange={(v) => setField(i, "weekday", v ?? d.weekday)}
                   >
@@ -243,9 +245,9 @@ export function PrayerCallCard({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {WEEKDAY_LABELS.map((label, w) => (
-                        <SelectItem key={label} value={String(w)}>
-                          {label}
+                      {WEEKDAY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

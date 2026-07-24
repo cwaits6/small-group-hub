@@ -33,6 +33,16 @@ function NewLecturePage() {
   const preselectedSeries = searchParams.get("series") ?? "";
   const [seriesId, setSeriesId] = useState(preselectedSeries || "none");
   const supabase = useMemo(() => createClient(), []);
+  const seriesOptions = useMemo(
+    () => [
+      { value: "none", label: "No series" },
+      ...seriesList.map((s) => ({
+        value: s.id,
+        label: `${s.name}${s.teacher ? ` — ${s.teacher}` : ""}`,
+      })),
+    ],
+    [seriesList]
+  );
 
   useEffect(() => {
     supabase
@@ -91,13 +101,7 @@ function NewLecturePage() {
                 </a>
               </div>
               <Select
-                items={[
-                  { value: "none", label: "No series" },
-                  ...seriesList.map((s) => ({
-                    value: s.id,
-                    label: `${s.name}${s.teacher ? ` — ${s.teacher}` : ""}`,
-                  })),
-                ]}
+                items={seriesOptions}
                 value={seriesId}
                 onValueChange={(v) => setSeriesId(v ?? "none")}
               >
@@ -105,10 +109,9 @@ function NewLecturePage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No series</SelectItem>
-                  {seriesList.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}{s.teacher ? ` — ${s.teacher}` : ""}
+                  {seriesOptions.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
