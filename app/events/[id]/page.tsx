@@ -292,7 +292,10 @@ export default async function EventDetailPage({
             {upcomingLabel && (
               <div
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-5"
-                style={{ background: "rgba(232,169,60,0.13)" }}
+                style={{
+                  background:
+                    "color-mix(in srgb, var(--color-brand-accent) 13%, transparent)",
+                }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0"
