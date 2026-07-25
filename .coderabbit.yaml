@@ -14,6 +14,16 @@ reviews:
       - main
     ignore_usernames:
       - "renovate[bot]"
+    # Skip dependency/CI housekeeping PRs so they don't spend a review.
+    # (Renovate PRs are already covered by ignore_usernames above.)
+    ignore_title_keywords:
+      - "chore(deps)"
+      - "fix(deps)"
+      - "ci:"
+      - "build(deps)"
+    # Opt any PR out of auto-review by adding the "skip-review" label.
+    labels:
+      - "!skip-review"
   path_filters:
     - "!node_modules/**"
     - "!.next/**"
