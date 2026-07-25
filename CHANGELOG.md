@@ -1,3 +1,10 @@
+## [0.20.6](https://github.com/cwaits6/small-group-hub/compare/v0.20.5...v0.20.6) (2026-07-25)
+
+
+### Bug Fixes
+
+* raise auth and join pages to senior a11y floor ([#247](https://github.com/cwaits6/small-group-hub/issues/247)) ([#268](https://github.com/cwaits6/small-group-hub/issues/268)) ([0ccd17c](https://github.com/cwaits6/small-group-hub/commit/0ccd17ce5189b811d75a62d6bc15d8e17f1250cd))
+
 ## [0.20.5](https://github.com/cwaits6/small-group-hub/compare/v0.20.4...v0.20.5) (2026-07-25)
 
 
