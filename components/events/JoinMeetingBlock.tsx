@@ -45,7 +45,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
       style={{ background: "rgba(0,0,0,0.20)", border: "1px solid rgba(255,255,255,0.22)" }}
     >
       <div className="flex-1 min-w-0">
-        <div className="font-sans text-lg font-bold uppercase tracking-[1.2px] text-white/55">
+        <div className="font-sans text-lg font-bold uppercase tracking-[1.2px] text-white/55 whitespace-nowrap overflow-hidden text-ellipsis">
           {label}
         </div>
         <div className="font-mono text-xl text-white mt-0.5 tracking-[0.4px] whitespace-nowrap overflow-hidden text-ellipsis">
@@ -106,7 +106,7 @@ export function JoinMeetingBlock({
   });
 
   const creds = (meetingId || passcode) && (
-    <div className="flex gap-2 mt-3">
+    <div className="flex flex-col gap-2 mt-3">
       {meetingId && <CopyField label="Meeting ID" value={meetingId} />}
       {passcode && <CopyField label="Passcode" value={passcode} />}
     </div>
