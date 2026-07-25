@@ -58,6 +58,11 @@ function eventMonthLocation(startTime: string, location: string | null): string 
   return location ? `${mon} · ${location}` : mon;
 }
 
+function lectureDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 // Avatar colors — deterministic from index
 const AVATAR_BG = [
   "var(--color-brand-accent)",
@@ -65,13 +70,6 @@ const AVATAR_BG = [
   "var(--color-avatar-sage)",
   "var(--color-avatar-tan)",
   "var(--color-avatar-slate)",
-];
-
-// Tag color sets for announcements (cycle through 3 variants)
-const TAG_STYLES = [
-  "bg-brand-accent/15 text-brand-accent",
-  "bg-brand-primary/15 text-brand-primary",
-  "bg-muted-foreground/15 text-muted-foreground",
 ];
 
 // ── page ─────────────────────────────────────────────────────────────────────
@@ -312,7 +310,7 @@ export default async function DashboardPage() {
           <div className="flex items-center gap-3 mb-5">
             <div className="h-px w-8 bg-brand-accent" />
             <span
-              className="text-brand-accent font-sans font-bold uppercase tracking-[3px] text-[11px]"
+              className="text-brand-accent font-sans font-bold uppercase tracking-[3px] text-base"
             >
               {eventEyebrow(nextEvent.start_time)}
             </span>
@@ -341,7 +339,7 @@ export default async function DashboardPage() {
             >
               <div className="relative text-white">
                 {/* Top pill */}
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/16 text-[11px] font-bold uppercase tracking-[1.5px] mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-white/16 text-base font-bold uppercase tracking-[1.5px] mb-6">
                   <span
                     className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                     style={{ background: "var(--color-brand-accent)" }}
@@ -362,7 +360,7 @@ export default async function DashboardPage() {
                     {eventDayNumber(nextEvent.start_time)}
                   </div>
                   <div>
-                    <div className="font-sans text-xs uppercase tracking-[2px] opacity-75 font-semibold">
+                    <div className="font-sans text-base uppercase tracking-[2px] opacity-75 font-semibold">
                       {eventMonthLocation(nextEvent.start_time, nextEvent.location)}
                     </div>
                     <div
@@ -610,7 +608,7 @@ export default async function DashboardPage() {
             </h2>
             <Link
               href="/announcements"
-              className="font-sans text-[13px] font-semibold text-brand-primary hover:underline"
+              className="font-sans text-base font-semibold text-brand-primary hover:underline"
             >
               See all →
             </Link>
@@ -619,7 +617,6 @@ export default async function DashboardPage() {
           {announcements && announcements.length > 0 ? (
             <div>
               {announcements.map((a, i) => {
-                const tagClass = TAG_STYLES[i % TAG_STYLES.length];
                 const publishedAt = a.published_at || a.created_at;
                 // Plain-text excerpt from content (may be JSON blocks or HTML)
                 let excerpt = "";
@@ -647,12 +644,6 @@ export default async function DashboardPage() {
                     }
                   >
                     <div>
-                      {/* Tag pill */}
-                      <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-[1px] mb-2 ${tagClass}`}
-                      >
-                        {a.title.split(" ")[0].toUpperCase()}
-                      </span>
                       <h3 className="font-serif text-[22px] font-medium text-foreground tracking-tight leading-snug mb-1">
                         {a.title}
                       </h3>
@@ -661,13 +652,13 @@ export default async function DashboardPage() {
                           {excerpt}
                         </p>
                       )}
-                      <p className="font-sans text-xs text-muted-foreground mt-2">
+                      <p className="font-sans text-base text-muted-foreground mt-2">
                         {timeAgo(publishedAt)}
                       </p>
                     </div>
                     <Link
                       href={`/announcements/${a.id}`}
-                      className="font-sans text-[13px] font-semibold text-brand-primary hover:underline whitespace-nowrap pt-1"
+                      className="font-sans text-base font-semibold text-brand-primary hover:underline whitespace-nowrap pt-1"
                     >
                       Read →
                     </Link>
@@ -693,8 +684,7 @@ export default async function DashboardPage() {
 
             <div>
               {lectures.map((lec, i) => {
-                // Derive a "week" label from lecture_date order or index
-                const weekLabel = `Wk ${String(i + 1).padStart(2, "0")}`;
+                const dateLabel = lec.lecture_date ? lectureDateLabel(lec.lecture_date) : null;
 
                 return (
                   <div
@@ -736,14 +726,16 @@ export default async function DashboardPage() {
 
                     {/* Meta */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-mono text-[11px] text-muted-foreground mb-0.5 uppercase tracking-wider">
-                        {weekLabel}
-                      </div>
+                      {dateLabel && (
+                        <div className="font-mono text-base text-muted-foreground mb-0.5 uppercase tracking-wider">
+                          {dateLabel}
+                        </div>
+                      )}
                       <div className="font-serif text-[18px] font-medium text-foreground tracking-tight leading-snug truncate">
                         {lec.title}
                       </div>
                       {lec.description && (
-                        <div className="font-sans text-xs text-muted-foreground mt-0.5 truncate">
+                        <div className="font-sans text-base text-muted-foreground mt-0.5 truncate">
                           {lec.description}
                         </div>
                       )}
