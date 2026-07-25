@@ -1,3 +1,10 @@
+## [0.20.3](https://github.com/cwaits6/small-group-hub/compare/v0.20.2...v0.20.3) (2026-07-25)
+
+
+### Bug Fixes
+
+* dashboard a11y & polish sweep ([#242](https://github.com/cwaits6/small-group-hub/issues/242)) ([#263](https://github.com/cwaits6/small-group-hub/issues/263)) ([a0ad831](https://github.com/cwaits6/small-group-hub/commit/a0ad831f1da63511ee9e7a23b969aa0d1d5e4275))
+
 ## [0.20.2](https://github.com/cwaits6/small-group-hub/compare/v0.20.1...v0.20.2) (2026-07-25)
 
 
