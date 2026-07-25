@@ -67,6 +67,7 @@ export function HouseholdMemberEditClient({ profile }: Props) {
               Relationship to household
             </Label>
             <Select
+              items={RELATIONSHIPS}
               value={relationship}
               onValueChange={(v) => handleRelationshipChange(v as FamilyMemberRelationship)}
               disabled={savingRelationship}
