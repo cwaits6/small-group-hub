@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
+import { cn } from "@/lib/utils";
 
 function JoinForm() {
   const [loading, setLoading] = useState(false);
@@ -93,7 +94,7 @@ function JoinForm() {
             defaultValue={prefilledEmail}
             readOnly={!!prefilledEmail}
             placeholder="your@email.com"
-            className={`text-lg py-6${prefilledEmail ? " bg-muted" : ""}`}
+            className={cn("text-lg py-6", prefilledEmail && "bg-muted")}
           />
           {prefilledEmail && (
             <p className="text-lg text-muted-foreground">
