@@ -211,7 +211,7 @@ export default async function LectureDetailPage({
                 Recording unavailable
               </span>
             )}
-            <p className="font-sans text-base text-foreground/70 italic px-2">
+            <p className="font-sans text-base text-foreground italic px-2">
               Opens in a new tab. You may be prompted to enter a Zoom passcode.
             </p>
           </div>

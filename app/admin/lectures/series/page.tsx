@@ -51,9 +51,9 @@ export default async function AdminSeriesPage() {
                       <td className="py-3 pr-4 text-muted-foreground">{count}</td>
                       <td className="py-3 pr-4">
                         {(s as unknown as { is_archived: boolean }).is_archived ? (
-                          <span className="text-sm font-medium text-muted-foreground">Archived</span>
+                          <span className="text-base font-medium text-muted-foreground">Archived</span>
                         ) : (
-                          <span className="text-sm font-medium text-green-700">Active</span>
+                          <span className="text-base font-medium text-green-700">Active</span>
                         )}
                       </td>
                       <td className="py-3">
