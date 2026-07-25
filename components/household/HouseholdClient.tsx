@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +18,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { HouseholdMemberEditClient } from "@/components/household/HouseholdMemberEditClient";
+import { FamilyMemberForm } from "@/components/household/FamilyMemberForm";
 import {
   Select,
   SelectContent,
@@ -73,10 +80,9 @@ interface HouseholdClientProps {
   currentProfile: Profile;
   family: FamilyUnit;
   initialFamilyMembers: FamilyMember[];
-  householdProfiles: Pick<
-    Profile,
-    "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url"
-  >[];
+  householdProfiles: Profile[];
+  /** Called when the user clicks "Edit" on their own row — the parent switches to the Me tab */
+  onEditSelf: () => void;
 }
 
 function fromFamily(f: FamilyUnit): HouseholdInfo {
@@ -99,14 +105,20 @@ export function HouseholdClient({
   family,
   initialFamilyMembers,
   householdProfiles,
+  onEditSelf,
 }: HouseholdClientProps) {
   const router = useRouter();
   const [info, setInfo] = useState<HouseholdInfo>(fromFamily(family));
   const [savingInfo, setSavingInfo] = useState(false);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(initialFamilyMembers);
 
   // "Add member" dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // Edit sheets for another enrolled member / a family member without an account
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [fmSheetState, setFmSheetState] = useState<
+    { mode: "new" } | { mode: "edit"; member: FamilyMember } | null
+  >(null);
 
   // "Link existing account" search within the dialog
   const [searchQuery, setSearchQuery] = useState("");
@@ -163,7 +175,7 @@ export function HouseholdClient({
       return;
     }
     toast.success("Family member removed.");
-    setFamilyMembers((prev) => prev.filter((m) => m.id !== fm.id));
+    router.refresh();
   }
 
   // ---- Link existing account ----
@@ -421,7 +433,7 @@ export function HouseholdClient({
                 </Badge>
               </div>
             </div>
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/profile" />}>
+            <Button variant="outline" size="sm" onClick={onEditSelf}>
               <Pencil className="mr-1 h-4 w-4" />
               Edit
             </Button>
@@ -449,8 +461,7 @@ export function HouseholdClient({
                 <Button
                   variant="outline"
                   size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/household/member/${p.id}`} />}
+                  onClick={() => setEditingMemberId(p.id)}
                 >
                   <Pencil className="mr-1 h-4 w-4" />
                   Edit profile
@@ -478,8 +489,7 @@ export function HouseholdClient({
               <Button
                 variant="outline"
                 size="sm"
-                nativeButton={false}
-                render={<Link href="/household/member/fm/new" />}
+                onClick={() => setFmSheetState({ mode: "new" })}
               >
                 <Plus className="mr-1 h-4 w-4" />
                 Add member
@@ -501,7 +511,7 @@ export function HouseholdClient({
             instead.
           </p>
 
-          {familyMembers.map((fm) => (
+          {initialFamilyMembers.map((fm) => (
             <div
               key={fm.id}
               className="flex items-center justify-between bg-muted/40 rounded-md px-3 py-2"
@@ -532,8 +542,7 @@ export function HouseholdClient({
                 <Button
                   variant="ghost"
                   size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/household/member/fm/${fm.id}`} />}
+                  onClick={() => setFmSheetState({ mode: "edit", member: fm })}
                 >
                   <Pencil className="mr-1 h-3.5 w-3.5" />
                   Edit
@@ -550,7 +559,7 @@ export function HouseholdClient({
             </div>
           ))}
 
-          {familyMembers.length === 0 && (
+          {initialFamilyMembers.length === 0 && (
             <p className="text-sm text-muted-foreground">No additional family members yet.</p>
           )}
         </CardContent>
@@ -646,6 +655,49 @@ export function HouseholdClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ---- Edit another enrolled member's profile ---- */}
+      <Sheet open={editingMemberId !== null} onOpenChange={(o) => !o && setEditingMemberId(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="border-b pb-3">
+            <SheetTitle>Edit member</SheetTitle>
+          </SheetHeader>
+          {editingMemberId && (
+            <div className="px-4 pb-6">
+              <HouseholdMemberEditClient
+                key={editingMemberId}
+                profile={householdProfiles.find((p) => p.id === editingMemberId)!}
+                onSaved={() => {
+                  setEditingMemberId(null);
+                  router.refresh();
+                }}
+              />
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ---- Add / edit a family member without an account ---- */}
+      <Sheet open={fmSheetState !== null} onOpenChange={(o) => !o && setFmSheetState(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="border-b pb-3">
+            <SheetTitle>
+              {fmSheetState?.mode === "edit" ? "Edit family member" : "Add family member"}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-6">
+            <FamilyMemberForm
+              key={fmSheetState?.mode === "edit" ? fmSheetState.member.id : "new"}
+              member={fmSheetState?.mode === "edit" ? fmSheetState.member : null}
+              onSaved={() => {
+                setFmSheetState(null);
+                router.refresh();
+              }}
+              onCancel={() => setFmSheetState(null)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

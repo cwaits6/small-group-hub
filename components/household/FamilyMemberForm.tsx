@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,11 +47,11 @@ const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
 interface Props {
   /** null = creating new member */
   member: FamilyMember | null;
+  onSaved?: () => void;
+  onCancel?: () => void;
 }
 
-export function FamilyMemberForm({ member }: Props) {
-  const router = useRouter();
-
+export function FamilyMemberForm({ member, onSaved, onCancel }: Props) {
   const [firstName, setFirstName] = useState(member?.first_name ?? "");
   const [lastName, setLastName] = useState(member?.last_name ?? "");
   const [preferredName, setPreferredName] = useState(member?.preferred_name ?? "");
@@ -160,11 +159,11 @@ export function FamilyMemberForm({ member }: Props) {
     }
 
     if (isNew) {
-      toast.success("Family member added. You can add a photo by editing them from the household page.");
+      toast.success("Family member added. You can add a photo by editing them.");
     } else {
       toast.success("Family member updated.");
     }
-    router.push("/household");
+    onSaved?.();
   }
 
   return (
@@ -359,7 +358,7 @@ export function FamilyMemberForm({ member }: Props) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/household")}
+          onClick={() => onCancel?.()}
         >
           Cancel
         </Button>

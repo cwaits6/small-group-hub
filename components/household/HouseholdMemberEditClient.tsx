@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,10 +26,10 @@ const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
 
 interface Props {
   profile: Profile;
+  onSaved: () => void;
 }
 
-export function HouseholdMemberEditClient({ profile }: Props) {
-  const router = useRouter();
+export function HouseholdMemberEditClient({ profile, onSaved }: Props) {
   const supabase = createClient();
   const [relationship, setRelationship] = useState<FamilyMemberRelationship>(profile.relationship);
   const [savingRelationship, setSavingRelationship] = useState(false);
@@ -95,7 +94,7 @@ export function HouseholdMemberEditClient({ profile }: Props) {
         families={[] as FamilyUnit[]}
         isAdmin={false}
         relaxValidation={true}
-        onSaved={() => router.push("/household")}
+        onSaved={onSaved}
       />
     </div>
   );

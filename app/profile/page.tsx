@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { MyProfileView, type HouseholdEntry } from "@/components/profile/MyProfileView";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ProfileHouseholdTabs } from "@/components/profile/ProfileHouseholdTabs";
 import { siteConfig } from "@/lib/config";
 import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 
@@ -31,7 +33,7 @@ export default async function ProfilePage() {
   }
 
   let family: FamilyUnit | null = null;
-  let householdProfiles: HouseholdEntry[] = [];
+  let householdProfiles: Profile[] = [];
   let familyMembers: FamilyMember[] = [];
 
   if (profile.family_id) {
@@ -41,17 +43,16 @@ export default async function ProfilePage() {
         .select("*")
         .eq("id", profile.family_id)
         .maybeSingle<FamilyUnit>(),
-      // Other enrolled household members, with privacy masking applied so
-      // the tiles show what the directory shows.
+      // Other enrolled household members. Full rows (not the masked directory
+      // view) so the Household tab's edit sheet can populate the form without
+      // a second fetch — the list itself only ever shows name/avatar/relationship.
       supabase
-        .from("profiles_directory")
-        .select(
-          "id, first_name, last_name, preferred_name, avatar_url, relationship, email, phone_mobile",
-        )
+        .from("profiles")
+        .select("*")
         .eq("family_id", profile.family_id)
         .neq("id", user.id)
         .order("first_name")
-        .returns<HouseholdEntry[]>(),
+        .returns<Profile[]>(),
       // Family members without accounts (children etc.)
       supabase
         .from("family_members")
@@ -73,17 +74,18 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-6 text-3xl font-bold text-brand-primary md:text-4xl">
-        My Profile
-      </h1>
+    <PageContainer>
+      <PageHeader
+        title="My Profile"
+        subtitle="Manage your info and your household."
+      />
 
-      <MyProfileView
+      <ProfileHouseholdTabs
         profile={profile}
         family={family}
         householdProfiles={householdProfiles}
         familyMembers={familyMembers}
       />
-    </div>
+    </PageContainer>
   );
 }
