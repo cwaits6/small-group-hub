@@ -113,7 +113,7 @@ export function JoinMeetingBlock({
   );
 
   const outlineButtonClass =
-    "flex w-full items-center justify-center gap-2 mt-3 rounded-xl py-3 font-sans text-[15px] font-semibold text-white transition-colors hover:bg-white/20";
+    "flex w-full items-center justify-center gap-2 mt-3 rounded-xl py-3 font-sans text-base font-semibold text-white transition-colors hover:bg-white/20";
   const outlineButtonStyle = {
     background: "rgba(255,255,255,0.10)",
     border: "1px solid rgba(255,255,255,0.4)",
@@ -135,7 +135,7 @@ export function JoinMeetingBlock({
         </div>
         {recordingsHref && (
           <>
-            <p className="font-sans text-sm text-white/78 leading-relaxed mt-2.5">
+            <p className="font-sans text-base text-white/78 leading-relaxed mt-2.5">
               Missed it? The recording is posted to Lectures.
             </p>
             <a href={recordingsHref} className={outlineButtonClass} style={outlineButtonStyle}>
