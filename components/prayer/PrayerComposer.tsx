@@ -196,7 +196,7 @@ export function PrayerComposer({
                 className="rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors"
                 style={
                   active
-                    ? { backgroundColor: meta.color, borderColor: meta.color, color: "#fff" }
+                    ? { backgroundColor: meta.color, borderColor: meta.color, color: "var(--primary-foreground)" }
                     : undefined
                 }
               >

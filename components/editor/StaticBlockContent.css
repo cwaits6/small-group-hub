@@ -38,11 +38,11 @@
 
 /* Link styling */
 .bn-static a {
-  color: var(--color-brand-accent, #E8A93C) !important;
+  color: var(--color-brand-accent) !important;
   text-decoration: underline !important;
 }
 
 .bn-static a:hover {
-  color: var(--color-brand-accent, #E8A93C) !important;
+  color: var(--color-brand-accent) !important;
   opacity: 0.8;
 }

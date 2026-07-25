@@ -250,7 +250,7 @@ export function PrayerBoard({
                 ? {
                     backgroundColor: typeMeta.color,
                     borderColor: typeMeta.color,
-                    color: "#fff",
+                    color: "var(--primary-foreground)",
                   }
                 : undefined
             }

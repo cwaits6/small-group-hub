@@ -153,7 +153,7 @@ export function EventsPageClient({
                     >
                       <span
                         className="inline-block h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
+                        style={{ backgroundColor: cal.color ?? "var(--color-brand-primary)" }}
                       />
                       {cal.name}
                     </DropdownMenuItem>
@@ -221,7 +221,7 @@ export function EventsPageClient({
                       >
                         <span
                           className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: cal.color ?? "#2F6BA8" }}
+                          style={{ backgroundColor: cal.color ?? "var(--color-brand-primary)" }}
                         />
                         {cal.name}
                       </DropdownMenuCheckboxItem>

@@ -6,7 +6,7 @@ import { displayName, initials } from "@/lib/names";
 import { PRAYER_CATEGORIES, timeAgo } from "@/lib/prayer";
 import type { PrayerWallRow } from "@/lib/types";
 
-const ANSWERED = "#3E8E5A";
+const ANSWERED = "var(--color-brand-success)";
 
 export function PrayerCard({
   row,
@@ -30,13 +30,13 @@ export function PrayerCard({
       ? displayName(row)
       : "A member";
   const restricted = row.visible_to_warriors;
-  const barColor = row.is_answered ? ANSWERED : restricted ? "#E8A93C" : null;
+  const barColor = row.is_answered ? ANSWERED : restricted ? "var(--color-brand-accent)" : null;
 
   return (
     <div
       className={`relative overflow-hidden rounded-2xl border bg-card p-5 ${
         row.is_answered
-          ? "border-[#3E8E5A]/40"
+          ? "border-brand-success/40"
           : restricted
             ? "border-brand-accent/50"
             : "border-border"
@@ -75,7 +75,7 @@ export function PrayerCard({
               </span>
             )}
             {restricted && (
-              <span className="flex items-center gap-1 rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#8a6412]">
+              <span className="flex items-center gap-1 rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-accent-text">
                 <Lock className="h-2.5 w-2.5" aria-hidden="true" />
                 Prayer warriors
               </span>
@@ -130,7 +130,7 @@ export function PrayerCard({
               onClick={onToggleAnswered}
               className={`flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
                 row.is_answered
-                  ? "border-[#3E8E5A] bg-[#3E8E5A] text-white"
+                  ? "border-brand-success bg-brand-success text-white"
                   : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >

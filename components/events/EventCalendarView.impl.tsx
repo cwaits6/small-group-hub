@@ -45,7 +45,7 @@ export default function EventCalendarView({ events, visibleCalendarIds, isAdmin 
     }
 
     return expanded.map((e) => {
-      const color = e.calendar?.color ?? "#2F6BA8";
+      const color = e.calendar?.color ?? "var(--color-brand-primary)";
       return {
         id: e.id,
         title: e.title,
