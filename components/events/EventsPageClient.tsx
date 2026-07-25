@@ -23,7 +23,7 @@ import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 type View = "calendar" | "list";
 
 const outlineButtonClass =
-  "h-11 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary";
+  "h-12 rounded-xl border-slate-200 bg-white px-4 text-base font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary";
 
 interface EventsPageClientProps {
   allEvents: (Event & { calendar?: EventCalendar | null })[];
@@ -101,33 +101,12 @@ export function EventsPageClient({
         subtitle="Browse the shared calendar for our group."
         actions={
           <>
-            {isAdmin && (
-              <>
-                <Button
-                  variant="outline"
-                  className={outlineButtonClass}
-                  nativeButton={false}
-                  render={<Link href="/admin/events/new" />}
-                >
-                  Add Event
-                </Button>
-                <Button
-                  variant="outline"
-                  className={outlineButtonClass}
-                  nativeButton={false}
-                  render={<Link href="/admin/calendars" />}
-                >
-                  Add Calendar
-                </Button>
-              </>
-            )}
-
             {subscriptionToken && (
               <DropdownMenu>
                 <DropdownMenuTrigger render={
                   <Button
                     variant="outline"
-                    className="h-11 gap-2 rounded-xl border-slate-200 bg-white px-5 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
+                    className="h-12 gap-2 rounded-xl border-slate-200 bg-white px-5 text-base font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                   >
                     <Rss className="h-4 w-4" />
                     Subscribe to Calendar
@@ -162,12 +141,33 @@ export function EventsPageClient({
         }
       />
 
+      {isAdmin && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className={outlineButtonClass}
+            nativeButton={false}
+            render={<Link href="/admin/events/new" />}
+          >
+            Add Event
+          </Button>
+          <Button
+            variant="outline"
+            className={outlineButtonClass}
+            nativeButton={false}
+            render={<Link href="/admin/calendars" />}
+          >
+            Add Calendar
+          </Button>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="inline-flex w-fit items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           <Button
             onClick={() => setView("calendar")}
             variant="ghost"
-            className={`h-10 rounded-lg px-5 text-sm font-semibold ${
+            className={`h-12 rounded-lg px-5 text-base font-semibold ${
               view === "calendar"
                 ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
                 : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
@@ -178,7 +178,7 @@ export function EventsPageClient({
           <Button
             onClick={() => setView("list")}
             variant="ghost"
-            className={`h-10 rounded-lg px-5 text-sm font-semibold ${
+            className={`h-12 rounded-lg px-5 text-base font-semibold ${
               view === "list"
                 ? "bg-brand-primary text-white shadow-sm hover:bg-brand-primary/90 hover:text-white"
                 : "text-slate-600 hover:bg-slate-50 hover:text-brand-primary"
@@ -190,14 +190,14 @@ export function EventsPageClient({
 
         {view === "calendar" && (calendars.length > 0 || hasUncategorized) && (
           <div className="flex flex-col gap-2 md:items-end">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+            <span className="text-base font-semibold uppercase tracking-[0.18em] text-slate-600">
               Calendars
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger render={
                 <Button
                   variant="outline"
-                  className="h-11 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
+                  className="h-12 min-w-52 justify-between gap-3 rounded-xl border-slate-200 bg-white px-4 text-base font-medium text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
                 >
                   <span className="flex items-center gap-2">
                     <SlidersHorizontal className="h-4 w-4" />

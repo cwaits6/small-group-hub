@@ -55,7 +55,7 @@ export function AnnouncementCard({ announcement }: AnnouncementCardProps) {
             <h3 className="font-display text-xl font-bold text-slate-800 leading-tight">
               {announcement.title}
             </h3>
-            <p className="text-sm text-slate-400 font-medium">
+            <p className="text-base text-slate-600 font-medium">
               {date.toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",

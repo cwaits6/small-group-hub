@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AddToCalendarButton } from "@/components/events/AddToCalendarButton";
 import { RsvpButton } from "@/components/events/RsvpButton";
-import { CalendarDays, Clock, MapPin, Pencil } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Pencil, Plus } from "lucide-react";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
 interface EventListViewProps {
@@ -17,9 +17,23 @@ interface EventListViewProps {
 export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: EventListViewProps) {
   if (events.length === 0) {
     return (
-      <p className="text-xl text-muted-foreground">
-        No upcoming calendar items right now. Check back soon!
-      </p>
+      <div className="max-w-5xl rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+        <p className="text-xl text-muted-foreground">
+          No upcoming calendar items right now. Check back soon!
+        </p>
+        {isAdmin && (
+          <p className="mt-3">
+            <Button
+              nativeButton={false}
+              render={<Link href="/admin/events/new" />}
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Create event
+            </Button>
+          </p>
+        )}
+      </div>
     );
   }
 
@@ -63,7 +77,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                 className="shrink-0 flex h-16 w-16 flex-col items-center justify-center rounded-2xl text-white shadow-sm"
                 style={{ background: event.calendar?.color ?? "var(--color-brand-primary)" }}
               >
-                <span className="text-[0.65rem] font-bold tracking-widest leading-none">{month}</span>
+                <span className="text-base font-bold tracking-widest leading-none">{month}</span>
                 <span className="text-2xl font-bold font-display leading-tight">{dayNum}</span>
               </div>
 
@@ -80,13 +94,13 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                       {event.calendar && (
                         <Badge
                           variant="secondary"
-                          className="bg-brand-bg-light text-brand-primary border-brand-primary/20"
+                          className="bg-brand-bg-light text-brand-primary border-brand-primary/20 text-base"
                         >
                           {event.calendar.name}
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-500">
+                    <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-base text-slate-600">
                       <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 shrink-0 text-brand-primary-light" />
                         <span>{fullDate}</span>
@@ -148,7 +162,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
                 </div>
 
                 {event.description && (
-                  <p className="max-w-3xl text-sm leading-relaxed text-slate-500 line-clamp-2">
+                  <p className="max-w-3xl text-base leading-relaxed text-slate-600 line-clamp-2">
                     {event.description}
                   </p>
                 )}

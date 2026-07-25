@@ -44,14 +44,14 @@ function MetaCell({
 }) {
   return (
     <div>
-      <div className="font-sans text-[11px] uppercase tracking-[1.8px] text-muted-foreground font-semibold">
+      <div className="font-sans text-base uppercase tracking-[1.8px] text-muted-foreground font-semibold">
         {label}
       </div>
       <div className="font-serif text-[22px] font-medium text-foreground mt-1 leading-tight tracking-tight">
         {value}
       </div>
       {sub && (
-        <div className="font-sans text-xs text-muted-foreground mt-0.5">
+        <div className="font-sans text-base text-muted-foreground mt-0.5">
           {sub}
         </div>
       )}
@@ -243,11 +243,11 @@ export default async function EventDetailPage({
   // Attendee counts
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-dvh bg-background">
       <div className="relative container mx-auto px-4 py-8 md:py-12 max-w-6xl">
         {/* ── Breadcrumb ── */}
         <div className="flex items-center justify-between mb-8">
-          <nav className="font-sans text-sm text-muted-foreground">
+          <nav className="font-sans text-base text-muted-foreground">
             <Link href="/events" className="hover:text-foreground transition-colors">
               Events
             </Link>
@@ -293,7 +293,7 @@ export default async function EventDetailPage({
                   style={{ background: "var(--color-brand-accent)" }}
                 />
                 <span
-                  className="font-sans text-[11px] font-bold uppercase tracking-[1.5px]"
+                  className="font-sans text-base font-bold uppercase tracking-[1.5px]"
                   style={{ color: "var(--color-brand-accent)" }}
                 >
                   {diffDays <= 1
@@ -319,10 +319,10 @@ export default async function EventDetailPage({
             )}
 
             {/* Meta strip */}
-            <div className="mt-8 py-5 grid gap-6 border-t border-b border-border"
-              style={{
-                gridTemplateColumns: `repeat(${event.location ? 3 : 2}, 1fr)`,
-              }}
+            <div
+              className={`mt-8 py-5 grid grid-cols-1 gap-6 border-t border-b border-border sm:grid-cols-2 ${
+                event.location ? "lg:grid-cols-3" : ""
+              }`}
             >
               <MetaCell
                 label="Date"
@@ -349,7 +349,7 @@ export default async function EventDetailPage({
                 {/* Eyebrow */}
                 <div className="flex items-center gap-3 mb-4">
                   <div className="h-px w-6 bg-brand-accent" />
-                  <span className="font-sans text-[11px] font-bold uppercase tracking-[2px] text-brand-accent">
+                  <span className="font-sans text-base font-bold uppercase tracking-[2px] text-brand-accent">
                     About this event
                   </span>
                 </div>
@@ -507,14 +507,14 @@ export default async function EventDetailPage({
 
                 {/* Address + directions */}
                 <div className="flex items-center justify-between px-4 py-3.5">
-                  <span className="font-sans text-sm text-muted-foreground truncate">
+                  <span className="font-sans text-base text-muted-foreground truncate">
                     {event.location}
                   </span>
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-sans text-sm font-semibold text-brand-primary hover:underline whitespace-nowrap ml-3"
+                    className="ml-3 inline-flex min-h-12 shrink-0 items-center whitespace-nowrap font-sans text-base font-semibold text-brand-primary hover:underline"
                   >
                     Directions →
                   </a>

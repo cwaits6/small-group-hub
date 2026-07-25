@@ -98,17 +98,17 @@ export default function EventCalendarView({ events, visibleCalendarIds, isAdmin 
     <div className="bg-white rounded-[2rem] border-2 border-border overflow-hidden p-5 shadow-sm [&_.fc-event]:cursor-pointer">
       <div className="rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-4 md:p-5">
         {/* Custom navigation buttons */}
-        <div className="mb-3 flex items-center gap-1.5">
+        <div className="mb-3 flex items-center gap-2">
           <button
             onClick={() => calendarRef.current?.getApi().prev()}
-            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
+            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
             aria-label={`Previous ${navUnit}`}
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={() => calendarRef.current?.getApi().next()}
-            className="cursor-pointer rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
+            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:border-brand-primary/30 hover:text-brand-primary"
             aria-label={`Next ${navUnit}`}
           >
             <ChevronRight className="h-5 w-5" />
