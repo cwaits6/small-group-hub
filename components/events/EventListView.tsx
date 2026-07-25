@@ -29,7 +29,7 @@ export function EventListView({ events, userRsvps, userId, isMember, isAdmin }: 
               className="bg-brand-primary hover:bg-brand-primary/90 text-white"
             >
               <Plus className="mr-1.5 h-4 w-4" />
-              New event
+              Create event
             </Button>
           </p>
         )}

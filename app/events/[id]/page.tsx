@@ -319,10 +319,10 @@ export default async function EventDetailPage({
             )}
 
             {/* Meta strip */}
-            <div className="mt-8 py-5 grid gap-6 border-t border-b border-border"
-              style={{
-                gridTemplateColumns: `repeat(${event.location ? 3 : 2}, 1fr)`,
-              }}
+            <div
+              className={`mt-8 py-5 grid grid-cols-1 gap-6 border-t border-b border-border sm:grid-cols-2 ${
+                event.location ? "lg:grid-cols-3" : ""
+              }`}
             >
               <MetaCell
                 label="Date"
@@ -514,7 +514,7 @@ export default async function EventDetailPage({
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-sans text-base font-semibold text-brand-primary hover:underline whitespace-nowrap ml-3"
+                    className="ml-3 inline-flex min-h-12 shrink-0 items-center whitespace-nowrap font-sans text-base font-semibold text-brand-primary hover:underline"
                   >
                     Directions →
                   </a>
