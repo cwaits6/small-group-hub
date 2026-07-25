@@ -244,15 +244,6 @@ export default async function EventDetailPage({
 
   return (
     <div className="relative min-h-screen bg-background">
-      {/* Subtle paper-grain texture overlay — same as homepage hero */}
-      <div
-        className="absolute inset-0 opacity-[0.025] pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
-        }}
-      />
-
       <div className="relative container mx-auto px-4 py-8 md:py-12 max-w-6xl">
         {/* ── Breadcrumb ── */}
         <div className="flex items-center justify-between mb-8">
@@ -383,16 +374,6 @@ export default async function EventDetailPage({
                   boxShadow: "0 14px 40px rgba(47,107,168,0.2)",
                 }}
               >
-                {/* Subtle linen texture overlay */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    opacity: 0.1,
-                    backgroundImage:
-                      "repeating-linear-gradient(0deg, rgba(255,255,255,0.4) 0px, rgba(255,255,255,0.4) 1px, transparent 1px, transparent 4px)",
-                  }}
-                />
-
                 <div className="relative text-white">
                   <EventRsvpPanel
                     eventId={event.id}
@@ -446,14 +427,6 @@ export default async function EventDetailPage({
                   boxShadow: "0 14px 40px rgba(47,107,168,0.2)",
                 }}
               >
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    opacity: 0.1,
-                    backgroundImage:
-                      "repeating-linear-gradient(0deg, rgba(255,255,255,0.4) 0px, rgba(255,255,255,0.4) 1px, transparent 1px, transparent 4px)",
-                  }}
-                />
                 <div className="relative">
                   <JoinMeetingBlock
                     meetingUrl={meeting.meeting_url}

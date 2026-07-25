@@ -185,16 +185,10 @@ export function JoinMeetingBlock({
       style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.22)" }}
     >
       <div className={statusRowClass}>
-        <span className="relative inline-block h-[9px] w-[9px]">
-          <span
-            className="absolute inset-0 rounded-full"
-            style={{ background: "#E8A93C", animation: "join-ring 1.6s ease-out infinite" }}
-          />
-          <span
-            className="absolute inset-0 rounded-full"
-            style={{ background: "#E8A93C", animation: "join-pulse 1.6s ease-in-out infinite" }}
-          />
-        </span>
+        <span
+          className="inline-block h-[9px] w-[9px] rounded-full"
+          style={{ background: "#E8A93C" }}
+        />
         <span style={{ color: "#E8A93C" }}>Live now</span>
       </div>
       <a
