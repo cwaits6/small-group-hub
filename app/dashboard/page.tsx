@@ -648,7 +648,7 @@ export default async function DashboardPage() {
                         {a.title}
                       </h3>
                       {excerpt && (
-                        <p className="font-sans text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                        <p className="font-sans text-base text-muted-foreground leading-relaxed line-clamp-2">
                           {excerpt}
                         </p>
                       )}
