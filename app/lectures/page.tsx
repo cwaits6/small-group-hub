@@ -104,7 +104,7 @@ export default async function LecturesPage({
         <div className="relative px-6 md:px-14 py-16 md:py-24">
           {/* Headline */}
           <h1 className="font-display text-5xl md:text-6xl font-medium tracking-tight leading-none mb-5">
-            Sermon Library
+            Lecture Library
           </h1>
 
           {/* Subtext */}
@@ -250,12 +250,6 @@ export default async function LecturesPage({
         <section className="bg-background border-t border-border">
           <div className="px-6 md:px-14 py-14">
             <div className="mb-8">
-<<<<<<< HEAD
-              <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
-                PAST SERIES
-              </p>
-=======
->>>>>>> 84a0619 (fix: remove redundant lectures eyebrows duplicating the headings)
               <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
                 Past Series
               </h2>
