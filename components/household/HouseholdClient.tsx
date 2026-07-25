@@ -100,6 +100,43 @@ function fromFamily(f: FamilyUnit): HouseholdInfo {
   };
 }
 
+function MemberRow({
+  profile,
+  isYou,
+  action,
+}: {
+  profile: Pick<Profile, "avatar_url" | "relationship" | "first_name" | "last_name" | "preferred_name">;
+  isYou?: boolean;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-12 w-12">
+          {profile.avatar_url && (
+            <AvatarImage src={profile.avatar_url} alt={displayName(profile)} />
+          )}
+          <AvatarFallback className="bg-brand-primary text-white text-sm">
+            {initials(profile)}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <span className="text-base font-medium">{displayName(profile)}</span>
+          <Badge variant="outline" className="ml-2 text-base capitalize">
+            {profile.relationship}
+          </Badge>
+          {isYou && (
+            <Badge variant="secondary" className="ml-1 text-base">
+              You
+            </Badge>
+          )}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function HouseholdClient({
   currentProfile,
   family,
@@ -413,63 +450,36 @@ export function HouseholdClient({
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Current user */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
-                {currentProfile.avatar_url && (
-                  <AvatarImage src={currentProfile.avatar_url} alt={displayName(currentProfile)} />
-                )}
-                <AvatarFallback className="bg-brand-primary text-white text-sm">
-                  {initials(currentProfile)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <span className="text-base font-medium">{displayName(currentProfile)}</span>
-                <Badge variant="outline" className="ml-2 text-base capitalize">
-                  {currentProfile.relationship}
-                </Badge>
-                <Badge variant="secondary" className="ml-1 text-base">
-                  You
-                </Badge>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={onEditSelf}>
-              <Pencil className="mr-1 h-4 w-4" />
-              Edit
-            </Button>
-          </div>
+          <MemberRow
+            profile={currentProfile}
+            isYou
+            action={
+              <Button variant="outline" size="sm" onClick={onEditSelf}>
+                <Pencil className="mr-1 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          />
 
           {householdProfiles.map((p) => (
-            <div key={p.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  {p.avatar_url && (
-                    <AvatarImage src={p.avatar_url} alt={displayName(p)} />
-                  )}
-                  <AvatarFallback className="bg-brand-primary text-white text-sm">
-                    {initials(p)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <span className="text-base font-medium">{displayName(p)}</span>
-                  <Badge variant="outline" className="ml-2 text-base capitalize">
-                    {p.relationship}
-                  </Badge>
-                </div>
-              </div>
-              {canEditSpouseProfiles ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingMemberId(p.id)}
-                >
-                  <Pencil className="mr-1 h-4 w-4" />
-                  Edit profile
-                </Button>
-              ) : (
-                <span className="text-base text-muted-foreground">Contact admin to edit</span>
-              )}
-            </div>
+            <MemberRow
+              key={p.id}
+              profile={p}
+              action={
+                canEditSpouseProfiles ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingMemberId(p.id)}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Edit profile
+                  </Button>
+                ) : (
+                  <span className="text-base text-muted-foreground">Contact admin to edit</span>
+                )
+              }
+            />
           ))}
 
           {householdProfiles.length === 0 && (
