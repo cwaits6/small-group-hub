@@ -91,7 +91,7 @@ export function ServingSettingsDialog({ groupId, settings }: ServingSettingsDial
           {/* Reminder days */}
           <div className="space-y-2">
             <Label className="text-base">Reminder days</Label>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Send reminder emails on these days of the week.
             </p>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -118,7 +118,7 @@ export function ServingSettingsDialog({ groupId, settings }: ServingSettingsDial
             <Label htmlFor="st-weeks" className="text-base">
               Schedule window (weeks)
             </Label>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               How many upcoming Sundays to show (1–26).
             </p>
             <input

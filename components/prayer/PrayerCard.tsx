@@ -66,23 +66,23 @@ export function PrayerCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-serif text-lg text-foreground">
+            <span className="text-lg font-semibold text-foreground">
               {authorName}
             </span>
             {row.mine && (
-              <span className="rounded-full bg-brand-warm px-2 py-0.5 text-[11px] font-bold text-brand-primary">
+              <span className="rounded-full bg-brand-warm px-2 py-0.5 text-xs font-bold text-brand-primary">
                 You
               </span>
             )}
             {restricted && (
-              <span className="flex items-center gap-1 rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-accent-text">
+              <span className="flex items-center gap-1 rounded-full bg-brand-bg-light px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-brand-accent-text">
                 <Lock className="h-2.5 w-2.5" aria-hidden="true" />
                 Prayer warriors
               </span>
             )}
             {row.is_answered && (
               <span
-                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide"
                 style={{ backgroundColor: `${ANSWERED}1A`, color: ANSWERED }}
               >
                 <Check className="h-2.5 w-2.5" aria-hidden="true" />
@@ -103,7 +103,7 @@ export function PrayerCard({
         </span>
       </div>
 
-      <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/80">
+      <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-foreground/80">
         {row.body}
       </p>
 

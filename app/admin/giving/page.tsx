@@ -107,11 +107,11 @@ export default async function AdminGivingPage() {
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-serif text-lg text-foreground">
+                    <span className="text-lg font-semibold text-foreground">
                       {fund.name}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
                         status.live
                           ? "bg-brand-warm text-brand-primary"
                           : "bg-muted text-muted-foreground"
@@ -142,7 +142,7 @@ export default async function AdminGivingPage() {
                 </div>
                 <Button
                   variant="outline"
-                  size="sm"
+                  size="default"
                   nativeButton={false}
                   render={<Link href={`/give/${fund.id}/edit`} />}
                 >

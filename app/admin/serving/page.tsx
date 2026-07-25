@@ -171,7 +171,7 @@ export default function ServingStatsPage() {
               key={r.value}
               type="button"
               onClick={() => setRange(r.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+              className={`px-4 py-3 rounded-lg text-base font-medium border transition-colors ${
                 range === r.value
                   ? "bg-brand-primary text-white border-brand-primary"
                   : "border-border text-muted-foreground hover:border-brand-primary/50"
@@ -208,7 +208,7 @@ export default function ServingStatsPage() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-base">
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
                     <th className="text-left px-6 py-3 font-semibold text-muted-foreground">

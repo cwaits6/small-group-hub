@@ -155,7 +155,7 @@ export function PrayerComposer({
               {me.initials}
             </AvatarFallback>
           </Avatar>
-          <h2 className="font-serif text-xl text-foreground">
+          <h2 className="text-xl font-semibold text-foreground">
             Share a request
           </h2>
         </div>
@@ -166,7 +166,7 @@ export function PrayerComposer({
           placeholder="What can we pray with you about?"
           rows={4}
           maxLength={2000}
-          className="bg-background text-[15px]"
+          className="bg-background text-base"
         />
 
         <div className="mt-4 mb-2 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -182,7 +182,7 @@ export function PrayerComposer({
                 type="button"
                 onClick={() => setCategory(key)}
                 aria-pressed={active}
-                className="rounded-full border px-3 py-1.5 text-[13px] font-semibold transition-colors"
+                className="rounded-full border px-4 py-3 text-base font-semibold transition-colors"
                 style={
                   active
                     ? { backgroundColor: meta.color, borderColor: meta.color, color: "var(--primary-foreground)" }
