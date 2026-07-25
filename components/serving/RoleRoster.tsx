@@ -36,7 +36,7 @@ export function RoleRoster({ members }: { members: RosterMember[] }) {
           </Avatar>
           <span className="text-foreground">{displayName(m)}</span>
           {m.is_leader && (
-            <span className="text-[10px] font-bold uppercase tracking-wide text-brand-accent">
+            <span className="text-xs font-bold uppercase tracking-wide text-brand-accent">
               Leader
             </span>
           )}

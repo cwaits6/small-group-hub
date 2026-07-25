@@ -200,7 +200,7 @@ export function PrayerCallCard({
         )}
       </div>
 
-      <h2 className="font-serif text-2xl text-background">The prayer call</h2>
+      <h2 className="text-2xl font-semibold text-background">The prayer call</h2>
       <p className="mt-2 mb-4 text-sm leading-relaxed text-background/80">
         We gather by phone to pray through the wall. Everyone is welcome to
         join. Each call is also on the group calendar.
@@ -233,7 +233,7 @@ export function PrayerCallCard({
               </div>
               <div className="grid grid-cols-2 gap-2.5">
                 <label className="col-span-2 block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Day
                   </span>
                   <Select
@@ -254,7 +254,7 @@ export function PrayerCallCard({
                   </Select>
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Starts
                   </span>
                   <input
@@ -265,7 +265,7 @@ export function PrayerCallCard({
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Ends (optional)
                   </span>
                   <input
@@ -276,7 +276,7 @@ export function PrayerCallCard({
                   />
                 </label>
                 <div className="col-span-2">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Call leader
                   </span>
                   <Combobox
@@ -302,7 +302,7 @@ export function PrayerCallCard({
                   </Combobox>
                 </div>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Dial in
                   </span>
                   <input
@@ -313,7 +313,7 @@ export function PrayerCallCard({
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     PIN
                   </span>
                   <input
@@ -324,7 +324,7 @@ export function PrayerCallCard({
                   />
                 </label>
                 <label className="col-span-2 block">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-background/55">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-background/85">
                     Join link (optional)
                   </span>
                   <input
@@ -365,18 +365,18 @@ export function PrayerCallCard({
                     />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-bold">{sessionLabel(s)}</div>
+                    <div className="text-base font-bold">{sessionLabel(s)}</div>
                     {leaderName && (
-                      <div className="mt-0.5 text-xs text-background/70">
+                      <div className="mt-0.5 text-sm text-background/85">
                         Led by {leaderName}
                       </div>
                     )}
                     {(s.dial_in || s.pin) && (
-                      <div className="mt-0.5 font-mono text-xs text-background/70">
+                      <div className="mt-0.5 font-mono text-sm text-background/85">
                         {s.dial_in && (
                           <a
                             href={telHref(s.dial_in, s.pin)}
-                            className="hover:underline"
+                            className="inline-block py-1 hover:underline"
                           >
                             {s.dial_in}
                           </a>

@@ -50,11 +50,11 @@ export function GiveList({ funds }: { funds: FundView[] }) {
               <AvatarCluster people={fund.stewards} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="font-serif text-xl text-foreground">
+                  <span className="text-xl font-semibold text-foreground">
                     {fund.name}
                   </span>
                   {fund.tag && (
-                    <span className="rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground">
+                    <span className="rounded-full bg-brand-bg-light px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-foreground">
                       {fund.tag}
                     </span>
                   )}
@@ -75,7 +75,7 @@ export function GiveList({ funds }: { funds: FundView[] }) {
             {open && (
               <div className="px-4 pb-4 sm:px-5 sm:pb-5">
                 {fund.description && (
-                  <p className="mb-3.5 text-[15px] leading-relaxed text-muted-foreground">
+                  <p className="mb-3.5 text-base leading-relaxed text-muted-foreground">
                     {fund.description}
                   </p>
                 )}

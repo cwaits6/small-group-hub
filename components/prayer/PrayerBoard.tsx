@@ -198,7 +198,7 @@ export function PrayerBoard({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search requests…"
           aria-label="Search requests"
-          className="w-full bg-transparent text-[15px] outline-none placeholder:text-muted-foreground"
+          className="w-full bg-transparent text-base outline-none placeholder:text-muted-foreground"
         />
         {query && (
           <button
@@ -221,7 +221,7 @@ export function PrayerBoard({
               key={f}
               type="button"
               onClick={() => setStatus(f)}
-              className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${
+              className={`rounded-full border px-4 py-3 text-base transition-colors ${
                 active
                   ? "border-foreground bg-foreground font-semibold text-background"
                   : "border-border bg-card font-medium text-muted-foreground hover:text-foreground"
@@ -240,7 +240,7 @@ export function PrayerBoard({
         >
           <SelectTrigger
             aria-label="Filter by prayer type"
-            className={`h-auto! rounded-full! px-3.5 py-1.5 text-sm transition-colors ${
+            className={`h-auto! rounded-full! px-4 py-3 text-base transition-colors ${
               typeMeta
                 ? "font-semibold [&_svg]:text-white"
                 : "border-border bg-card font-medium text-muted-foreground hover:text-foreground"

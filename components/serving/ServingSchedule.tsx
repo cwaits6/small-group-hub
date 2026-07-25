@@ -175,7 +175,7 @@ export function ServingSchedule({
               {entry && !mine && canManage && (
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   disabled={busy}
                   onClick={() => cancel(entry)}
                   aria-label={`Remove ${entry.label}`}

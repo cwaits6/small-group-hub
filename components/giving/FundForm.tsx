@@ -308,7 +308,7 @@ export function FundForm({
                   {steward?.name ?? "You"}
                 </p>
               )}
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-sm text-muted-foreground">
                 Money goes to this person&apos;s accounts.
               </p>
             </div>
@@ -335,7 +335,7 @@ export function FundForm({
                   </ComboboxList>
                 </ComboboxPopup>
               </Combobox>
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-sm text-muted-foreground">
                 A spouse or co-collector, for display.
               </p>
             </div>
@@ -366,7 +366,7 @@ export function FundForm({
                 onChange={(e) => setRetireOn(e.target.value)}
                 className="mt-1.5 text-base py-5"
               />
-              <p className="mt-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 text-sm text-muted-foreground">
                 Hidden from the Give page after this date.
               </p>
             </div>
@@ -412,7 +412,7 @@ export function FundForm({
                           className="font-mono text-sm"
                         />
                         {missing && (
-                          <p className="mt-1.5 text-xs font-medium text-brand-accent">
+                          <p className="mt-1.5 text-sm font-medium text-brand-accent">
                             Enter a handle for {meta.name}{' '}or this method won&apos;t be saved.
                           </p>
                         )}
@@ -477,11 +477,11 @@ export function FundForm({
             )}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-serif text-lg">
+                <span className="text-lg font-semibold">
                   {name.trim() || "Fund name"}
                 </span>
                 {previewTag && (
-                  <span className="rounded-full bg-brand-bg-light px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                  <span className="rounded-full bg-brand-bg-light px-2 py-0.5 text-xs font-bold uppercase tracking-wide">
                     {previewTag}
                   </span>
                 )}

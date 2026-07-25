@@ -60,7 +60,7 @@ export function AdminServingSetup({ groups }: AdminServingSetupProps) {
               <span className="flex-1 min-w-0 font-medium truncate">{g.name}</span>
               <Button
                 variant="outline"
-                size="sm"
+                size="default"
                 disabled={busy === g.id}
                 onClick={() => enable(g.id, g.name)}
               >
