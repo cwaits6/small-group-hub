@@ -128,56 +128,32 @@ export default async function AdminPage() {
   const rowBorder = (i: number) =>
     i > 0 ? { borderTop: "1px solid var(--color-border)" } : undefined;
 
+  const stats = [
+    { label: "Pending Requests", value: pendingRequests, icon: Clock },
+    { label: "Total Members", value: totalMembers, icon: Users },
+    { label: "Upcoming Events", value: upcomingEvents, icon: Calendar },
+    { label: "Announcements", value: publishedAnnouncements, icon: Megaphone },
+  ];
+
   return (
     <PageContainer size="wide">
       <PageHeader title="Admin Dashboard" />
 
       {/* Stats */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Pending Requests</p>
-                <p className="text-3xl font-bold text-brand-primary">{pendingRequests || 0}</p>
+        {stats.map((stat) => (
+          <Card key={stat.label}>
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-base text-muted-foreground">{stat.label}</p>
+                  <p className="text-3xl font-bold text-brand-primary">{stat.value || 0}</p>
+                </div>
+                <stat.icon className="h-8 w-8 text-brand-primary" />
               </div>
-              <Clock className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Total Members</p>
-                <p className="text-3xl font-bold text-brand-primary">{totalMembers || 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Upcoming Events</p>
-                <p className="text-3xl font-bold text-brand-primary">{upcomingEvents || 0}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Announcements</p>
-                <p className="text-3xl font-bold text-brand-primary">{publishedAnnouncements || 0}</p>
-              </div>
-              <Megaphone className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       <div className="grid gap-10 lg:grid-cols-3 lg:gap-6 items-start">
