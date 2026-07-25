@@ -1,3 +1,10 @@
+## [0.20.5](https://github.com/cwaits6/small-group-hub/compare/v0.20.4...v0.20.5) (2026-07-25)
+
+
+### Bug Fixes
+
+* raise lectures/content text sizes to a11y floor, unpin editor theme ([#243](https://github.com/cwaits6/small-group-hub/issues/243)) ([#264](https://github.com/cwaits6/small-group-hub/issues/264)) ([82d9cc5](https://github.com/cwaits6/small-group-hub/commit/82d9cc5353d7242a0afe00fec6702b3699b7681d))
+
 ## [0.20.4](https://github.com/cwaits6/small-group-hub/compare/v0.20.3...v0.20.4) (2026-07-25)
 
 
