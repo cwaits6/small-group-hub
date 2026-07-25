@@ -20,11 +20,25 @@ export async function GET(
 
   const { data: sub } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id")
+    .select("id, user_id")
     .eq("token", token)
     .single();
 
   if (!sub) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  // The service client bypasses RLS, so re-check membership here:
+  // events are only visible to member roles (see "Members can view all
+  // events" policy). A token minted by a pending or removed profile must
+  // not grant access to arbitrary events by UUID.
+  const { data: owner } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", sub.user_id)
+    .single();
+
+  if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
