@@ -93,7 +93,7 @@ export default async function SeriesDetailPage({
           {/* Back link */}
           <Link
             href="/lectures"
-            className="font-sans text-xs text-muted-foreground uppercase tracking-[0.2em] hover:text-foreground transition-colors inline-flex items-center gap-2 mb-10"
+            className="font-sans text-base text-muted-foreground uppercase tracking-[0.2em] hover:text-foreground transition-colors inline-flex items-center gap-2 mb-10"
           >
             ← The Lecture Library
           </Link>
@@ -101,7 +101,7 @@ export default async function SeriesDetailPage({
           {/* Eyebrow */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-7 h-px bg-brand-accent" />
-            <span className="text-brand-accent text-xs font-semibold font-sans tracking-[0.2em] uppercase">
+            <span className="text-brand-accent text-base font-semibold font-sans tracking-[0.2em] uppercase">
               {series.is_archived ? "Past Series" : "Current Series"}
             </span>
           </div>
@@ -119,7 +119,7 @@ export default async function SeriesDetailPage({
           )}
 
           {/* Meta */}
-          <div className="flex items-center gap-4 flex-wrap font-sans text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 flex-wrap font-sans text-base text-muted-foreground">
             <span>{lecturesAsc.length} {lecturesAsc.length === 1 ? "lecture" : "lectures"}</span>
             {dateRange && (
               <>
@@ -135,7 +135,7 @@ export default async function SeriesDetailPage({
       <section className="bg-card border-t border-border">
         <div className="px-6 md:px-14 py-14">
           <div className="mb-8">
-            <p className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
+            <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
               Every lecture
             </p>
             <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
@@ -170,7 +170,7 @@ function SeriesLectureRow({
       href={`/lectures/${lecture.id}`}
       className="grid grid-cols-[80px_1fr_auto] items-center gap-6 border-t border-border py-5 hover:bg-background -mx-2 px-2 transition-colors"
     >
-      <span className="font-sans text-xs text-brand-accent tracking-[0.15em] uppercase font-bold">
+      <span className="font-sans text-base text-brand-accent tracking-[0.15em] uppercase font-bold">
         Week {String(lecture.weekNumber).padStart(2, "0")}
       </span>
       <div>
@@ -178,12 +178,12 @@ function SeriesLectureRow({
           {lecture.title}
         </p>
         {lecture.description && (
-          <p className="font-display italic text-sm text-muted-foreground mt-0.5">
+          <p className="font-sans italic text-lg text-muted-foreground mt-0.5">
             {lecture.description}
           </p>
         )}
       </div>
-      <span className="font-mono text-xs text-muted-foreground">
+      <span className="font-mono text-base text-muted-foreground">
         {lecture.lecture_date ? formatShort(lecture.lecture_date) : ""}
       </span>
     </Link>

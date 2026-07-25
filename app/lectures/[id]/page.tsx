@@ -109,7 +109,7 @@ export default async function LectureDetailPage({
           {/* Back link */}
           <Link
             href="/lectures"
-            className="font-sans text-xs text-muted-foreground uppercase tracking-[0.2em] hover:text-foreground transition-colors inline-flex items-center gap-2 mb-10"
+            className="font-sans text-base text-muted-foreground uppercase tracking-[0.2em] hover:text-foreground transition-colors inline-flex items-center gap-2 mb-10"
           >
             ← The Lecture Library
           </Link>
@@ -121,13 +121,13 @@ export default async function LectureDetailPage({
               {series && (
                 <Link
                   href={`/lectures/series/${series.id}`}
-                  className="text-muted-foreground text-xs font-semibold font-sans tracking-[0.2em] uppercase hover:text-foreground transition-colors"
+                  className="text-muted-foreground text-base font-semibold font-sans tracking-[0.2em] uppercase hover:text-foreground transition-colors"
                 >
                   {series.name}
                 </Link>
               )}
               {weekNumber !== null && (
-                <span className="text-brand-accent text-xs font-bold font-sans tracking-[0.2em] uppercase">
+                <span className="text-brand-accent text-base font-bold font-sans tracking-[0.2em] uppercase">
                   Week {String(weekNumber).padStart(2, "0")}
                 </span>
               )}
@@ -147,7 +147,7 @@ export default async function LectureDetailPage({
           )}
 
           {/* Meta row */}
-          <div className="flex items-center gap-4 flex-wrap font-sans text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 flex-wrap font-sans text-base text-muted-foreground">
             {lecture.lecture_date && (
               <span className="font-mono">{formatLongDate(lecture.lecture_date)}</span>
             )}
@@ -190,7 +190,7 @@ export default async function LectureDetailPage({
           </a>
           ) : (
             <div className="relative aspect-video rounded-2xl overflow-hidden border border-border flex items-center justify-center bg-muted">
-              <p className="font-sans text-sm text-muted-foreground">
+              <p className="font-sans text-base text-muted-foreground">
                 Recording unavailable.
               </p>
             </div>
@@ -202,16 +202,16 @@ export default async function LectureDetailPage({
                 href={safeVideoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-brand-primary text-white font-sans text-sm font-bold tracking-[0.1em] uppercase px-6 py-4 rounded-xl inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                className="bg-brand-primary text-white font-sans text-lg font-bold tracking-[0.1em] uppercase px-6 py-4 rounded-xl inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
               >
                 Watch the recording →
               </a>
             ) : (
-              <span className="bg-muted text-muted-foreground font-sans text-sm font-bold tracking-[0.1em] uppercase px-6 py-4 rounded-xl inline-flex items-center justify-center gap-2 cursor-not-allowed">
+              <span className="bg-muted text-muted-foreground font-sans text-lg font-bold tracking-[0.1em] uppercase px-6 py-4 rounded-xl inline-flex items-center justify-center gap-2 cursor-not-allowed">
                 Recording unavailable
               </span>
             )}
-            <p className="font-sans text-xs text-muted-foreground italic px-2">
+            <p className="font-sans text-base text-foreground italic px-2">
               Opens in a new tab. You may be prompted to enter a Zoom passcode.
             </p>
           </div>
@@ -223,7 +223,7 @@ export default async function LectureDetailPage({
         <div className="px-6 md:px-14 py-14 md:py-16 max-w-3xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-7 h-px bg-brand-accent" />
-            <span className="text-brand-accent text-xs font-bold font-sans tracking-[0.2em] uppercase">
+            <span className="text-brand-accent text-base font-bold font-sans tracking-[0.2em] uppercase">
               Class Summary
             </span>
           </div>
@@ -246,7 +246,7 @@ export default async function LectureDetailPage({
           <div className="px-6 md:px-14 py-14">
             <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
               <div>
-                <p className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
+                <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
                   Also in this series
                 </p>
                 <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
@@ -285,13 +285,13 @@ function SiblingRow({
       href={`/lectures/${sib.id}`}
       className="grid grid-cols-[80px_1fr_auto] items-center gap-6 border-t border-border py-4 hover:bg-background transition-colors -mx-2 px-2 rounded"
     >
-      <span className="font-sans text-xs text-brand-accent tracking-[0.15em] uppercase font-bold">
+      <span className="font-sans text-base text-brand-accent tracking-[0.15em] uppercase font-bold">
         Week {String(weekNumber).padStart(2, "0")}
       </span>
       <span className="font-display text-lg font-medium text-foreground tracking-tight">
         {sib.title}
       </span>
-      <span className="font-mono text-xs text-muted-foreground">
+      <span className="font-mono text-base text-muted-foreground">
         {sib.lecture_date
           ? new Date(sib.lecture_date + "T00:00:00").toLocaleDateString("en-US", {
               month: "short",

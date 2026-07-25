@@ -292,7 +292,7 @@ export function AboutEditor({ initialBody, initialTeachers }: AboutEditorProps) 
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">
                       {displayName(teacher.profiles)}
-                      <span className="ml-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      <span className="ml-2 text-base font-medium uppercase tracking-wider text-muted-foreground">
                         {teacher.title}
                       </span>
                     </p>

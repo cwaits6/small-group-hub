@@ -89,7 +89,7 @@ export default async function AboutClassPage() {
                       <h3 className="text-xl font-semibold">
                         {displayName(teacher.profiles)}
                       </h3>
-                      <p className="text-sm font-medium uppercase tracking-wider text-brand-primary mb-2">
+                      <p className="text-base font-medium uppercase tracking-wider text-brand-primary mb-2">
                         {teacher.title}
                       </p>
                       {teacher.bio ? (

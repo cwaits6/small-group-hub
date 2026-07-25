@@ -105,7 +105,7 @@ export default async function LecturesPage({
           {/* Eyebrow */}
           <div className="flex items-center gap-3 mb-6">
             <div className="w-7 h-px bg-brand-accent" />
-            <span className="text-brand-accent text-xs font-semibold font-sans tracking-[0.2em] uppercase">
+            <span className="text-brand-accent text-base font-semibold font-sans tracking-[0.2em] uppercase">
               THE LECTURE LIBRARY
             </span>
           </div>
@@ -217,7 +217,7 @@ export default async function LecturesPage({
               {/* Series header */}
               <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
                 <div>
-                  <p className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
+                  <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
                     CURRENT SERIES · {seriesLectures.length} parts
                   </p>
                   <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
@@ -259,7 +259,7 @@ export default async function LecturesPage({
         <section className="bg-background border-t border-border">
           <div className="px-6 md:px-14 py-14">
             <div className="mb-8">
-              <p className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
+              <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
                 PAST SERIES
               </p>
               <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
@@ -341,7 +341,7 @@ function FeaturedCard({
         </div>
 
         {/* Most recent badge */}
-        <span className="font-sans text-[10px] tracking-widest text-brand-accent font-bold uppercase absolute bottom-3 left-3">
+        <span className="font-sans text-base tracking-widest text-brand-accent font-bold uppercase absolute bottom-3 left-3">
           MOST RECENT
         </span>
       </Link>
@@ -351,12 +351,12 @@ function FeaturedCard({
         {(series || weekNumber !== null) && (
           <div className="flex items-center gap-3 mb-3">
             {series && (
-              <span className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold">
+              <span className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold">
                 {series.name}
               </span>
             )}
             {weekNumber !== null && (
-              <span className="font-sans text-xs text-brand-accent tracking-[0.15em] uppercase font-bold">
+              <span className="font-sans text-base text-brand-accent tracking-[0.15em] uppercase font-bold">
                 Week {String(weekNumber).padStart(2, "0")}
               </span>
             )}
@@ -380,10 +380,10 @@ function FeaturedCard({
 
         {lecture.summary ? (
           <div className="mt-2">
-            <p className="font-sans text-xs text-brand-accent tracking-[0.15em] uppercase font-bold mb-2">
+            <p className="font-sans text-base text-brand-accent tracking-[0.15em] uppercase font-bold mb-2">
               Class Summary
             </p>
-            <p className="font-sans text-sm text-foreground leading-relaxed line-clamp-4 whitespace-pre-wrap">
+            <p className="font-sans text-lg text-foreground leading-relaxed line-clamp-4 whitespace-pre-wrap">
               {lecture.summary}
             </p>
             <Link
@@ -421,7 +421,7 @@ function LectureRow({
       className="group grid grid-cols-[72px_1fr_auto_auto] items-center gap-6 border-t border-border py-5 -mx-2 px-2 hover:bg-background transition-colors"
     >
       {/* Col 1: Auto week number */}
-      <span className="font-sans text-xs text-brand-accent tracking-[0.15em] uppercase font-bold">
+      <span className="font-sans text-base text-brand-accent tracking-[0.15em] uppercase font-bold">
         {`Week ${String(weekNumber).padStart(2, "0")}`}
       </span>
 
@@ -431,14 +431,14 @@ function LectureRow({
           {lecture.title}
         </p>
         {lecture.description && (
-          <p className="font-display italic text-sm text-muted-foreground mt-0.5">
+          <p className="font-sans italic text-lg text-muted-foreground mt-0.5">
             {lecture.description}
           </p>
         )}
       </div>
 
       {/* Col 3: Date */}
-      <span className="font-mono text-xs text-muted-foreground hidden md:block">
+      <span className="font-mono text-base text-muted-foreground hidden md:block">
         {lecture.lecture_date ? formatDate(lecture.lecture_date) : ""}
       </span>
 
@@ -478,7 +478,7 @@ function AllLectureRow({
       className="group grid grid-cols-[80px_1fr_auto] items-center gap-6 border-t border-border py-5 -mx-2 px-2 hover:bg-background transition-colors"
     >
       {/* Col 1: Date */}
-      <span className="font-mono text-xs text-muted-foreground">
+      <span className="font-mono text-base text-muted-foreground">
         {lecture.lecture_date ? formatDate(lecture.lecture_date) : "—"}
       </span>
 
@@ -490,12 +490,12 @@ function AllLectureRow({
         {(seriesName || weekNumber !== null) && (
           <div className="flex items-center gap-2 mt-0.5">
             {seriesName && (
-              <span className="font-sans text-xs text-muted-foreground tracking-wide">
+              <span className="font-sans text-base text-muted-foreground tracking-wide">
                 {seriesName}
               </span>
             )}
             {weekNumber !== null && (
-              <span className="font-sans text-[10px] text-brand-accent tracking-[0.12em] uppercase font-bold">
+              <span className="font-sans text-base text-brand-accent tracking-[0.12em] uppercase font-bold">
                 Week {String(weekNumber).padStart(2, "0")}
               </span>
             )}
@@ -542,7 +542,7 @@ function PastSeriesCard({
       <div className={`absolute top-0 left-0 right-0 h-[3px] ${color.bar}`} />
 
       {series.teacher && (
-        <p className="font-sans text-xs text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-2 mt-1">
+        <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-2 mt-1">
           {series.teacher}
         </p>
       )}
