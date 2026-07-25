@@ -1,3 +1,14 @@
+## [0.20.4](https://github.com/cwaits6/small-group-hub/compare/v0.20.3...v0.20.4) (2026-07-25)
+
+
+### Bug Fixes
+
+* raise directory/profile/household text sizes and touch targets ([#266](https://github.com/cwaits6/small-group-hub/issues/266)) ([bfe3286](https://github.com/cwaits6/small-group-hub/commit/bfe3286d4d201ee04d01b60177094f64d432a440))
+* raise text sizes, touch targets, and empty-state actions on events and announcements ([#265](https://github.com/cwaits6/small-group-hub/issues/265)) ([56e0a96](https://github.com/cwaits6/small-group-hub/commit/56e0a96c9f4b972857c8442752817db4e6e35976))
+* raise undersized text and touch targets on serving, giving, prayer ([#246](https://github.com/cwaits6/small-group-hub/issues/246)) ([#267](https://github.com/cwaits6/small-group-hub/issues/267)) ([7ed3e39](https://github.com/cwaits6/small-group-hub/commit/7ed3e3935452341ed2017bc94137b93cf392616e))
+* require member role for single-event ICS downloads ([#262](https://github.com/cwaits6/small-group-hub/issues/262)) ([2bb2946](https://github.com/cwaits6/small-group-hub/commit/2bb2946e1db3101f18c0721d4750299615212ca0))
+* use private Cache-Control on token-bearing ICS routes ([#261](https://github.com/cwaits6/small-group-hub/issues/261)) ([5f139c0](https://github.com/cwaits6/small-group-hub/commit/5f139c007787a924a39143f41a0ed378571ad308))
+
 ## [0.20.3](https://github.com/cwaits6/small-group-hub/compare/v0.20.2...v0.20.3) (2026-07-25)
 
 
