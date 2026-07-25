@@ -71,7 +71,7 @@ export async function GET(
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": "inline",
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "private, max-age=300",
     },
   });
 }
