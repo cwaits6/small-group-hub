@@ -30,13 +30,17 @@ export async function GET(
 
   // The service client bypasses RLS, so re-check membership here:
   // events are only visible to member roles (see "Members can view all
-  // events" policy). A token minted by a pending or removed profile must
-  // not grant access to arbitrary events by UUID.
-  const { data: owner } = await supabase
+  // events" policy). A token minted by a pending, deleted, or otherwise
+  // non-member profile must not grant access to arbitrary events by UUID.
+  const { data: owner, error: ownerError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", sub.user_id)
     .single();
+
+  if (ownerError) {
+    console.error("Failed to look up token owner's profile:", ownerError);
+  }
 
   if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
     return new Response("Unauthorized", { status: 401 });
