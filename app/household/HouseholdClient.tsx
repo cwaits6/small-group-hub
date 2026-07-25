@@ -403,7 +403,7 @@ export function HouseholdClient({
           {/* Current user */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-12 w-12">
                 {currentProfile.avatar_url && (
                   <AvatarImage src={currentProfile.avatar_url} alt={displayName(currentProfile)} />
                 )}
@@ -412,11 +412,11 @@ export function HouseholdClient({
                 </AvatarFallback>
               </Avatar>
               <div>
-                <span className="text-sm font-medium">{displayName(currentProfile)}</span>
-                <Badge variant="outline" className="ml-2 text-xs capitalize">
+                <span className="text-base font-medium">{displayName(currentProfile)}</span>
+                <Badge variant="outline" className="ml-2 text-base capitalize">
                   {currentProfile.relationship}
                 </Badge>
-                <Badge variant="secondary" className="ml-1 text-xs">
+                <Badge variant="secondary" className="ml-1 text-base">
                   You
                 </Badge>
               </div>
@@ -430,7 +430,7 @@ export function HouseholdClient({
           {householdProfiles.map((p) => (
             <div key={p.id} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
+                <Avatar className="h-12 w-12">
                   {p.avatar_url && (
                     <AvatarImage src={p.avatar_url} alt={displayName(p)} />
                   )}
@@ -439,8 +439,8 @@ export function HouseholdClient({
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <span className="text-sm font-medium">{displayName(p)}</span>
-                  <Badge variant="outline" className="ml-2 text-xs capitalize">
+                  <span className="text-base font-medium">{displayName(p)}</span>
+                  <Badge variant="outline" className="ml-2 text-base capitalize">
                     {p.relationship}
                   </Badge>
                 </div>
@@ -456,7 +456,7 @@ export function HouseholdClient({
                   Edit profile
                 </Button>
               ) : (
-                <span className="text-xs text-muted-foreground">Contact admin to edit</span>
+                <span className="text-base text-muted-foreground">Contact admin to edit</span>
               )}
             </div>
           ))}
@@ -507,7 +507,7 @@ export function HouseholdClient({
               className="flex items-center justify-between bg-muted/40 rounded-md px-3 py-2"
             >
               <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9">
+                <Avatar className="h-12 w-12">
                   {fm.avatar_url && (
                     <AvatarImage
                       src={fm.avatar_url}
@@ -519,11 +519,11 @@ export function HouseholdClient({
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <span className="text-sm font-medium">
+                  <span className="text-base font-medium">
                     {fm.preferred_name || fm.first_name}
                     {fm.last_name && ` ${fm.last_name}`}
                   </span>
-                  <Badge variant="outline" className="ml-2 text-xs capitalize">
+                  <Badge variant="outline" className="ml-2 text-base capitalize">
                     {fm.relationship}
                   </Badge>
                 </div>
@@ -540,7 +540,7 @@ export function HouseholdClient({
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
+                  size="icon"
                   onClick={() => handleDeleteMember(fm)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />

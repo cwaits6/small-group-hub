@@ -40,7 +40,7 @@ interface MyProfileViewProps {
 }
 
 const eyebrow =
-  "text-sm font-bold uppercase tracking-wider text-muted-foreground";
+  "text-base font-bold uppercase tracking-wider text-muted-foreground";
 
 function MemberTile({
   name,
@@ -219,7 +219,7 @@ export function MyProfileView({
                   <span className="text-base">
                     {formatPhone(family.phone_home)}
                   </span>
-                  <span className="text-sm text-muted-foreground">home</span>
+                  <span className="text-base text-muted-foreground">home</span>
                 </div>
               )}
             </div>
