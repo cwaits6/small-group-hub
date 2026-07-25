@@ -33,8 +33,13 @@ function eventDateLabel(startTime: string): string {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: "America/New_York",
   });
-  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const time = d.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
   return `${date} · ${time}`;
 }
 
@@ -68,9 +73,9 @@ export default async function AdminPage() {
     { count: totalMembers },
     { count: upcomingEvents },
     { count: publishedAnnouncements },
-    { data: pendingRows },
-    { data: signupRows },
-    { data: rawEvents },
+    { data: pendingRows, error: pendingError },
+    { data: signupRows, error: signupError },
+    { data: rawEvents, error: eventsError },
   ] = await Promise.all([
     supabase
       .from("access_requests")
@@ -111,6 +116,10 @@ export default async function AdminPage() {
       .order("start_time", { ascending: true })
       .limit(50),
   ]);
+
+  if (pendingError) console.error("admin overview: pending requests query failed", pendingError);
+  if (signupError) console.error("admin overview: recent signups query failed", signupError);
+  if (eventsError) console.error("admin overview: upcoming events query failed", eventsError);
 
   const requests = (pendingRows ?? []) as AccessRequest[];
   const signups = (signupRows ?? []) as RecentSignup[];
@@ -187,7 +196,9 @@ export default async function AdminPage() {
           </div>
           <Card>
             <CardContent className="pt-6">
-              {requests.length > 0 ? (
+              {pendingError ? (
+                <p className="text-base text-muted-foreground py-3">Couldn't load pending requests.</p>
+              ) : requests.length > 0 ? (
                 requests.map((request, i) => (
                   <div
                     key={request.id}
@@ -227,7 +238,9 @@ export default async function AdminPage() {
           </div>
           <Card>
             <CardContent className="pt-6">
-              {signups.length > 0 ? (
+              {signupError ? (
+                <p className="text-base text-muted-foreground py-3">Couldn't load recent signups.</p>
+              ) : signups.length > 0 ? (
                 signups.map((signup, i) => (
                   <div
                     key={signup.id}
@@ -271,7 +284,9 @@ export default async function AdminPage() {
           </div>
           <Card>
             <CardContent className="pt-6">
-              {nextEvents.length > 0 ? (
+              {eventsError ? (
+                <p className="text-base text-muted-foreground py-3">Couldn't load upcoming events.</p>
+              ) : nextEvents.length > 0 ? (
                 nextEvents.map((event, i) => (
                   <div key={`${event.id}-${event.start_time}`} className="py-3" style={rowBorder(i)}>
                     <p className="text-base font-semibold text-foreground truncate">
