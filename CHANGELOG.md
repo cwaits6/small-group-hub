@@ -1,3 +1,10 @@
+## [0.19.1](https://github.com/cwaits6/small-group-hub/compare/v0.19.0...v0.19.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* restore blocknote build (y-prosemirror) and clear Trivy CVEs ([#255](https://github.com/cwaits6/small-group-hub/issues/255)) ([656bf3c](https://github.com/cwaits6/small-group-hub/commit/656bf3c59b330a14095444dad71642bcfa8cb3b8))
+
 # [0.19.0](https://github.com/cwaits6/small-group-hub/compare/v0.18.0...v0.19.0) (2026-07-17)
 
 
