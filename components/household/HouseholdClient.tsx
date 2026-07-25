@@ -43,6 +43,7 @@ import {
   titleCaseCity,
 } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
+import { canEditSpouseProfiles as computeCanEditSpouseProfiles, type HouseholdSummary } from "@/lib/household";
 import type { Profile, FamilyUnit, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
 
 const LINK_RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
@@ -80,7 +81,7 @@ interface HouseholdClientProps {
   currentProfile: Profile;
   family: FamilyUnit;
   initialFamilyMembers: FamilyMember[];
-  householdProfiles: Profile[];
+  householdProfiles: (Profile | HouseholdSummary)[];
   /** Called when the user clicks "Edit" on their own row — the parent switches to the Me tab */
   onEditSelf: () => void;
 }
@@ -165,9 +166,7 @@ export function HouseholdClient({
   const [linkRelationship, setLinkRelationship] = useState<FamilyMemberRelationship>("spouse");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const canEditSpouseProfiles =
-    currentProfile.relationship === "primary" ||
-    currentProfile.relationship === "spouse";
+  const canEditSpouseProfiles = computeCanEditSpouseProfiles(currentProfile);
 
   // ---- Household info ----
   async function handleSaveInfo(e: React.FormEvent) {
@@ -200,6 +199,7 @@ export function HouseholdClient({
     }
 
     toast.success("Household info updated.");
+    router.refresh();
   }
 
   // ---- Non-auth family member delete ----
@@ -679,7 +679,10 @@ export function HouseholdClient({
               <div className="px-4 pb-6">
                 <HouseholdMemberEditClient
                   key={editingMemberId}
-                  profile={editingProfile}
+                  // Safe: this sheet only opens via the "Edit profile" button above, which is
+                  // gated behind canEditSpouseProfiles — the same condition under which
+                  // householdProfiles is fetched as full Profile rows (see app/profile/page.tsx).
+                  profile={editingProfile as Profile}
                   onSaved={() => {
                     setEditingMemberId(null);
                     router.refresh();

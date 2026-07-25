@@ -6,12 +6,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MyProfileView } from "@/components/profile/MyProfileView";
 import { HouseholdClient } from "@/components/household/HouseholdClient";
 import { HOUSEHOLD_TAB } from "@/lib/profileTabs";
+import type { HouseholdSummary } from "@/lib/household";
 import type { FamilyMember, FamilyUnit, Profile } from "@/lib/types";
 
 interface ProfileHouseholdTabsProps {
   profile: Profile;
   family: FamilyUnit | null;
-  householdProfiles: Profile[];
+  householdProfiles: (Profile | HouseholdSummary)[];
   familyMembers: FamilyMember[];
 }
 

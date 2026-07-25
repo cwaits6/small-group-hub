@@ -4,6 +4,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ProfileHouseholdTabs } from "@/components/profile/ProfileHouseholdTabs";
 import { siteConfig } from "@/lib/config";
+import { canEditSpouseProfiles as computeCanEditSpouseProfiles, type HouseholdSummary } from "@/lib/household";
 import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 
 export const metadata = { title: `My Profile | ${siteConfig.name}` };
@@ -33,13 +34,12 @@ export default async function ProfilePage() {
   }
 
   let family: FamilyUnit | null = null;
-  let householdProfiles: Profile[] = [];
+  let householdProfiles: (Profile | HouseholdSummary)[] = [];
   let familyMembers: FamilyMember[] = [];
 
   // Only primary/spouse can open the edit sheet for other household members,
   // so only they need full rows — everyone else only ever sees name/avatar/relationship.
-  const canEditSpouseProfiles =
-    profile.relationship === "primary" || profile.relationship === "spouse";
+  const canEditSpouseProfiles = computeCanEditSpouseProfiles(profile);
 
   if (profile.family_id) {
     const [familyRes, othersRes, fmsRes] = await Promise.all([
@@ -65,7 +65,7 @@ export default async function ProfilePage() {
             .eq("family_id", profile.family_id)
             .neq("id", user.id)
             .order("first_name")
-            .returns<Profile[]>(),
+            .returns<HouseholdSummary[]>(),
       // Family members without accounts (children etc.)
       supabase
         .from("family_members")
