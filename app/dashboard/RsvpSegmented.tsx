@@ -64,7 +64,7 @@ export function RsvpSegmented({ eventId, userId, currentStatus }: RsvpSegmentedP
             key={opt.value}
             onClick={() => handleRsvp(opt.value)}
             disabled={loading}
-            className="rounded-[7px] px-3 py-2 text-center text-[13px] font-bold transition-colors disabled:opacity-60"
+            className="rounded-[7px] px-3 min-h-12 flex items-center justify-center text-center text-base font-bold transition-colors disabled:opacity-60"
             style={{
               background: active ? "var(--color-brand-accent)" : "transparent",
               color: active ? "var(--foreground)" : "rgba(255,255,255,0.85)",
