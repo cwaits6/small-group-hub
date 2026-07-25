@@ -1,0 +1,58 @@
+name: Watch FullCalendar v7 stability
+
+# Opens a tracking issue when a stable v7 exists for every @fullcalendar
+# package, so the v7 upgrade can be enabled without watching release forums.
+# Paired with the "fullcalendar-v7-guard" rule in renovate.json5 — this
+# workflow self-deactivates once that guard is lifted.
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Mondays 08:00 UTC
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Check for stable v7
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Notify when all FullCalendar packages have stable v7
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # Self-deactivate once the guard has been lifted.
+          if ! grep -q 'fullcalendar-v7-guard' renovate.json5; then
+            echo "FullCalendar guard already lifted — nothing to watch."
+            exit 0
+          fi
+
+          all_v7=true
+          summary=""
+          for p in core react daygrid timegrid interaction; do
+            v="$(npm view "@fullcalendar/$p" version)"
+            summary="${summary}- @fullcalendar/${p}: ${v}"$'\n'
+            [ "${v%%.*}" -lt 7 ] && all_v7=false
+          done
+          printf '%s\n' "$summary"
+
+          if [ "$all_v7" != true ]; then
+            echo "Not all @fullcalendar packages have stable v7 yet."
+            exit 0
+          fi
+
+          title="FullCalendar v7 is fully stable — enable the Renovate upgrade"
+          if [ "$(gh issue list --state open --search "$title in:title" --json number --jq 'length')" != "0" ]; then
+            echo "Tracking issue already open."
+            exit 0
+          fi
+
+          body="$(printf 'All `@fullcalendar` packages now have a stable v7 release:\n\n%s\n**To enable the upgrade:** in `renovate.json5`, change the FullCalendar rule'\''s `allowedVersions` from `"<7.0.0"` to `"<8.0.0"` (or delete the rule). Renovate will open a single grouped PR bumping all five packages to v7 with a fresh lockfile.\n\nThe only code consumer is `components/events/EventCalendarView.impl.tsx` — if the Vercel build fails, check it against the [FullCalendar v7 upgrade guide](https://fullcalendar.io/docs/upgrading-from-v6).\n\nAfter the upgrade merges, delete `.github/workflows/fullcalendar-v7-watch.yml` (or it self-deactivates once the guard is gone).\n\n_Opened automatically by the fullcalendar-v7-watch workflow._' "$summary")"
+
+          gh issue create --title "$title" --body "$body"

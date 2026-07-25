@@ -23,6 +23,21 @@
     },
     // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
     // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
+    //
+    // fullcalendar-v7-guard: watched by .github/workflows/fullcalendar-v7-watch.yml.
+    // core/react shipped stable v7 (7.0.2) but daygrid/timegrid/interaction are
+    // still beta/rc — mixing majors breaks the build. Hold all @fullcalendar
+    // packages on v6 until every one has a stable v7. To enable: bump
+    // allowedVersions to "<8.0.0" (or delete this rule). groupName keeps the
+    // eventual bump to a single atomic PR across all five packages.
+    {
+      "description": "Keep FullCalendar on v6 until stable v7 ships for all packages",
+      "matchPackageNames": ["@fullcalendar/**"],
+      "allowedVersions": "<7.0.0",
+      "groupName": "fullcalendar"
+    },
+    // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
+    // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
     {
       "description": "Group all non-major npm dependency updates into a single PR",
       "matchUpdateTypes": ["minor", "patch"],
