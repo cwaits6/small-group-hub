@@ -47,7 +47,7 @@ export function DirRow({
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-foreground">{title}</span>
         {subtitle && (
-          <span className="block text-sm text-muted-foreground">{subtitle}</span>
+          <span className="block text-base text-muted-foreground">{subtitle}</span>
         )}
       </span>
       {trailing}
@@ -82,7 +82,7 @@ export function DirRow({
 /** Muted section label used above groups of rows (A–Z letters, month names) */
 export function DirSectionLabel({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-6 mb-2.5 first:mt-0 text-sm font-bold tracking-widest text-muted-foreground">
+    <p className="mt-6 mb-2.5 first:mt-0 text-base font-bold tracking-widest text-muted-foreground">
       {children}
     </p>
   );

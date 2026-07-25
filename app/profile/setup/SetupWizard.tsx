@@ -141,7 +141,7 @@ function MemberAddForm({
       <p className="font-medium text-sm">{title}</p>
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label className="text-sm">First name *</Label>
+          <Label className="text-base">First name *</Label>
           <Input
             value={form.first_name}
             onChange={(e) =>
@@ -623,7 +623,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                 {done ? <Check className="h-4 w-4" /> : num}
               </div>
               <span
-                className={`text-xs mt-1 text-center hidden sm:block ${active ? "text-brand-primary font-medium" : "text-muted-foreground"}`}
+                className={`text-base mt-1 text-center hidden sm:block ${active ? "text-brand-primary font-medium" : "text-muted-foreground"}`}
               >
                 {label}
               </span>
@@ -643,7 +643,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
           <CardContent className="pt-6 space-y-6">
             <div>
               <h2 className="text-xl font-semibold mb-1">Who are you?</h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 This is how you&apos;ll appear in the member directory.
               </p>
             </div>
@@ -663,10 +663,10 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="absolute -bottom-1 -right-1 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-full p-1.5 shadow-md disabled:opacity-50"
+                  className="absolute -bottom-1 -right-1 flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary text-white shadow-md transition-colors hover:bg-brand-primary/90 disabled:opacity-50"
                   aria-label="Upload photo"
                 >
-                  <Camera className="h-3.5 w-3.5" />
+                  <Camera className="h-5 w-5" />
                 </button>
                 <input
                   ref={fileInputRef}
@@ -678,7 +678,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
               </div>
               <div>
                 <p className="text-sm font-medium">Profile photo</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   {uploadingAvatar
                     ? "Uploading..."
                     : "Optional — click the camera icon to add one."}
@@ -1050,7 +1050,7 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
                     {pendingMembers.map((m) => (
                       <div
                         key={m.tempId}
-                        className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+                        className="flex items-center justify-between rounded-md border px-3 py-2 text-base"
                       >
                         <span>
                           <span className="font-medium">

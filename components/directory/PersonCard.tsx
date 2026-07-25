@@ -43,7 +43,7 @@ function ContactLine({
         aria-hidden="true"
       />
       <span className="min-w-0 text-base">{children}</span>
-      {kind && <span className="text-sm text-muted-foreground">{kind}</span>}
+      {kind && <span className="text-base text-muted-foreground">{kind}</span>}
     </div>
   );
 }
@@ -91,7 +91,7 @@ export function PersonCard({ profile, family }: PersonCardProps) {
             <p className="text-base text-muted-foreground">{family.family_name}</p>
           )}
           {profile.relationship && profile.relationship !== "primary" && (
-            <Badge variant="outline" className="text-xs mt-1 capitalize">
+            <Badge variant="outline" className="text-base mt-1 capitalize">
               {relLabel(profile.relationship)}
             </Badge>
           )}
@@ -115,13 +115,13 @@ export function PersonCard({ profile, family }: PersonCardProps) {
             <a href={`tel:${profile.phone_mobile}`} className={telLink}>
               {formatPhone(profile.phone_mobile)}
             </a>
-            <span className="text-sm text-muted-foreground">mobile</span>
+            <span className="text-base text-muted-foreground">mobile</span>
             <a
               href={`sms:${profile.phone_mobile}`}
-              className="ml-auto text-brand-primary hover:text-brand-primary/80"
-              aria-label={`Text ${displayName(profile)}`}
+              className="ml-auto flex items-center gap-1.5 text-brand-primary hover:text-brand-primary/80"
             >
-              <MessageSquare className="h-5 w-5" />
+              <MessageSquare className="h-5 w-5" aria-hidden="true" />
+              <span className="text-base font-medium">Text</span>
             </a>
           </div>
         )}
@@ -188,7 +188,7 @@ export function PersonCard({ profile, family }: PersonCardProps) {
             <span>
               {profile.occupation}
               {profile.employer && (
-                <span className="block text-sm text-muted-foreground">
+                <span className="block text-base text-muted-foreground">
                   {profile.employer}
                 </span>
               )}

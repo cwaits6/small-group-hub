@@ -185,10 +185,10 @@ export function FamilyMemberForm({ member }: Props) {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingAvatar}
-                  className="absolute -bottom-1 -right-1 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-full p-2 shadow-md transition-colors disabled:opacity-50"
+                  className="absolute -bottom-1 -right-1 flex h-12 w-12 items-center justify-center rounded-full bg-brand-primary text-white shadow-md transition-colors hover:bg-brand-primary/90 disabled:opacity-50"
                   aria-label="Upload photo"
                 >
-                  <Camera className="h-4 w-4" />
+                  <Camera className="h-5 w-5" />
                 </button>
                 <input
                   ref={fileInputRef}
