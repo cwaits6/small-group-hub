@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
 import { displayName, initials } from "@/lib/names";
 import { resolveFundMethods } from "@/lib/giving/methods";
@@ -127,42 +129,40 @@ export default async function GivePage() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="flex items-start justify-between gap-4">
-        <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">
-          Give
-        </h1>
-        {canCreate && (
-          <Button
-            nativeButton={false}
-            render={<Link href="/give/new" />}
-            className="shrink-0 bg-brand-primary hover:bg-brand-primary/90 text-white"
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Add fund
-          </Button>
-        )}
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Give"
+        actions={
+          canCreate && (
+            <Button
+              nativeButton={false}
+              render={<Link href="/give/new" />}
+              className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add fund
+            </Button>
+          )
+        }
+      />
 
-      <div className="mt-10">
-        {views.length > 0 ? (
-          <GiveList funds={views} />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
-            <p className="text-xl text-muted-foreground">No funds yet.</p>
-            {canCreate && (
-              <p className="mt-2 text-muted-foreground">
-                <Link
-                  href="/give/new"
-                  className="font-semibold text-brand-primary hover:underline"
-                >
-                  Add the first fund
-                </Link>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      {views.length > 0 ? (
+        <GiveList funds={views} />
+      ) : (
+        <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+          <p className="text-xl text-muted-foreground">No funds yet.</p>
+          {canCreate && (
+            <p className="mt-2 text-muted-foreground">
+              <Link
+                href="/give/new"
+                className="font-semibold text-brand-primary hover:underline"
+              >
+                Add the first fund
+              </Link>
+            </p>
+          )}
+        </div>
+      )}
+    </PageContainer>
   );
 }
