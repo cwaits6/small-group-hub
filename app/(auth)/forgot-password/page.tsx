@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Email
           </Label>
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
             type="email"
             required
             placeholder="your@email.com"
-            className="h-11"
+            className="h-12 text-lg"
           />
         </div>
         <Button
