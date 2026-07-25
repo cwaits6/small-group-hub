@@ -1,3 +1,15 @@
+# [0.20.0](https://github.com/cwaits6/small-group-hub/compare/v0.19.1...v0.20.0) (2026-07-25)
+
+
+### Bug Fixes
+
+* **ui:** remove decorative textures and ambient animations ([#235](https://github.com/cwaits6/small-group-hub/issues/235)) ([#251](https://github.com/cwaits6/small-group-hub/issues/251)) ([20c1415](https://github.com/cwaits6/small-group-hub/commit/20c14158667e6e058fca0aa2743cdd3b6722c321))
+
+
+### Features
+
+* **ui:** raise primitive defaults to senior accessibility floor ([#233](https://github.com/cwaits6/small-group-hub/issues/233)) ([#250](https://github.com/cwaits6/small-group-hub/issues/250)) ([5d60833](https://github.com/cwaits6/small-group-hub/commit/5d6083345de74a77680bfbed773ec08245395163))
+
 ## [0.19.1](https://github.com/cwaits6/small-group-hub/compare/v0.19.0...v0.19.1) (2026-07-25)
 
 
