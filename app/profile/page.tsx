@@ -36,6 +36,11 @@ export default async function ProfilePage() {
   let householdProfiles: Profile[] = [];
   let familyMembers: FamilyMember[] = [];
 
+  // Only primary/spouse can open the edit sheet for other household members,
+  // so only they need full rows — everyone else only ever sees name/avatar/relationship.
+  const canEditSpouseProfiles =
+    profile.relationship === "primary" || profile.relationship === "spouse";
+
   if (profile.family_id) {
     const [familyRes, othersRes, fmsRes] = await Promise.all([
       supabase
@@ -43,16 +48,24 @@ export default async function ProfilePage() {
         .select("*")
         .eq("id", profile.family_id)
         .maybeSingle<FamilyUnit>(),
-      // Other enrolled household members. Full rows (not the masked directory
-      // view) so the Household tab's edit sheet can populate the form without
-      // a second fetch — the list itself only ever shows name/avatar/relationship.
-      supabase
-        .from("profiles")
-        .select("*")
-        .eq("family_id", profile.family_id)
-        .neq("id", user.id)
-        .order("first_name")
-        .returns<Profile[]>(),
+      // Other enrolled household members. Full rows only for viewers who can
+      // open the edit sheet, so it can populate the form without a second
+      // fetch; everyone else gets the narrow field list the list actually renders.
+      canEditSpouseProfiles
+        ? supabase
+            .from("profiles")
+            .select("*")
+            .eq("family_id", profile.family_id)
+            .neq("id", user.id)
+            .order("first_name")
+            .returns<Profile[]>()
+        : supabase
+            .from("profiles")
+            .select("id, first_name, last_name, preferred_name, relationship, role, avatar_url")
+            .eq("family_id", profile.family_id)
+            .neq("id", user.id)
+            .order("first_name")
+            .returns<Profile[]>(),
       // Family members without accounts (children etc.)
       supabase
         .from("family_members")

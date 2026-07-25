@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MyProfileView } from "@/components/profile/MyProfileView";
 import { HouseholdClient } from "@/components/household/HouseholdClient";
+import { HOUSEHOLD_TAB } from "@/lib/profileTabs";
 import type { FamilyMember, FamilyUnit, Profile } from "@/lib/types";
 
 interface ProfileHouseholdTabsProps {
@@ -22,7 +23,7 @@ function ProfileHouseholdTabsInner({
 }: ProfileHouseholdTabsProps) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(
-    searchParams.get("tab") === "household" ? "household" : "me",
+    searchParams.get("tab") === HOUSEHOLD_TAB ? HOUSEHOLD_TAB : "me",
   );
 
   // Without a family there is no household to manage — just the self-edit view.
@@ -36,7 +37,7 @@ function ProfileHouseholdTabsInner({
         <TabsTrigger value="me" className="text-base px-6">
           Me
         </TabsTrigger>
-        <TabsTrigger value="household" className="text-base px-6">
+        <TabsTrigger value={HOUSEHOLD_TAB} className="text-base px-6">
           Household
         </TabsTrigger>
       </TabsList>
@@ -44,7 +45,7 @@ function ProfileHouseholdTabsInner({
       <TabsContent value="me">
         <MyProfileView profile={profile} family={family} />
       </TabsContent>
-      <TabsContent value="household">
+      <TabsContent value={HOUSEHOLD_TAB}>
         <HouseholdClient
           currentProfile={profile}
           family={family}

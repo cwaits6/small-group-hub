@@ -662,18 +662,22 @@ export function HouseholdClient({
           <SheetHeader className="border-b pb-3">
             <SheetTitle>Edit member</SheetTitle>
           </SheetHeader>
-          {editingMemberId && (
-            <div className="px-4 pb-6">
-              <HouseholdMemberEditClient
-                key={editingMemberId}
-                profile={householdProfiles.find((p) => p.id === editingMemberId)!}
-                onSaved={() => {
-                  setEditingMemberId(null);
-                  router.refresh();
-                }}
-              />
-            </div>
-          )}
+          {editingMemberId && (() => {
+            const editingProfile = householdProfiles.find((p) => p.id === editingMemberId);
+            if (!editingProfile) return null;
+            return (
+              <div className="px-4 pb-6">
+                <HouseholdMemberEditClient
+                  key={editingMemberId}
+                  profile={editingProfile}
+                  onSaved={() => {
+                    setEditingMemberId(null);
+                    router.refresh();
+                  }}
+                />
+              </div>
+            );
+          })()}
         </SheetContent>
       </Sheet>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export function HouseholdMemberEditClient({ profile, onSaved }: Props) {
+  const router = useRouter();
   const supabase = createClient();
   const [relationship, setRelationship] = useState<FamilyMemberRelationship>(profile.relationship);
   const [savingRelationship, setSavingRelationship] = useState(false);
@@ -50,6 +52,7 @@ export function HouseholdMemberEditClient({ profile, onSaved }: Props) {
       setRelationship(profile.relationship); // revert
     } else {
       toast.success("Relationship updated.");
+      router.refresh();
     }
   }
 
