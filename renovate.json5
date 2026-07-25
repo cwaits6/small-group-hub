@@ -17,6 +17,13 @@
     // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
     // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
     {
+      "description": "Keep TypeScript on v6 until typescript-eslint supports TS 7 (peer range is <6.1.0 as of typescript-eslint 8.x)",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7.0.0"
+    },
+    // nosemgrep: package_managers.renovate.renovate-missing-minimum-release-age
+    // minimumReleaseAge is inherited from local>cwaits6/renovate-config.
+    {
       "description": "Group all non-major npm dependency updates into a single PR",
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "non-major dependencies"
