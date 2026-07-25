@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
-  CalendarDays,
   ChevronDown,
   Megaphone,
   BookOpen,
@@ -13,17 +12,15 @@ import {
   Settings,
   Users,
   UserCircle,
-  Home,
-  MailPlus,
   HandHelping,
   HandCoins,
   HeartHandshake,
-  BarChart2,
   Info,
 } from "lucide-react";
 import { Fragment, useState, useEffect, type ComponentType } from "react";
 import type { PageContent, Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+import { adminNav } from "@/lib/admin-nav";
 
 type PageLink = Pick<PageContent, "slug" | "title">;
 
@@ -53,19 +50,6 @@ const directorySubNav = [
   { href: "/directory/groups", label: "Groups" },
   { href: "/directory/birthdays", label: "Birthdays" },
   { href: "/directory/anniversaries", label: "Anniversaries" },
-];
-
-const adminNav = [
-  { href: "/admin", label: "Admin", icon: Settings, exact: true },
-  { href: "/admin/members", label: "Members", icon: Users },
-  { href: "/admin/families", label: "Families", icon: Home },
-  { href: "/admin/groups", label: "Groups", icon: Users },
-  { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
-  { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
-  { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
-  { href: "/admin/giving", label: "Giving", icon: HandCoins },
-  { href: "/admin/pages", label: "Manage Pages", icon: FileText },
-  { href: "/admin/about", label: "About Page", icon: Info },
 ];
 
 export function SidebarNav({
