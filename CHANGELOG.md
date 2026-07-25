@@ -1,3 +1,10 @@
+## [0.20.7](https://github.com/cwaits6/small-group-hub/compare/v0.20.6...v0.20.7) (2026-07-25)
+
+
+### Bug Fixes
+
+* replace salesy copy with plain functional copy ([#241](https://github.com/cwaits6/small-group-hub/issues/241)) ([#271](https://github.com/cwaits6/small-group-hub/issues/271)) ([fe503dd](https://github.com/cwaits6/small-group-hub/commit/fe503dd2973a9dce8e5a204b8c5f17f7e03ac615))
+
 ## [0.20.6](https://github.com/cwaits6/small-group-hub/compare/v0.20.5...v0.20.6) (2026-07-25)
 
 
