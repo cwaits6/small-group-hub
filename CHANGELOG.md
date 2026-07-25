@@ -1,3 +1,10 @@
+## [0.20.1](https://github.com/cwaits6/small-group-hub/compare/v0.20.0...v0.20.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* replace raw hex color literals with brand design tokens ([#252](https://github.com/cwaits6/small-group-hub/issues/252)) ([fc3bda4](https://github.com/cwaits6/small-group-hub/commit/fc3bda49aaf153e217a0bd71fca33b046d5d853b)), closes [#234](https://github.com/cwaits6/small-group-hub/issues/234) [#234](https://github.com/cwaits6/small-group-hub/issues/234) [#e5e7eb](https://github.com/cwaits6/small-group-hub/issues/e5e7eb) [#8a6412](https://github.com/cwaits6/small-group-hub/issues/8a6412)
+
 # [0.20.0](https://github.com/cwaits6/small-group-hub/compare/v0.19.1...v0.20.0) (2026-07-25)
 
 
