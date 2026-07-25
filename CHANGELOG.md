@@ -1,3 +1,10 @@
+## [0.20.2](https://github.com/cwaits6/small-group-hub/compare/v0.20.1...v0.20.2) (2026-07-25)
+
+
+### Bug Fixes
+
+* show labels in Select triggers and use shared Select/Switch controls ([#249](https://github.com/cwaits6/small-group-hub/issues/249)) ([50923fa](https://github.com/cwaits6/small-group-hub/commit/50923faddb03532f34f50426382dc3a6077e222c)), closes [#236](https://github.com/cwaits6/small-group-hub/issues/236) [#236](https://github.com/cwaits6/small-group-hub/issues/236)
+
 ## [0.20.1](https://github.com/cwaits6/small-group-hub/compare/v0.20.0...v0.20.1) (2026-07-25)
 
 
