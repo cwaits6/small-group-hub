@@ -30,7 +30,7 @@ export function EventCard({ event, children }: EventCardProps) {
           {/* Date chip */}
           <div className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-2xl text-white shadow-md bg-brand-primary"
           >
-            <span className="text-xs font-bold tracking-widest leading-none">{month}</span>
+            <span className="text-base font-bold tracking-widest leading-none">{month}</span>
             <span className="text-2xl font-bold font-display leading-tight">{dayNum}</span>
           </div>
 
@@ -40,7 +40,7 @@ export function EventCard({ event, children }: EventCardProps) {
                 {event.title}
               </h3>
             </div>
-            <p className="text-sm text-brand-primary-light font-semibold">{weekday}</p>
+            <p className="text-base text-brand-primary-light font-semibold">{weekday}</p>
           </div>
         </div>
 

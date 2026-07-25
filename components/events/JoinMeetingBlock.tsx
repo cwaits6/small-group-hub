@@ -45,10 +45,10 @@ function CopyField({ label, value }: { label: string; value: string }) {
       style={{ background: "rgba(0,0,0,0.20)", border: "1px solid rgba(255,255,255,0.22)" }}
     >
       <div className="flex-1 min-w-0">
-        <div className="font-sans text-[9.5px] font-bold uppercase tracking-[1.2px] text-white/55">
+        <div className="font-sans text-lg font-bold uppercase tracking-[1.2px] text-white/55">
           {label}
         </div>
-        <div className="font-mono text-[15px] text-white mt-0.5 tracking-[0.4px] whitespace-nowrap overflow-hidden text-ellipsis">
+        <div className="font-mono text-xl text-white mt-0.5 tracking-[0.4px] whitespace-nowrap overflow-hidden text-ellipsis">
           {value}
         </div>
       </div>
@@ -56,7 +56,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
         type="button"
         onClick={handleCopy}
         aria-label={`Copy ${label.toLowerCase()}`}
-        className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/20"
         style={{ background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.22)" }}
       >
         {copied ? (
@@ -120,7 +120,7 @@ export function JoinMeetingBlock({
   };
 
   const statusRowClass =
-    "flex items-center gap-2 font-sans text-[11px] font-bold uppercase tracking-[1.6px]";
+    "flex items-center gap-2 font-sans text-lg font-bold uppercase tracking-[1.6px]";
 
   // ── ENDED ──────────────────────────────────────────────
   if (state === "ended") {
@@ -160,7 +160,7 @@ export function JoinMeetingBlock({
             Join online{provider ? ` · ${provider}` : ""}
           </span>
         </div>
-        <p className="font-sans text-[13.5px] text-white/78 leading-relaxed mt-2">
+        <p className="font-sans text-base text-white/78 leading-relaxed mt-2">
           One-tap join opens at <strong className="text-white">{opensAt}</strong>,{" "}
           {leadMinutes} minutes before start.
         </p>
