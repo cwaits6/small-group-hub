@@ -126,7 +126,7 @@ export default function SetupAccountPage() {
   if (verifying) {
     return (
       <AuthShell
-        eyebrow="ONE MOMENT"
+        eyebrow="Set up account"
         title="Verifying your"
         em="invite"
         kicker="Just confirming this link is good…"
@@ -163,7 +163,7 @@ export default function SetupAccountPage() {
   if (error) {
     return (
       <AuthShell
-        eyebrow="HMMMM"
+        eyebrow="Set up account"
         title="This link doesn't"
         em="look right"
         kicker={error}
@@ -178,7 +178,7 @@ export default function SetupAccountPage() {
   // ── Normal form state ──
   return (
     <AuthShell
-      eyebrow="WELCOME, FRIEND"
+      eyebrow="Set up account"
       title="Set up your"
       em="account"
       kicker="Almost there — pick a password so you can sign in next time."

@@ -194,7 +194,7 @@ export default async function DashboardPage() {
     supabase
       .from("lectures")
       .select("id", { count: "exact", head: true }),
-    // Recent lectures for "Continue listening" panel
+    // Recent lectures panel
     supabase
       .from("lectures")
       .select("id, title, description, lecture_date")
@@ -318,14 +318,10 @@ export default async function DashboardPage() {
         )}
 
         {/* Greeting */}
-        <h1 className="font-serif text-5xl md:text-6xl font-medium leading-none tracking-tight text-foreground mb-3">
+        <h1 className="font-serif text-5xl md:text-6xl font-medium leading-none tracking-tight text-foreground mb-9">
           {getGreeting()},{" "}
           <em className="text-brand-primary italic">{displayName}</em>.
         </h1>
-        <p className="text-[17px] text-muted-foreground max-w-xl leading-relaxed mb-9">
-          Here&apos;s what&apos;s on the calendar this week and what your
-          friends have been up to.
-        </p>
 
         {/* Next event card */}
         {nextEvent ? (
@@ -678,7 +674,7 @@ export default async function DashboardPage() {
           <div>
             <div className="flex items-baseline justify-between mb-5">
               <h2 className="font-serif text-[30px] font-medium text-foreground tracking-tight">
-                Continue listening
+                Recent lectures
               </h2>
             </div>
 

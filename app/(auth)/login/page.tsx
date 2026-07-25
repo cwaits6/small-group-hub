@@ -58,7 +58,7 @@ export default function LoginPage() {
 
   return (
     <AuthShell
-      eyebrow="WELCOME BACK"
+      eyebrow="Sign in"
       title="Sign in to"
       em="InCouragers"
       kicker="Sign in to see what's happening, who's coming, and what we're studying."
