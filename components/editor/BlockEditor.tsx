@@ -29,7 +29,6 @@ export default function BlockEditor({
       editor={editor}
       editable={editable}
       onChange={() => onChange?.(editor.document)}
-      theme="light"
     />
   );
 }

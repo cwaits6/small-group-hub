@@ -120,7 +120,7 @@ export default async function AdminLecturesPage({
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="pb-3 pr-4 font-semibold text-muted-foreground">Title</th>
@@ -158,11 +158,11 @@ export default async function AdminLecturesPage({
                       </td>
                       <td className="py-3 pr-4">
                         {missingSummary ? (
-                          <span className="inline-flex items-center text-xs font-bold text-brand-accent uppercase tracking-[0.1em]">
+                          <span className="inline-flex items-center text-sm font-bold text-brand-accent uppercase tracking-[0.1em]">
                             Needs summary
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </td>
                     </tr>

@@ -31,7 +31,7 @@ export default async function AdminSeriesPage() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-base">
               <thead>
                 <tr className="border-b border-border text-left">
                   <th className="pb-3 pr-4 font-semibold text-muted-foreground">Series</th>
@@ -51,22 +51,22 @@ export default async function AdminSeriesPage() {
                       <td className="py-3 pr-4 text-muted-foreground">{count}</td>
                       <td className="py-3 pr-4">
                         {(s as unknown as { is_archived: boolean }).is_archived ? (
-                          <span className="text-xs font-medium text-muted-foreground">Archived</span>
+                          <span className="text-sm font-medium text-muted-foreground">Archived</span>
                         ) : (
-                          <span className="text-xs font-medium text-green-700">Active</span>
+                          <span className="text-sm font-medium text-green-700">Active</span>
                         )}
                       </td>
                       <td className="py-3">
                         <div className="flex items-center gap-4">
                           <Link
                             href={`/admin/lectures/new?series=${s.id}`}
-                            className="text-brand-primary hover:underline font-medium text-sm"
+                            className="text-brand-primary hover:underline font-medium text-base"
                           >
                             + Add lecture
                           </Link>
                           <Link
                             href={`/admin/lectures/series/${s.id}/edit`}
-                            className="text-muted-foreground hover:underline font-medium text-sm"
+                            className="text-muted-foreground hover:underline font-medium text-base"
                           >
                             Edit
                           </Link>
