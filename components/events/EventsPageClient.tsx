@@ -98,7 +98,6 @@ export function EventsPageClient({
     <div>
       <PageHeader
         title="Calendar"
-        subtitle="Browse the shared calendar for our group."
         actions={
           <>
             {subscriptionToken && (

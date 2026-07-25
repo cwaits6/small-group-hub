@@ -102,24 +102,15 @@ export default async function LecturesPage({
       {/* ── Section 1: Hero Banner ── */}
       <section className="relative overflow-hidden bg-background">
         <div className="relative px-6 md:px-14 py-16 md:py-24">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-7 h-px bg-brand-accent" />
-            <span className="text-brand-accent text-base font-semibold font-sans tracking-[0.2em] uppercase">
-              THE LECTURE LIBRARY
-            </span>
-          </div>
-
           {/* Headline */}
           <h1 className="font-display text-5xl md:text-6xl font-medium tracking-tight leading-none mb-5">
-            Pull a chair,{" "}
-            <em className="italic text-brand-primary">listen in</em>.
+            Lecture Library
           </h1>
 
           {/* Subtext */}
           <p className="font-sans text-base md:text-lg text-muted-foreground max-w-xl leading-relaxed mb-10">
-            Every Sunday&apos;s teaching, searchable and re-watchable. Miss a
-            week? Catch up on the drive home.
+            Every Sunday&apos;s teaching, searchable and available to watch
+            anytime.
           </p>
 
           {/* Empty state */}
@@ -259,11 +250,8 @@ export default async function LecturesPage({
         <section className="bg-background border-t border-border">
           <div className="px-6 md:px-14 py-14">
             <div className="mb-8">
-              <p className="font-sans text-base text-muted-foreground tracking-[0.15em] uppercase font-semibold mb-1">
-                PAST SERIES
-              </p>
               <h2 className="font-display text-3xl font-medium text-foreground tracking-tight">
-                Every sermon we&apos;ve walked through together.
+                Past Series
               </h2>
             </div>
 

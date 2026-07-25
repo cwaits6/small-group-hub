@@ -70,7 +70,7 @@ export default function UpdatePasswordPage() {
 
   return (
     <AuthShell
-      eyebrow="ONE LAST STEP"
+      eyebrow="Choose password"
       title="Choose a"
       em="new password"
       kicker="Pick something you'll remember — at least 8 characters."

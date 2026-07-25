@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      eyebrow="NO WORRIES"
+      eyebrow="Reset password"
       title="Reset your"
       em="password"
       kicker="Enter your email and we'll send you a link to set a new password."
