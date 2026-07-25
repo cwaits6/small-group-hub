@@ -107,7 +107,7 @@ export default function LoginPage() {
         >
           {loading ? "Signing in…" : "Sign In"}
         </Button>
-        <p className="text-sm text-muted-foreground text-center">
+        <p className="text-lg text-muted-foreground text-center">
           <Link
             href="/forgot-password"
             className="text-brand-primary hover:underline font-medium"

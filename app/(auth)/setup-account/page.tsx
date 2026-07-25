@@ -131,7 +131,7 @@ export default function SetupAccountPage() {
         em="invite"
         kicker="Just confirming this link is good…"
       >
-        <div className="flex items-center gap-2 text-muted-foreground font-sans text-sm py-2">
+        <div className="flex items-center gap-2 text-muted-foreground font-sans text-lg py-2">
           <svg
             className="animate-spin h-4 w-4 text-brand-primary"
             xmlns="http://www.w3.org/2000/svg"
@@ -168,7 +168,7 @@ export default function SetupAccountPage() {
         em="look right"
         kicker={error}
       >
-        <p className="font-sans text-sm text-muted-foreground">
+        <p className="font-sans text-lg text-muted-foreground">
           Please contact your group admin for a new invitation.
         </p>
       </AuthShell>
