@@ -187,7 +187,7 @@ export default function SetupAccountPage() {
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Email
           </Label>
@@ -196,13 +196,13 @@ export default function SetupAccountPage() {
             type="email"
             value={tokenData?.email || ""}
             disabled
-            className="h-11 bg-muted"
+            className="h-12 text-lg bg-muted"
           />
         </div>
         <div className="space-y-1.5">
           <Label
             htmlFor="password"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Password
           </Label>
@@ -213,13 +213,13 @@ export default function SetupAccountPage() {
             required
             minLength={8}
             placeholder="At least 8 characters"
-            className="h-11"
+            className="h-12 text-lg"
           />
         </div>
         <div className="space-y-1.5">
           <Label
             htmlFor="confirmPassword"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Confirm Password
           </Label>
@@ -230,7 +230,7 @@ export default function SetupAccountPage() {
             required
             minLength={8}
             placeholder="Confirm your password"
-            className="h-11"
+            className="h-12 text-lg"
           />
         </div>
         <Button

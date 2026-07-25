@@ -52,7 +52,7 @@ export function AuthShell({
             <div className="font-serif text-[1.25rem] font-semibold leading-tight tracking-[-0.01em]">
               {siteConfig.name}
             </div>
-            <div className="font-sans text-[0.65rem] font-medium tracking-[0.18em] uppercase text-white/70 mt-0.5">
+            <div className="font-sans text-base font-medium tracking-[0.18em] uppercase text-white/70 mt-0.5">
               {siteConfig.brandLine}
             </div>
           </div>
@@ -70,13 +70,13 @@ export function AuthShell({
           <p className="font-serif italic text-[2rem] leading-[1.25] tracking-[-0.025em] text-white">
             Encourage one another and build each other up.
           </p>
-          <p className="font-sans text-[0.7rem] font-bold tracking-[0.2em] uppercase text-brand-accent mt-4">
+          <p className="font-sans text-base font-bold tracking-[0.2em] uppercase text-brand-accent mt-4">
             1 Thessalonians 5:11
           </p>
         </div>
 
         {/* Bottom: micro-tagline — hidden on mobile */}
-        <div className="relative hidden md:block font-sans text-xs text-white/70 leading-relaxed">
+        <div className="relative hidden md:block font-sans text-base text-white/70 leading-relaxed">
           A Sunday class for every season of life — come as you are.
         </div>
       </div>
@@ -87,7 +87,7 @@ export function AuthShell({
           {/* Eyebrow */}
           <div className="flex items-center gap-2.5 mb-5">
             <div className="w-5 h-px bg-brand-accent" aria-hidden />
-            <span className="font-sans text-[0.65rem] font-bold tracking-[0.2em] uppercase text-brand-accent">
+            <span className="font-sans text-base font-bold tracking-[0.2em] uppercase text-brand-accent">
               {eyebrow}
             </span>
           </div>
@@ -109,7 +109,7 @@ export function AuthShell({
           {/* Alt link (optional) */}
           {altPrompt && altLabel && altHref && (
             <div className="mt-8 pt-6 border-t border-border">
-              <p className="font-sans text-sm text-muted-foreground">
+              <p className="font-sans text-lg text-muted-foreground">
                 {altPrompt}{" "}
                 <Link
                   href={altHref}

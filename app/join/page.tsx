@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
+import { AuthShell } from "@/app/(auth)/_components/AuthShell";
 
 function JoinForm() {
   const [loading, setLoading] = useState(false);
@@ -65,68 +66,63 @@ function JoinForm() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-lg">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl text-brand-primary">Join Our Group</CardTitle>
-          <CardDescription className="text-lg">
-            Fill out the form below and an admin will review your request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-lg">Full Name</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                placeholder="Your full name"
-                className="text-lg py-6"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-lg">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                defaultValue={prefilledEmail}
-                readOnly={!!prefilledEmail}
-                placeholder="your@email.com"
-                className={`text-lg py-6${prefilledEmail ? " bg-muted" : ""}`}
-              />
-              {prefilledEmail && (
-                <p className="text-xs text-muted-foreground">
-                  Your invite was sent to this email address — please use it to sign up.
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="message" className="text-lg">
-                Message <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <Textarea
-                id="message"
-                name="message"
-                placeholder="Tell us a little about yourself..."
-                rows={4}
-                className="text-lg"
-              />
-            </div>
-            <Button
-              type="submit"
-              size="lg"
-              className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
-              disabled={loading}
-            >
-              {loading ? "Submitting..." : "Submit Request"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <AuthShell
+      eyebrow="REQUEST ACCESS"
+      title="Join"
+      em="our group"
+      kicker="Fill out the form below and an admin will review your request."
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="name" className="text-lg">Full Name</Label>
+          <Input
+            id="name"
+            name="name"
+            required
+            placeholder="Your full name"
+            className="text-lg py-6"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-lg">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            required
+            defaultValue={prefilledEmail}
+            readOnly={!!prefilledEmail}
+            placeholder="your@email.com"
+            className={`text-lg py-6${prefilledEmail ? " bg-muted" : ""}`}
+          />
+          {prefilledEmail && (
+            <p className="text-lg text-muted-foreground">
+              Your invite was sent to this email address — please use it to sign up.
+            </p>
+          )}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="message" className="text-lg">
+            Message <span className="text-muted-foreground">(optional)</span>
+          </Label>
+          <Textarea
+            id="message"
+            name="message"
+            placeholder="Tell us a little about yourself..."
+            rows={4}
+            className="text-lg"
+          />
+        </div>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full text-lg py-6 bg-brand-primary hover:bg-brand-primary/90 text-white"
+          disabled={loading}
+        >
+          {loading ? "Submitting..." : "Submit Request"}
+        </Button>
+      </form>
+    </AuthShell>
   );
 }
 

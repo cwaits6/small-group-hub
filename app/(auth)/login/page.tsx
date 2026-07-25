@@ -70,7 +70,7 @@ export default function LoginPage() {
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Email
           </Label>
@@ -80,13 +80,13 @@ export default function LoginPage() {
             type="email"
             required
             placeholder="your@email.com"
-            className="h-11"
+            className="h-12 text-lg"
           />
         </div>
         <div className="space-y-1.5">
           <Label
             htmlFor="password"
-            className="font-sans text-xs font-semibold tracking-[0.08em] uppercase text-foreground"
+            className="font-sans text-lg font-semibold tracking-[0.08em] uppercase text-foreground"
           >
             Password
           </Label>
@@ -96,7 +96,7 @@ export default function LoginPage() {
             type="password"
             required
             placeholder="Your password"
-            className="h-11"
+            className="h-12 text-lg"
           />
         </div>
         <Button
