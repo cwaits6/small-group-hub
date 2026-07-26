@@ -1,12 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Calendar, Megaphone, BookOpen, Settings, Clock, FileText, Home, Info } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { siteConfig } from "@/lib/config";
+import { PendingRequestsList } from "./PendingRequestsList";
 
 export const metadata = { title: `Admin | ${siteConfig.name}` };
 
@@ -24,163 +23,64 @@ export default async function AdminPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") redirect("/dashboard");
+  if (!profile || !["admin", "content_editor"].includes(profile.role)) {
+    redirect("/dashboard");
+  }
+  const isAdminRole = profile.role === "admin";
 
-  // Get stats
-  const { count: pendingRequests } = await supabase
-    .from("access_requests")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pending");
+  // access_requests SELECT is admin-only under RLS; skip the query entirely
+  // for content_editor rather than reading a guaranteed-empty result.
+  const pendingRequests = isAdminRole
+    ? ((
+        await supabase
+          .from("access_requests")
+          .select("id, name, email, created_at")
+          .eq("status", "pending")
+          .order("created_at", { ascending: true })
+      ).data ?? [])
+    : [];
 
-  const { count: totalMembers } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true })
-    .in("role", ["member", "content_editor", "admin"]);
-
-  const { count: upcomingEvents } = await supabase
-    .from("events")
-    .select("*", { count: "exact", head: true })
-    .gte("start_time", new Date().toISOString());
-
-  const { count: publishedAnnouncements } = await supabase
-    .from("announcements")
-    .select("*", { count: "exact", head: true })
-    .eq("is_published", true);
-
-  const adminLinks = [
-    {
-      href: "/admin/members",
-      label: "Members",
-      description: "Manage members and access requests",
-      icon: Users,
-      badge: pendingRequests ? `${pendingRequests} pending` : undefined,
-    },
-    {
-      href: "/admin/families",
-      label: "Families",
-      description: "Group members into households",
-      icon: Home,
-    },
-    {
-      href: "/admin/events/new",
-      label: "Create Event",
-      description: "Add a new event",
-      icon: Calendar,
-    },
-    {
-      href: "/admin/calendars",
-      label: "Event Calendars",
-      description: "Create and manage shared calendars",
-      icon: Calendar,
-    },
-    {
-      href: "/admin/announcements/new",
-      label: "New Announcement",
-      description: "Post an announcement",
-      icon: Megaphone,
-    },
-    {
-      href: "/admin/lectures",
-      label: "Manage Lectures",
-      description: "Add, edit, or manage lecture recordings and series",
-      icon: BookOpen,
-    },
-    {
-      href: "/admin/pages",
-      label: "Pages",
-      description: "Edit content pages",
-      icon: FileText,
-    },
-    {
-      href: "/admin/about",
-      label: "About Page",
-      description: "Edit the class summary and teachers",
-      icon: Info,
-    },
-    {
-      href: "/admin/settings",
-      label: "Settings",
-      description: "Zoom links, giving, and other settings",
-      icon: Settings,
-    },
-  ];
+  const quickActions = isAdminRole
+    ? [
+        { href: "/admin/invite", label: "Invite member" },
+        { href: "/admin/events/new", label: "Create event" },
+        { href: "/admin/announcements/new", label: "Post announcement" },
+      ]
+    : [
+        { href: "/admin/pages", label: "Edit pages" },
+        { href: "/admin/about", label: "Edit about page" },
+      ];
 
   return (
     <PageContainer size="wide">
-      <PageHeader title="Admin Dashboard" />
+      <PageHeader title="Admin" />
 
-      {/* Stats */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Pending Requests</p>
-                <p className="text-3xl font-bold text-brand-primary">{pendingRequests || 0}</p>
-              </div>
-              <Clock className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Total Members</p>
-                <p className="text-3xl font-bold text-brand-primary">{totalMembers || 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Upcoming Events</p>
-                <p className="text-3xl font-bold text-brand-primary">{upcomingEvents || 0}</p>
-              </div>
-              <Calendar className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-base text-muted-foreground">Announcements</p>
-                <p className="text-3xl font-bold text-brand-primary">{publishedAnnouncements || 0}</p>
-              </div>
-              <Megaphone className="h-8 w-8 text-brand-primary" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="mb-10">
+        <h2 className="text-2xl font-bold text-brand-primary mb-4">
+          Needs attention
+        </h2>
+        <PendingRequestsList initialRequests={pendingRequests} />
+      </section>
 
-      {/* Quick actions */}
-      <h2 className="text-2xl font-bold text-brand-primary mb-4">Quick Actions</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {adminLinks.map((link) => (
-          <Link key={link.href} href={link.href}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <link.icon className="h-6 w-6 text-brand-primary" />
-                  {link.badge && (
-                    <Badge variant="destructive" className="text-sm">
-                      {link.badge}
-                    </Badge>
-                  )}
-                </div>
-                <CardTitle className="text-xl">{link.label}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-base text-muted-foreground">{link.description}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+      <section>
+        <h2 className="text-2xl font-bold text-brand-primary mb-4">
+          Quick actions
+        </h2>
+        <div className="flex flex-wrap gap-3">
+          {quickActions.map((action) => (
+            <Button
+              key={action.href}
+              size="lg"
+              variant="outline"
+              className="text-lg"
+              nativeButton={false}
+              render={<Link href={action.href} />}
+            >
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </section>
     </PageContainer>
   );
 }

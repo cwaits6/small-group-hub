@@ -83,6 +83,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // content_editor may reach the admin overview plus its two content pages;
+  // every other /admin/* path stays admin-only.
+  const contentEditorAdminPaths = ["/admin", "/admin/pages", "/admin/about"];
+
   if (isAdmin && user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -90,7 +94,13 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "admin") {
+    const isContentEditorAllowed =
+      profile?.role === "content_editor" &&
+      contentEditorAdminPaths.some(
+        (p) => pathname === p || (p !== "/admin" && pathname.startsWith(p + "/"))
+      );
+
+    if (profile?.role !== "admin" && !isContentEditorAllowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

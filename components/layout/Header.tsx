@@ -120,7 +120,7 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
                   </div>
                   <nav
                     aria-label="Main navigation"
-                    className="flex-1 space-y-1"
+                    className="flex min-h-0 flex-1 flex-col space-y-1"
                   >
                     <SidebarNav
                       profile={profile}

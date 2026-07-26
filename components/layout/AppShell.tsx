@@ -16,7 +16,6 @@ export const SIDEBAR_ROUTES = [
   "/announcements",
   "/lectures",
   "/pages",
-  "/admin",
   "/directory",
   "/serving",
   "/prayer",
@@ -32,7 +31,12 @@ export function AppShell({ profile, hasServingAccess, children }: AppShellProps)
     isMember && SIDEBAR_ROUTES.some((r) => pathname.startsWith(r));
 
   if (!showSidebar) {
-    return <main className="flex-1">{children}</main>;
+    // /admin/* supplies its own nav via app/admin/layout.tsx; a flex main
+    // lets that layout's sidebar stretch to full height.
+    const isAdminArea = pathname.startsWith("/admin");
+    return (
+      <main className={isAdminArea ? "flex flex-1" : "flex-1"}>{children}</main>
+    );
   }
 
   return (

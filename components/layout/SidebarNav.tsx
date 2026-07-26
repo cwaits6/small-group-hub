@@ -5,20 +5,17 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
-  CalendarDays,
   ChevronDown,
+  Cog,
   Megaphone,
   BookOpen,
   FileText,
   Settings,
   Users,
   UserCircle,
-  Home,
-  MailPlus,
   HandHelping,
   HandCoins,
   HeartHandshake,
-  BarChart2,
   Info,
 } from "lucide-react";
 import { Fragment, useState, useEffect, type ComponentType } from "react";
@@ -53,19 +50,6 @@ const directorySubNav = [
   { href: "/directory/groups", label: "Groups" },
   { href: "/directory/birthdays", label: "Birthdays" },
   { href: "/directory/anniversaries", label: "Anniversaries" },
-];
-
-const adminNav = [
-  { href: "/admin", label: "Admin", icon: Settings, exact: true },
-  { href: "/admin/members", label: "Members", icon: Users },
-  { href: "/admin/families", label: "Families", icon: Home },
-  { href: "/admin/groups", label: "Groups", icon: Users },
-  { href: "/admin/invite", label: "Bulk Invite", icon: MailPlus },
-  { href: "/admin/calendars", label: "Calendars", icon: CalendarDays },
-  { href: "/admin/serving", label: "Serving Stats", icon: BarChart2 },
-  { href: "/admin/giving", label: "Giving", icon: HandCoins },
-  { href: "/admin/pages", label: "Manage Pages", icon: FileText },
-  { href: "/admin/about", label: "About Page", icon: Info },
 ];
 
 export function SidebarNav({
@@ -197,60 +181,49 @@ export function SidebarNav({
 
   return (
     <>
-      {memberNav
-        .filter((item) => item.href !== "/serving" || hasServingAccess)
-        .map((item) => (
-          <Fragment key={item.href}>
-            {item.href === "/directory" && !collapsed ? renderDirectoryItem() : renderLink(item)}
-            {item.href === "/directory" && renderDirectorySubNav()}
-          </Fragment>
-        ))}
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+        {memberNav
+          .filter((item) => item.href !== "/serving" || hasServingAccess)
+          .map((item) => (
+            <Fragment key={item.href}>
+              {item.href === "/directory" && !collapsed ? renderDirectoryItem() : renderLink(item)}
+              {item.href === "/directory" && renderDirectorySubNav()}
+            </Fragment>
+          ))}
 
-      {pages.length > 0 && (
-        <>
-          {!collapsed && (
-            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
-              Pages
-            </p>
-          )}
-          {collapsed && <div className="border-t border-border my-2" role="separator" />}
-          {pages.map((page) => {
-            const href = `/pages/${page.slug}`;
-            const active = isActive(href);
-            return (
-              <Link
-                key={page.slug}
-                href={href}
-                className={linkClass(active)}
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? page.title : undefined}
-                onClick={onNavigate}
-              >
-                <FileText className="h-5 w-5 shrink-0" aria-hidden="true" />
-                {!collapsed && <span className="truncate">{page.title}</span>}
-              </Link>
-            );
-          })}
-        </>
-      )}
+        {pages.length > 0 && (
+          <>
+            {!collapsed && (
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
+                Pages
+              </p>
+            )}
+            {collapsed && <div className="border-t border-border my-2" role="separator" />}
+            {pages.map((page) => {
+              const href = `/pages/${page.slug}`;
+              const active = isActive(href);
+              return (
+                <Link
+                  key={page.slug}
+                  href={href}
+                  className={linkClass(active)}
+                  aria-current={active ? "page" : undefined}
+                  title={collapsed ? page.title : undefined}
+                  onClick={onNavigate}
+                >
+                  <FileText className="h-5 w-5 shrink-0" aria-hidden="true" />
+                  {!collapsed && <span className="truncate">{page.title}</span>}
+                </Link>
+              );
+            })}
+          </>
+        )}
+      </div>
 
       {isEditor && (
-        <>
-          {!collapsed && (
-            <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
-              Admin
-            </p>
-          )}
-          {collapsed && <div className="border-t border-border my-2" role="separator" />}
-          {adminNav
-            .filter(
-              (item) =>
-                isAdmin ||
-                item.href === "/admin/pages" ||
-                item.href === "/admin/about",
-            )
-            .map(renderLink)}
-        </>
+        <div className="mt-2 shrink-0 border-t border-border pt-2">
+          {renderLink({ href: "/admin", label: "Admin", icon: Cog })}
+        </div>
       )}
     </>
   );
