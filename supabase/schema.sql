@@ -1007,7 +1007,8 @@ CREATE TABLE IF NOT EXISTS "public"."site_settings" (
     "key" "text" NOT NULL,
     "value" "text",
     "updated_by" "uuid",
-    "updated_at" timestamp with time zone
+    "updated_at" timestamp with time zone,
+    "is_public" boolean DEFAULT false NOT NULL
 );
 
 
@@ -1786,15 +1787,15 @@ CREATE POLICY "Admins can view access requests" ON "public"."access_requests" FO
 
 
 
+CREATE POLICY "Anon can read public settings" ON "public"."site_settings" FOR SELECT USING ("is_public");
+
+
+
 CREATE POLICY "Anyone can read event calendars" ON "public"."event_calendars" FOR SELECT USING (true);
 
 
 
 CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELECT USING (true);
-
-
-
-CREATE POLICY "Anyone can read settings" ON "public"."site_settings" FOR SELECT USING (true);
 
 
 
@@ -1911,6 +1912,10 @@ CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT 
 
 
 CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+
+
+
+CREATE POLICY "Members can read settings" ON "public"."site_settings" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
 
 
 
