@@ -712,6 +712,7 @@ export function HouseholdClient({
                 router.refresh();
               }}
               onCancel={() => setFmSheetState(null)}
+              onChanged={() => router.refresh()}
             />
           </div>
         </SheetContent>

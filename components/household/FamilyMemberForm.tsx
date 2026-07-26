@@ -58,7 +58,7 @@ function CheckRow({
   return (
     <label
       htmlFor={id}
-      className="flex cursor-pointer items-center gap-3 py-1 text-base font-medium"
+      className="flex min-h-12 cursor-pointer items-center gap-3 py-1 text-base font-medium"
     >
       <input
         id={id}
@@ -78,9 +78,11 @@ interface Props {
   family: FamilyUnit;
   onSaved?: () => void;
   onCancel?: () => void;
+  /** Called after an avatar-only update, which doesn't close the sheet like onSaved does */
+  onChanged?: () => void;
 }
 
-export function FamilyMemberForm({ member, family, onSaved, onCancel }: Props) {
+export function FamilyMemberForm({ member, family, onSaved, onCancel, onChanged }: Props) {
   // Last name defaults to the family surname unless marked different — mirrors
   // the same convention used for enrolled members in ProfileForm. A blank
   // existing last name is treated as "not yet set" rather than "different",
@@ -132,6 +134,7 @@ export function FamilyMemberForm({ member, family, onSaved, onCancel }: Props) {
       });
       if (!res.ok) throw new Error("Failed to save avatar");
       toast.success("Photo updated.");
+      onChanged?.();
     } catch (err) {
       console.error(err);
       setAvatarUrl(previousAvatarUrl);
