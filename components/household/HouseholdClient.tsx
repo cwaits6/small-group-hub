@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +19,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { HouseholdMemberEditClient } from "@/components/household/HouseholdMemberEditClient";
+import { FamilyMemberForm } from "@/components/household/FamilyMemberForm";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,6 +43,7 @@ import {
   titleCaseCity,
 } from "@/lib/sanitize";
 import { displayName, initials } from "@/lib/names";
+import { canEditSpouseProfiles as computeCanEditSpouseProfiles, type HouseholdSummary } from "@/lib/household";
 import type { Profile, FamilyUnit, FamilyMember, FamilyMemberRelationship } from "@/lib/types";
 
 const LINK_RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
@@ -73,10 +81,9 @@ interface HouseholdClientProps {
   currentProfile: Profile;
   family: FamilyUnit;
   initialFamilyMembers: FamilyMember[];
-  householdProfiles: Pick<
-    Profile,
-    "id" | "first_name" | "last_name" | "preferred_name" | "relationship" | "role" | "avatar_url"
-  >[];
+  householdProfiles: (Profile | HouseholdSummary)[];
+  /** Called when the user clicks "Edit" on their own row — the parent switches to the Me tab */
+  onEditSelf: () => void;
 }
 
 function fromFamily(f: FamilyUnit): HouseholdInfo {
@@ -94,19 +101,62 @@ function fromFamily(f: FamilyUnit): HouseholdInfo {
   };
 }
 
+function MemberRow({
+  profile,
+  isYou,
+  action,
+}: {
+  profile: Pick<Profile, "avatar_url" | "relationship" | "first_name" | "last_name" | "preferred_name">;
+  isYou?: boolean;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Avatar className="h-12 w-12">
+          {profile.avatar_url && (
+            <AvatarImage src={profile.avatar_url} alt={displayName(profile)} />
+          )}
+          <AvatarFallback className="bg-brand-primary text-white text-sm">
+            {initials(profile)}
+          </AvatarFallback>
+        </Avatar>
+        <div>
+          <span className="text-base font-medium">{displayName(profile)}</span>
+          <Badge variant="outline" className="ml-2 text-base capitalize">
+            {profile.relationship}
+          </Badge>
+          {isYou && (
+            <Badge variant="secondary" className="ml-1 text-base">
+              You
+            </Badge>
+          )}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function HouseholdClient({
   currentProfile,
   family,
   initialFamilyMembers,
   householdProfiles,
+  onEditSelf,
 }: HouseholdClientProps) {
   const router = useRouter();
   const [info, setInfo] = useState<HouseholdInfo>(fromFamily(family));
   const [savingInfo, setSavingInfo] = useState(false);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(initialFamilyMembers);
 
   // "Add member" dialog
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+
+  // Edit sheets for another enrolled member / a family member without an account
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [fmSheetState, setFmSheetState] = useState<
+    { mode: "new" } | { mode: "edit"; member: FamilyMember } | null
+  >(null);
 
   // "Link existing account" search within the dialog
   const [searchQuery, setSearchQuery] = useState("");
@@ -116,9 +166,7 @@ export function HouseholdClient({
   const [linkRelationship, setLinkRelationship] = useState<FamilyMemberRelationship>("spouse");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const canEditSpouseProfiles =
-    currentProfile.relationship === "primary" ||
-    currentProfile.relationship === "spouse";
+  const canEditSpouseProfiles = computeCanEditSpouseProfiles(currentProfile);
 
   // ---- Household info ----
   async function handleSaveInfo(e: React.FormEvent) {
@@ -151,6 +199,7 @@ export function HouseholdClient({
     }
 
     toast.success("Household info updated.");
+    router.refresh();
   }
 
   // ---- Non-auth family member delete ----
@@ -163,7 +212,7 @@ export function HouseholdClient({
       return;
     }
     toast.success("Family member removed.");
-    setFamilyMembers((prev) => prev.filter((m) => m.id !== fm.id));
+    router.refresh();
   }
 
   // ---- Link existing account ----
@@ -401,64 +450,36 @@ export function HouseholdClient({
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Current user */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
-                {currentProfile.avatar_url && (
-                  <AvatarImage src={currentProfile.avatar_url} alt={displayName(currentProfile)} />
-                )}
-                <AvatarFallback className="bg-brand-primary text-white text-sm">
-                  {initials(currentProfile)}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <span className="text-base font-medium">{displayName(currentProfile)}</span>
-                <Badge variant="outline" className="ml-2 text-base capitalize">
-                  {currentProfile.relationship}
-                </Badge>
-                <Badge variant="secondary" className="ml-1 text-base">
-                  You
-                </Badge>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/profile" />}>
-              <Pencil className="mr-1 h-4 w-4" />
-              Edit
-            </Button>
-          </div>
+          <MemberRow
+            profile={currentProfile}
+            isYou
+            action={
+              <Button variant="outline" size="sm" onClick={onEditSelf}>
+                <Pencil className="mr-1 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          />
 
           {householdProfiles.map((p) => (
-            <div key={p.id} className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  {p.avatar_url && (
-                    <AvatarImage src={p.avatar_url} alt={displayName(p)} />
-                  )}
-                  <AvatarFallback className="bg-brand-primary text-white text-sm">
-                    {initials(p)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <span className="text-base font-medium">{displayName(p)}</span>
-                  <Badge variant="outline" className="ml-2 text-base capitalize">
-                    {p.relationship}
-                  </Badge>
-                </div>
-              </div>
-              {canEditSpouseProfiles ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/household/member/${p.id}`} />}
-                >
-                  <Pencil className="mr-1 h-4 w-4" />
-                  Edit profile
-                </Button>
-              ) : (
-                <span className="text-base text-muted-foreground">Contact admin to edit</span>
-              )}
-            </div>
+            <MemberRow
+              key={p.id}
+              profile={p}
+              action={
+                canEditSpouseProfiles ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingMemberId(p.id)}
+                  >
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Edit profile
+                  </Button>
+                ) : (
+                  <span className="text-base text-muted-foreground">Contact admin to edit</span>
+                )
+              }
+            />
           ))}
 
           {householdProfiles.length === 0 && (
@@ -478,8 +499,7 @@ export function HouseholdClient({
               <Button
                 variant="outline"
                 size="sm"
-                nativeButton={false}
-                render={<Link href="/household/member/fm/new" />}
+                onClick={() => setFmSheetState({ mode: "new" })}
               >
                 <Plus className="mr-1 h-4 w-4" />
                 Add member
@@ -501,7 +521,7 @@ export function HouseholdClient({
             instead.
           </p>
 
-          {familyMembers.map((fm) => (
+          {initialFamilyMembers.map((fm) => (
             <div
               key={fm.id}
               className="flex items-center justify-between bg-muted/40 rounded-md px-3 py-2"
@@ -532,8 +552,7 @@ export function HouseholdClient({
                 <Button
                   variant="ghost"
                   size="sm"
-                  nativeButton={false}
-                  render={<Link href={`/household/member/fm/${fm.id}`} />}
+                  onClick={() => setFmSheetState({ mode: "edit", member: fm })}
                 >
                   <Pencil className="mr-1 h-3.5 w-3.5" />
                   Edit
@@ -550,7 +569,7 @@ export function HouseholdClient({
             </div>
           ))}
 
-          {familyMembers.length === 0 && (
+          {initialFamilyMembers.length === 0 && (
             <p className="text-sm text-muted-foreground">No additional family members yet.</p>
           )}
         </CardContent>
@@ -646,6 +665,58 @@ export function HouseholdClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ---- Edit another enrolled member's profile ---- */}
+      <Sheet open={editingMemberId !== null} onOpenChange={(o) => !o && setEditingMemberId(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="border-b pb-3">
+            <SheetTitle>Edit member</SheetTitle>
+          </SheetHeader>
+          {editingMemberId && (() => {
+            const editingProfile = householdProfiles.find((p) => p.id === editingMemberId);
+            if (!editingProfile) return null;
+            return (
+              <div className="px-4 pb-6">
+                <HouseholdMemberEditClient
+                  key={editingMemberId}
+                  // Safe: this sheet only opens via the "Edit profile" button above, which is
+                  // gated behind canEditSpouseProfiles — the same condition under which
+                  // householdProfiles is fetched as full Profile rows (see app/profile/page.tsx).
+                  profile={editingProfile as Profile}
+                  onSaved={() => {
+                    setEditingMemberId(null);
+                    router.refresh();
+                  }}
+                />
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ---- Add / edit a family member without an account ---- */}
+      <Sheet open={fmSheetState !== null} onOpenChange={(o) => !o && setFmSheetState(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader className="border-b pb-3">
+            <SheetTitle>
+              {fmSheetState?.mode === "edit" ? "Edit family member" : "Add family member"}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="px-4 pb-6">
+            <FamilyMemberForm
+              key={fmSheetState?.mode === "edit" ? fmSheetState.member.id : "new"}
+              member={fmSheetState?.mode === "edit" ? fmSheetState.member : null}
+              family={family}
+              onSaved={() => {
+                setFmSheetState(null);
+                router.refresh();
+              }}
+              onCancel={() => setFmSheetState(null)}
+              onChanged={() => router.refresh()}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

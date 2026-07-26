@@ -27,9 +27,10 @@ const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
 
 interface Props {
   profile: Profile;
+  onSaved: () => void;
 }
 
-export function HouseholdMemberEditClient({ profile }: Props) {
+export function HouseholdMemberEditClient({ profile, onSaved }: Props) {
   const router = useRouter();
   const supabase = createClient();
   const [relationship, setRelationship] = useState<FamilyMemberRelationship>(profile.relationship);
@@ -51,6 +52,7 @@ export function HouseholdMemberEditClient({ profile }: Props) {
       setRelationship(profile.relationship); // revert
     } else {
       toast.success("Relationship updated.");
+      router.refresh();
     }
   }
 
@@ -95,7 +97,7 @@ export function HouseholdMemberEditClient({ profile }: Props) {
         families={[] as FamilyUnit[]}
         isAdmin={false}
         relaxValidation={true}
-        onSaved={() => router.push("/household")}
+        onSaved={onSaved}
       />
     </div>
   );

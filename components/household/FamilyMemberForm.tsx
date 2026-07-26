@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +19,7 @@ import { toast } from "sonner";
 import { Camera } from "lucide-react";
 import { titleCaseName } from "@/lib/sanitize";
 import { uploadImage } from "@/lib/uploadImage";
-import type { FamilyMember, FamilyMemberRelationship } from "@/lib/types";
+import type { FamilyMember, FamilyMemberRelationship, FamilyUnit } from "@/lib/types";
 
 const MONTHS = [
   { value: "1", label: "January" },
@@ -45,16 +44,55 @@ const RELATIONSHIPS: { value: FamilyMemberRelationship; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+function CheckRow({
+  id,
+  label,
+  checked,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label
+      htmlFor={id}
+      className="flex min-h-12 cursor-pointer items-center gap-3 py-1 text-base font-medium"
+    >
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="size-5 shrink-0 accent-brand-primary"
+      />
+      {label}
+    </label>
+  );
+}
+
 interface Props {
   /** null = creating new member */
   member: FamilyMember | null;
+  family: FamilyUnit;
+  onSaved?: () => void;
+  onCancel?: () => void;
+  /** Called after an avatar-only update, which doesn't close the sheet like onSaved does */
+  onChanged?: () => void;
 }
 
-export function FamilyMemberForm({ member }: Props) {
-  const router = useRouter();
-
+export function FamilyMemberForm({ member, family, onSaved, onCancel, onChanged }: Props) {
+  // Last name defaults to the family surname unless marked different — mirrors
+  // the same convention used for enrolled members in ProfileForm. A blank
+  // existing last name is treated as "not yet set" rather than "different",
+  // so new and not-yet-named members inherit silently.
+  const familySurname = family.family_name.replace(/\s+family$/i, "").trim();
   const [firstName, setFirstName] = useState(member?.first_name ?? "");
   const [lastName, setLastName] = useState(member?.last_name ?? "");
+  const [differentLastName, setDifferentLastName] = useState(
+    !familySurname || (!!member?.last_name && member.last_name !== familySurname),
+  );
   const [preferredName, setPreferredName] = useState(member?.preferred_name ?? "");
   const [relationship, setRelationship] = useState<FamilyMemberRelationship>(
     member?.relationship ?? "child",
@@ -70,9 +108,12 @@ export function FamilyMemberForm({ member }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isNew = member === null;
+  const effectiveLastName =
+    familySurname && !differentLastName ? familySurname : lastName;
   const displayFirst = preferredName || firstName || "Member";
-  const displayLast = lastName;
-  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || "?";
+  const displayLast = effectiveLastName;
+  const initials =
+    `${firstName.charAt(0)}${effectiveLastName.charAt(0)}`.toUpperCase() || "?";
   const currentYear = new Date().getFullYear();
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -93,6 +134,7 @@ export function FamilyMemberForm({ member }: Props) {
       });
       if (!res.ok) throw new Error("Failed to save avatar");
       toast.success("Photo updated.");
+      onChanged?.();
     } catch (err) {
       console.error(err);
       setAvatarUrl(previousAvatarUrl);
@@ -131,9 +173,12 @@ export function FamilyMemberForm({ member }: Props) {
 
     setSaving(true);
 
+    const last =
+      familySurname && !differentLastName ? familySurname : titleCaseName(lastName);
+
     const payload = {
       first_name: first,
-      last_name: titleCaseName(lastName) || null,
+      last_name: last || null,
       preferred_name: titleCaseName(preferredName) || null,
       relationship,
       birth_month: birthMonth ? Number(birthMonth) : null,
@@ -160,11 +205,11 @@ export function FamilyMemberForm({ member }: Props) {
     }
 
     if (isNew) {
-      toast.success("Family member added. You can add a photo by editing them from the household page.");
+      toast.success("Family member added. You can add a photo by editing them.");
     } else {
       toast.success("Family member updated.");
     }
-    router.push("/household");
+    onSaved?.();
   }
 
   return (
@@ -214,7 +259,7 @@ export function FamilyMemberForm({ member }: Props) {
       {/* Name */}
       <Card>
         <CardContent className="pt-6 space-y-5">
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className={familySurname ? "space-y-3" : "grid sm:grid-cols-2 gap-4"}>
             <div className="space-y-2">
               <Label htmlFor="first_name" className="text-base">
                 First name <span className="text-destructive" aria-hidden>*</span>
@@ -228,18 +273,28 @@ export function FamilyMemberForm({ member }: Props) {
                 className="text-base py-5"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="last_name" className="text-base">
-                Last name
-              </Label>
-              <Input
-                id="last_name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                onBlur={(e) => setLastName(titleCaseName(e.target.value) || "")}
-                className="text-base py-5"
+            {familySurname && (
+              <CheckRow
+                id="different_last_name"
+                label={`Last name is different from the family's (${familySurname})`}
+                checked={differentLastName}
+                onChange={setDifferentLastName}
               />
-            </div>
+            )}
+            {(!familySurname || differentLastName) && (
+              <div className="space-y-2">
+                <Label htmlFor="last_name" className="text-base">
+                  Last name
+                </Label>
+                <Input
+                  id="last_name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  onBlur={(e) => setLastName(titleCaseName(e.target.value) || "")}
+                  className="text-base py-5"
+                />
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -287,11 +342,11 @@ export function FamilyMemberForm({ member }: Props) {
           <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Birthday
           </p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-3">
             <div className="space-y-2">
               <Label className="text-base">Month</Label>
               <Select items={MONTHS} value={birthMonth} onValueChange={(v) => setBirthMonth(v ?? "")}>
-                <SelectTrigger className="text-base py-5">
+                <SelectTrigger className="w-full text-base py-5">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,7 +414,7 @@ export function FamilyMemberForm({ member }: Props) {
         <Button
           type="button"
           variant="outline"
-          onClick={() => router.push("/household")}
+          onClick={() => onCancel?.()}
         >
           Cancel
         </Button>

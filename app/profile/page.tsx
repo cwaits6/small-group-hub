@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { MyProfileView, type HouseholdEntry } from "@/components/profile/MyProfileView";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { ProfileHouseholdTabs } from "@/components/profile/ProfileHouseholdTabs";
 import { siteConfig } from "@/lib/config";
+import { canEditSpouseProfiles as computeCanEditSpouseProfiles, type HouseholdSummary } from "@/lib/household";
 import type { Profile, FamilyUnit, FamilyMember } from "@/lib/types";
 
 export const metadata = { title: `My Profile | ${siteConfig.name}` };
@@ -31,8 +34,12 @@ export default async function ProfilePage() {
   }
 
   let family: FamilyUnit | null = null;
-  let householdProfiles: HouseholdEntry[] = [];
+  let householdProfiles: (Profile | HouseholdSummary)[] = [];
   let familyMembers: FamilyMember[] = [];
+
+  // Only primary/spouse can open the edit sheet for other household members,
+  // so only they need full rows — everyone else only ever sees name/avatar/relationship.
+  const canEditSpouseProfiles = computeCanEditSpouseProfiles(profile);
 
   if (profile.family_id) {
     const [familyRes, othersRes, fmsRes] = await Promise.all([
@@ -41,17 +48,24 @@ export default async function ProfilePage() {
         .select("*")
         .eq("id", profile.family_id)
         .maybeSingle<FamilyUnit>(),
-      // Other enrolled household members, with privacy masking applied so
-      // the tiles show what the directory shows.
-      supabase
-        .from("profiles_directory")
-        .select(
-          "id, first_name, last_name, preferred_name, avatar_url, relationship, email, phone_mobile",
-        )
-        .eq("family_id", profile.family_id)
-        .neq("id", user.id)
-        .order("first_name")
-        .returns<HouseholdEntry[]>(),
+      // Other enrolled household members. Full rows only for viewers who can
+      // open the edit sheet, so it can populate the form without a second
+      // fetch; everyone else gets the narrow field list the list actually renders.
+      canEditSpouseProfiles
+        ? supabase
+            .from("profiles")
+            .select("*")
+            .eq("family_id", profile.family_id)
+            .neq("id", user.id)
+            .order("first_name")
+            .returns<Profile[]>()
+        : supabase
+            .from("profiles")
+            .select("id, first_name, last_name, preferred_name, relationship, role, avatar_url")
+            .eq("family_id", profile.family_id)
+            .neq("id", user.id)
+            .order("first_name")
+            .returns<HouseholdSummary[]>(),
       // Family members without accounts (children etc.)
       supabase
         .from("family_members")
@@ -73,17 +87,18 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12">
-      <h1 className="mb-6 text-3xl font-bold text-brand-primary md:text-4xl">
-        My Profile
-      </h1>
+    <PageContainer>
+      <PageHeader
+        title="My Profile"
+        subtitle="Manage your info and your household."
+      />
 
-      <MyProfileView
+      <ProfileHouseholdTabs
         profile={profile}
         family={family}
         householdProfiles={householdProfiles}
         familyMembers={familyMembers}
       />
-    </div>
+    </PageContainer>
   );
 }
