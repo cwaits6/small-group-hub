@@ -60,8 +60,7 @@ export function SidebarNav({
 }: SidebarNavProps) {
   const pathname = usePathname();
   const [pages, setPages] = useState<PageLink[]>([]);
-  const isAdmin = profile.role === "admin";
-  const isEditor = profile.role === "content_editor" || isAdmin;
+  const isEditor = profile.role === "admin" || profile.role === "content_editor";
 
   // Directory sub-menu: auto-opens while browsing the section, manually collapsible
   const inDirectory = pathname === "/directory" || pathname.startsWith("/directory/");
