@@ -463,6 +463,7 @@ export interface SiteSetting {
   value: string | null;
   updated_by: string | null;
   updated_at: string | null;
+  is_public: boolean;
 }
 
 export interface PageContent {
