@@ -27,6 +27,9 @@ export function PendingRequestsList({ initialRequests }: PendingRequestsListProp
     setBusyId(id);
     try {
       if (action === "approved") {
+        // Approving needs elevated privileges (revalidates admin role server-side,
+        // sends the invite email) that a client Supabase call can't do — route
+        // through the API instead of updating access_requests directly.
         const request = requests.find((r) => r.id === id);
         if (request) {
           const res = await fetch("/api/admin/approve", {
@@ -35,7 +38,8 @@ export function PendingRequestsList({ initialRequests }: PendingRequestsListProp
             body: JSON.stringify({ email: request.email, name: request.name }),
           });
           if (!res.ok) {
-            toast.error("Failed to approve request.");
+            const data = await res.json().catch(() => null);
+            toast.error(data?.error || "Failed to approve request.");
             return;
           }
         }
@@ -57,6 +61,7 @@ export function PendingRequestsList({ initialRequests }: PendingRequestsListProp
           .eq("id", id);
 
         if (error) {
+          console.error(error);
           toast.error("Failed to update request.");
           return;
         }
@@ -64,6 +69,9 @@ export function PendingRequestsList({ initialRequests }: PendingRequestsListProp
 
       toast.success(`Request ${action}.`);
       setRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error. Please try again.");
     } finally {
       setBusyId(null);
     }
