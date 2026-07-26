@@ -38,6 +38,8 @@ import {
   formatPhoneAsYouType,
 } from "@/lib/sanitize";
 import { displayName } from "@/lib/names";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const MONTHS = [
   { value: "1", label: "January" },
@@ -449,32 +451,28 @@ export default function FamiliesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
+      <PageContainer>
         <p className="text-xl text-muted-foreground">Loading...</p>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-4xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">
-            Families
-          </h1>
-          <p className="text-base text-muted-foreground mt-1">
-            Group members into households with shared address and home phone.
-          </p>
-        </div>
-        <Button
-          size="lg"
-          onClick={openCreate}
-          className="bg-brand-primary hover:bg-brand-primary/90 text-white"
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          New Family
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Families"
+        subtitle="Group members into households with shared address and home phone."
+        actions={
+          <Button
+            size="lg"
+            onClick={openCreate}
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            New Family
+          </Button>
+        }
+      />
 
       {families.length === 0 ? (
         <Card>
@@ -992,6 +990,6 @@ export default function FamiliesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

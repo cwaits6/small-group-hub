@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { Check, X, UserCog, Clock, Pencil } from "lucide-react";
 import type { AccessRequest, Profile, UserRole } from "@/lib/types";
 import { displayName } from "@/lib/names";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: "pending", label: "Pending" },
@@ -117,17 +119,15 @@ export default function MembersPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
+      <PageContainer>
         <p className="text-xl text-muted-foreground">Loading...</p>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl md:text-4xl font-bold text-brand-primary mb-10">
-        Manage Members
-      </h1>
+    <PageContainer>
+      <PageHeader title="Manage Members" />
 
       <Tabs defaultValue="requests">
         <TabsList className="mb-6">
@@ -273,6 +273,6 @@ export default function MembersPage() {
           </div>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 }
