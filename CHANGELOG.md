@@ -1,3 +1,10 @@
+## [0.20.8](https://github.com/cwaits6/small-group-hub/compare/v0.20.7...v0.20.8) (2026-07-26)
+
+
+### Bug Fixes
+
+* consolidate profile and household into one tabbed page ([#275](https://github.com/cwaits6/small-group-hub/issues/275)) ([b7af0a5](https://github.com/cwaits6/small-group-hub/commit/b7af0a504e051bcd257509bc80b099d9eb5e3e72)), closes [#238](https://github.com/cwaits6/small-group-hub/issues/238) [#238](https://github.com/cwaits6/small-group-hub/issues/238)
+
 ## [0.20.7](https://github.com/cwaits6/small-group-hub/compare/v0.20.6...v0.20.7) (2026-07-25)
 
 
