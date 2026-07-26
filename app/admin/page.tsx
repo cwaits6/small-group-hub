@@ -24,7 +24,11 @@ function timeAgo(iso: string): string {
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
   const date = new Date(iso);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "America/New_York",
+  });
 }
 
 function eventDateLabel(startTime: string): string {
@@ -69,10 +73,10 @@ export default async function AdminPage() {
 
   // Stats + panel rows — all independent reads, fired together.
   const [
-    { count: pendingRequests },
-    { count: totalMembers },
-    { count: upcomingEvents },
-    { count: publishedAnnouncements },
+    { count: pendingRequests, error: pendingCountError },
+    { count: totalMembers, error: membersCountError },
+    { count: upcomingEvents, error: eventsCountError },
+    { count: publishedAnnouncements, error: announcementsCountError },
     { data: pendingRows, error: pendingError },
     { data: signupRows, error: signupError },
     { data: rawEvents, error: eventsError },
@@ -117,6 +121,10 @@ export default async function AdminPage() {
       .limit(50),
   ]);
 
+  if (pendingCountError) console.error("admin overview: pending requests count failed", pendingCountError);
+  if (membersCountError) console.error("admin overview: total members count failed", membersCountError);
+  if (eventsCountError) console.error("admin overview: upcoming events count failed", eventsCountError);
+  if (announcementsCountError) console.error("admin overview: announcements count failed", announcementsCountError);
   if (pendingError) console.error("admin overview: pending requests query failed", pendingError);
   if (signupError) console.error("admin overview: recent signups query failed", signupError);
   if (eventsError) console.error("admin overview: upcoming events query failed", eventsError);
@@ -129,10 +137,15 @@ export default async function AdminPage() {
     i > 0 ? { borderTop: "1px solid var(--color-border)" } : undefined;
 
   const stats = [
-    { label: "Pending Requests", value: pendingRequests, icon: Clock },
-    { label: "Total Members", value: totalMembers, icon: Users },
-    { label: "Upcoming Events", value: upcomingEvents, icon: Calendar },
-    { label: "Announcements", value: publishedAnnouncements, icon: Megaphone },
+    { label: "Pending Requests", value: pendingRequests, icon: Clock, error: pendingCountError },
+    { label: "Total Members", value: totalMembers, icon: Users, error: membersCountError },
+    { label: "Upcoming Events", value: upcomingEvents, icon: Calendar, error: eventsCountError },
+    {
+      label: "Announcements",
+      value: publishedAnnouncements,
+      icon: Megaphone,
+      error: announcementsCountError,
+    },
   ];
 
   return (
@@ -147,7 +160,9 @@ export default async function AdminPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-base text-muted-foreground">{stat.label}</p>
-                  <p className="text-3xl font-bold text-brand-primary">{stat.value || 0}</p>
+                  <p className="text-3xl font-bold text-brand-primary">
+                    {stat.error ? "—" : stat.value ?? 0}
+                  </p>
                 </div>
                 <stat.icon className="h-8 w-8 text-brand-primary" />
               </div>
@@ -173,7 +188,7 @@ export default async function AdminPage() {
           <Card>
             <CardContent className="pt-6">
               {pendingError ? (
-                <p className="text-base text-muted-foreground py-3">Couldn't load pending requests.</p>
+                <p className="text-base text-muted-foreground py-3">Couldn&apos;t load pending requests.</p>
               ) : requests.length > 0 ? (
                 requests.map((request, i) => (
                   <div
@@ -215,7 +230,7 @@ export default async function AdminPage() {
           <Card>
             <CardContent className="pt-6">
               {signupError ? (
-                <p className="text-base text-muted-foreground py-3">Couldn't load recent signups.</p>
+                <p className="text-base text-muted-foreground py-3">Couldn&apos;t load recent signups.</p>
               ) : signups.length > 0 ? (
                 signups.map((signup, i) => (
                   <div
@@ -261,7 +276,7 @@ export default async function AdminPage() {
           <Card>
             <CardContent className="pt-6">
               {eventsError ? (
-                <p className="text-base text-muted-foreground py-3">Couldn't load upcoming events.</p>
+                <p className="text-base text-muted-foreground py-3">Couldn&apos;t load upcoming events.</p>
               ) : nextEvents.length > 0 ? (
                 nextEvents.map((event, i) => (
                   <div key={`${event.id}-${event.start_time}`} className="py-3" style={rowBorder(i)}>
