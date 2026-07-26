@@ -1,5 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateCombinedICS, type ServingICSInput } from "@/lib/ics-utils";
+import {
+  hashSubscriptionToken,
+  subscriptionTokenExpiryDate,
+} from "@/lib/calendar/subscription-token";
 import type { Event } from "@/lib/types";
 
 export async function GET(request: Request) {
@@ -17,12 +21,22 @@ export async function GET(request: Request) {
 
   const { data: sub } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id, user_id")
-    .eq("token", token)
+    .select("id, user_id, expires_at")
+    .eq("token_hash", hashSubscriptionToken(token))
     .single();
 
-  if (!sub) {
+  if (!sub || new Date(sub.expires_at) < new Date()) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Sliding expiration — see subscriptionTokenExpiryDate() for policy.
+  const { error: expiryError } = await supabase
+    .from("calendar_subscription_tokens")
+    .update({ expires_at: subscriptionTokenExpiryDate() })
+    .eq("id", sub.id);
+
+  if (expiryError) {
+    console.error("Failed to extend calendar subscription expiry:", expiryError);
   }
 
   // Validate calendarId if provided
