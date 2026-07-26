@@ -1,5 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { generateSingleEventICS } from "@/lib/ics-utils";
+import {
+  hashSubscriptionToken,
+  subscriptionTokenExpiryDate,
+} from "@/lib/calendar/subscription-token";
 import type { Event } from "@/lib/types";
 
 export async function GET(
@@ -20,13 +24,20 @@ export async function GET(
 
   const { data: sub } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id, user_id")
-    .eq("token", token)
+    .select("id, user_id, expires_at")
+    .eq("token_hash", hashSubscriptionToken(token))
     .single();
 
-  if (!sub) {
+  if (!sub || new Date(sub.expires_at) < new Date()) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  // Sliding expiration: extend on every successful use so actively-polled
+  // subscriptions never expire, while abandoned/leaked links go stale.
+  await supabase
+    .from("calendar_subscription_tokens")
+    .update({ expires_at: subscriptionTokenExpiryDate() })
+    .eq("id", sub.id);
 
   // The service client bypasses RLS, so re-check membership here:
   // events are only visible to member roles (see "Members can view all

@@ -1,27 +1,42 @@
 "use client";
 
+import { useState } from "react";
 import { Rss } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface SubscribeToEventButtonProps {
   eventId: string;
-  subscriptionToken: string | null;
 }
 
-export function SubscribeToEventButton({ eventId, subscriptionToken }: SubscribeToEventButtonProps) {
-  if (!subscriptionToken) return null;
+export function SubscribeToEventButton({ eventId }: SubscribeToEventButtonProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/calendar/subscription-token", { method: "POST" });
+      if (!res.ok) {
+        toast.error("Couldn't create your calendar link. Please try again.");
+        return;
+      }
+      const { token } = (await res.json()) as { token: string };
+      window.location.href = `webcal://${window.location.host}/api/events/${eventId}/ics?token=${token}`;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Button
-      onClick={() => {
-        window.location.href = `webcal://${window.location.host}/api/events/${eventId}/ics?token=${subscriptionToken}`;
-      }}
+      onClick={handleClick}
+      disabled={loading}
       variant="outline"
       size="lg"
       className="h-10 gap-2 border-slate-200 bg-white px-6 text-base text-slate-600 shadow-sm hover:border-brand-primary/30 hover:bg-white hover:text-brand-primary"
     >
       <Rss className="h-4 w-4" />
-      Subscribe to Event
+      {loading ? "Preparing…" : "Subscribe to Event"}
     </Button>
   );
 }

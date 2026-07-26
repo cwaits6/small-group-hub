@@ -102,17 +102,6 @@ export default async function EventDetailPage({
     profile?.role === "content_editor" ||
     isAdmin;
 
-  // Fetch the user's calendar subscription token
-  let subscriptionToken: string | null = null;
-  if (user && isMember) {
-    const { data: tokenRow } = await supabase
-      .from("calendar_subscription_tokens")
-      .select("token")
-      .eq("user_id", user.id)
-      .single();
-    subscriptionToken = tokenRow?.token ?? null;
-  }
-
   // Fetch current user's RSVP
   let userRsvp: Rsvp | null = null;
   if (user && isMember) {
@@ -413,10 +402,7 @@ export default async function EventDetailPage({
                       location={event.location}
                       description={event.description}
                     />
-                    <SubscribeToEventButton
-                      eventId={event.id}
-                      subscriptionToken={subscriptionToken}
-                    />
+                    {isMember && <SubscribeToEventButton eventId={event.id} />}
                   </div>
                 </div>
               </div>
@@ -457,10 +443,7 @@ export default async function EventDetailPage({
                   location={event.location}
                   description={event.description}
                 />
-                <SubscribeToEventButton
-                  eventId={event.id}
-                  subscriptionToken={subscriptionToken}
-                />
+                {isMember && <SubscribeToEventButton eventId={event.id} />}
               </div>
             )}
 

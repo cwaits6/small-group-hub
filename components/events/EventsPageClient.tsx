@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import type { Event, EventCalendar, Rsvp } from "@/lib/types";
 
 type View = "calendar" | "list";
@@ -32,7 +33,6 @@ interface EventsPageClientProps {
   userId: string | null;
   isMember: boolean;
   isAdmin: boolean;
-  subscriptionToken: string | null;
 }
 
 export function EventsPageClient({
@@ -42,7 +42,6 @@ export function EventsPageClient({
   userId,
   isMember,
   isAdmin,
-  subscriptionToken,
 }: EventsPageClientProps) {
   const [view, setView] = useState<View>("calendar");
 
@@ -50,10 +49,31 @@ export function EventsPageClient({
   // where `window` is undefined. Resolve the host on the client after mount.
   const [host, setHost] = useState("");
   useEffect(() => setHost(window.location.host), []);
-  const feedBase =
-    host && subscriptionToken
-      ? `webcal://${host}/api/calendar/feed.ics?token=${subscriptionToken}`
-      : undefined;
+
+  // The token is hashed at rest and can't be re-read from the server, so it's
+  // minted lazily on first use and cached only for this page view. Every menu
+  // item reuses the same minted token; a fresh page load mints a new one.
+  const [mintedToken, setMintedToken] = useState<string | null>(null);
+  async function ensureToken(): Promise<string | null> {
+    if (mintedToken) return mintedToken;
+    const res = await fetch("/api/calendar/subscription-token", { method: "POST" });
+    if (!res.ok) {
+      toast.error("Couldn't create your calendar link. Please try again.");
+      return null;
+    }
+    const { token } = (await res.json()) as { token: string };
+    setMintedToken(token);
+    return token;
+  }
+
+  async function openCalendarFeed(calendarId?: string) {
+    const token = await ensureToken();
+    if (!token || !host) return;
+    const url = `webcal://${host}/api/calendar/feed.ics?token=${token}${
+      calendarId ? `&calendar=${calendarId}` : ""
+    }`;
+    window.location.href = url;
+  }
 
   // For the list view, expand recurring events from the ±1-year window and
   // filter to upcoming occurrences (so "never-ending" series show future dates).
@@ -100,7 +120,7 @@ export function EventsPageClient({
         title="Calendar"
         actions={
           <>
-            {subscriptionToken && (
+            {isMember && (
               <DropdownMenu>
                 <DropdownMenuTrigger render={
                   <Button
@@ -113,18 +133,18 @@ export function EventsPageClient({
                   </Button>
                 } />
                 <DropdownMenuContent align="end" className="w-56 rounded-2xl">
-                  <DropdownMenuItem render={<a href={feedBase} />}>
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                    Getting a link below replaces any earlier one — older
+                    calendar links stop working.
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => openCalendarFeed()}>
                     All Calendars
                   </DropdownMenuItem>
                   {calendars.map((cal) => (
                     <DropdownMenuItem
                       key={cal.id}
                       className="gap-2"
-                      render={
-                        <a
-                          href={feedBase ? `${feedBase}&calendar=${cal.id}` : undefined}
-                        />
-                      }
+                      onClick={() => openCalendarFeed(cal.id)}
                     >
                       <span
                         className="inline-block h-2 w-2 shrink-0 rounded-full"
