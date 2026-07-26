@@ -1,3 +1,10 @@
+## [0.20.9](https://github.com/cwaits6/small-group-hub/compare/v0.20.8...v0.20.9) (2026-07-26)
+
+
+### Bug Fixes
+
+* scope anon read of site_settings to public rows ([#273](https://github.com/cwaits6/small-group-hub/issues/273)) ([f5715dd](https://github.com/cwaits6/small-group-hub/commit/f5715dde95c60f33ace7645f09738bca0afbc53d)), closes [#215](https://github.com/cwaits6/small-group-hub/issues/215) [#215](https://github.com/cwaits6/small-group-hub/issues/215)
+
 ## [0.20.8](https://github.com/cwaits6/small-group-hub/compare/v0.20.7...v0.20.8) (2026-07-26)
 
 
