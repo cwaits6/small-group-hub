@@ -31,10 +31,16 @@ interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
-const memberNavGroups: {
-  label: string | null;
-  items: { href: string; label: string; icon: ComponentType<{ className?: string }> }[];
-}[] = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  exact?: boolean;
+};
+
+type NavGroup = { label: string | null; items: NavItem[] };
+
+const memberNavGroups: NavGroup[] = [
   {
     label: null,
     items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
@@ -116,9 +122,7 @@ export function SidebarNav({
         : "border-transparent font-medium text-slate-600 hover:text-brand-primary hover:bg-brand-warm/50"
     }`;
 
-  const renderLink = (
-    item: { href: string; label: string; icon: ComponentType<{ className?: string }>; exact?: boolean },
-  ) => {
+  const renderLink = (item: NavItem) => {
     const active = isActive(item.href, item.exact);
     return (
       <Link
