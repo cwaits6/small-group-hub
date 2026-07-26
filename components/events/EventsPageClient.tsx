@@ -56,14 +56,19 @@ export function EventsPageClient({
   const [mintedToken, setMintedToken] = useState<string | null>(null);
   async function ensureToken(): Promise<string | null> {
     if (mintedToken) return mintedToken;
-    const res = await fetch("/api/calendar/subscription-token", { method: "POST" });
-    if (!res.ok) {
+    try {
+      const res = await fetch("/api/calendar/subscription-token", { method: "POST" });
+      if (!res.ok) {
+        toast.error("Couldn't create your calendar link. Please try again.");
+        return null;
+      }
+      const { token } = (await res.json()) as { token: string };
+      setMintedToken(token);
+      return token;
+    } catch {
       toast.error("Couldn't create your calendar link. Please try again.");
       return null;
     }
-    const { token } = (await res.json()) as { token: string };
-    setMintedToken(token);
-    return token;
   }
 
   async function openCalendarFeed(calendarId?: string) {

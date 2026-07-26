@@ -32,12 +32,15 @@ export async function GET(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Sliding expiration: extend on every successful use so actively-polled
-  // subscriptions never expire, while abandoned/leaked links go stale.
-  await supabase
+  // Sliding expiration — see subscriptionTokenExpiryDate() for policy.
+  const { error: expiryError } = await supabase
     .from("calendar_subscription_tokens")
     .update({ expires_at: subscriptionTokenExpiryDate() })
     .eq("id", sub.id);
+
+  if (expiryError) {
+    console.error("Failed to extend calendar subscription expiry:", expiryError);
+  }
 
   // The service client bypasses RLS, so re-check membership here:
   // events are only visible to member roles (see "Members can view all

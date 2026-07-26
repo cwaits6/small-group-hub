@@ -21,7 +21,10 @@ export function SubscribeToEventButton({ eventId }: SubscribeToEventButtonProps)
         return;
       }
       const { token } = (await res.json()) as { token: string };
+      toast.info("This replaces any earlier calendar link — older links stop working.");
       window.location.href = `webcal://${window.location.host}/api/events/${eventId}/ics?token=${token}`;
+    } catch {
+      toast.error("Couldn't create your calendar link. Please try again.");
     } finally {
       setLoading(false);
     }

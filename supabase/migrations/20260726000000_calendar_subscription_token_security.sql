@@ -1,8 +1,9 @@
 -- Calendar subscription tokens were stored in plaintext and never expired
 -- (issue #219). Move to a hashed-at-rest token with a sliding expiry, and
 -- add the RLS policy needed for users to rotate (regenerate) their own
--- token. Existing plaintext tokens are treated as compromised — everyone
--- gets a fresh hashed token the next time they open the calendar page.
+-- token. Existing plaintext tokens are treated as compromised — everyone's
+-- row is cleared, and a fresh hashed token is minted lazily the next time
+-- they use "Subscribe to Calendar" or "Subscribe to Event".
 
 alter table public.calendar_subscription_tokens
   add column token_hash text,
