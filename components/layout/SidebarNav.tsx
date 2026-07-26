@@ -31,18 +31,39 @@ interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
-const memberNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/events", label: "Calendar", icon: Calendar },
-  { href: "/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/lectures", label: "Lectures", icon: BookOpen },
-  { href: "/directory", label: "Directory", icon: Users },
-  { href: "/serving", label: "Serving", icon: HandHelping },
-  { href: "/prayer", label: "Prayer", icon: HeartHandshake },
-  { href: "/give", label: "Give", icon: HandCoins },
-  { href: "/about", label: "About", icon: Info },
-  { href: "/profile", label: "My Profile", icon: UserCircle },
-  { href: "/settings", label: "Settings", icon: Settings },
+const memberNavGroups: {
+  label: string | null;
+  items: { href: string; label: string; icon: ComponentType<{ className?: string }> }[];
+}[] = [
+  {
+    label: null,
+    items: [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    label: "Content",
+    items: [
+      { href: "/events", label: "Calendar", icon: Calendar },
+      { href: "/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/lectures", label: "Lectures", icon: BookOpen },
+      { href: "/about", label: "About", icon: Info },
+    ],
+  },
+  {
+    label: "Community",
+    items: [
+      { href: "/directory", label: "Directory", icon: Users },
+      { href: "/serving", label: "Serving", icon: HandHelping },
+      { href: "/prayer", label: "Prayer", icon: HeartHandshake },
+      { href: "/give", label: "Give", icon: HandCoins },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { href: "/profile", label: "My Profile", icon: UserCircle },
+      { href: "/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 const directorySubNav = [
@@ -181,19 +202,31 @@ export function SidebarNav({
   return (
     <>
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-        {memberNav
-          .filter((item) => item.href !== "/serving" || hasServingAccess)
-          .map((item) => (
-            <Fragment key={item.href}>
-              {item.href === "/directory" && !collapsed ? renderDirectoryItem() : renderLink(item)}
-              {item.href === "/directory" && renderDirectorySubNav()}
-            </Fragment>
-          ))}
+        {memberNavGroups.map((group) => (
+          <Fragment key={group.label ?? "top"}>
+            {group.label && !collapsed && (
+              <p className="px-3 pt-4 pb-1 text-sm font-bold uppercase text-muted-foreground tracking-wider">
+                {group.label}
+              </p>
+            )}
+            {group.label && collapsed && (
+              <div className="border-t border-border my-2" role="separator" />
+            )}
+            {group.items
+              .filter((item) => item.href !== "/serving" || hasServingAccess)
+              .map((item) => (
+                <Fragment key={item.href}>
+                  {item.href === "/directory" && !collapsed ? renderDirectoryItem() : renderLink(item)}
+                  {item.href === "/directory" && renderDirectorySubNav()}
+                </Fragment>
+              ))}
+          </Fragment>
+        ))}
 
         {pages.length > 0 && (
           <>
             {!collapsed && (
-              <p className="px-3 pt-4 pb-1 text-xs font-semibold uppercase text-slate-400 tracking-wider">
+              <p className="px-3 pt-4 pb-1 text-sm font-bold uppercase text-muted-foreground tracking-wider">
                 Pages
               </p>
             )}

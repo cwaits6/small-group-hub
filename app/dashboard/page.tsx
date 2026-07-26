@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, Play, Users, Bell, Heart, HandHelping } from "lucide-react";
+import { Calendar, HandHelping } from "lucide-react";
 import Link from "next/link";
 import { siteConfig } from "@/lib/config";
 import { formatServiceDate, toDateString } from "@/lib/serving/sundays";
@@ -121,22 +121,12 @@ export default async function DashboardPage() {
   const windowStart = new Date(nowDate.getTime() - 24 * 60 * 60 * 1000);
   const windowStartISO = windowStart.toISOString();
 
-  // Give tile — live funds, gated by the admin toggle. UTC date to match
-  // the retirement filtering on /give and /admin/giving.
-  const today = new Date().toISOString().slice(0, 10);
-  const thirtyDaysAgo = new Date(new Date(now).getTime() - 30 * 86400000).toISOString();
-
   // Phase A — every query below is independent of `nextEvent`; fire them
   // together instead of awaiting one at a time.
   const [
     { data: rawEvents },
     { data: rsvps },
     { data: announcements },
-    { data: giveTileSetting },
-    { data: liveFunds, count: liveFundCount },
-    { count: eventCount },
-    { count: memberCount },
-    { count: announcementCount },
     { count: lectureCount },
     { data: lectures },
     { data: myServings },
@@ -163,34 +153,6 @@ export default async function DashboardPage() {
       .lte("published_at", now)
       .order("published_at", { ascending: false })
       .limit(3),
-    supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "giving_dashboard_tile")
-      .maybeSingle(),
-    supabase
-      .from("giving_funds")
-      .select("name", { count: "exact" })
-      .eq("is_active", true)
-      .or(`retire_on.is.null,retire_on.gte.${today}`)
-      .order("display_order")
-      .order("created_at")
-      .limit(1),
-    // Counts for quick-actions
-    supabase
-      .from("events")
-      .select("id", { count: "exact", head: true })
-      .gte("start_time", now),
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .neq("role", "pending"),
-    supabase
-      .from("announcements")
-      .select("id", { count: "exact", head: true })
-      .eq("is_published", true)
-      .lte("published_at", now)
-      .gte("published_at", thirtyDaysAgo),
     supabase
       .from("lectures")
       .select("id", { count: "exact", head: true }),
@@ -223,14 +185,6 @@ export default async function DashboardPage() {
   if (rsvps) {
     userRsvps = Object.fromEntries(rsvps.map((r) => [r.event_id, r]));
   }
-
-  const showGiveTile =
-    (giveTileSetting?.value ?? "on") === "on" &&
-    (liveFundCount ?? 0) > 0;
-  const giveTileSubtitle =
-    liveFundCount === 1 && liveFunds?.[0]
-      ? liveFunds[0].name
-      : `${liveFundCount} funds collecting`;
 
   const hasLectures = lectures && lectures.length > 0;
 
@@ -451,108 +405,6 @@ export default async function DashboardPage() {
               </div>
             </div>
           )}
-      </section>
-
-      {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-      <section className="px-4 pb-6 md:px-14">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-
-          {/* All Events */}
-          <Link
-            href="/events"
-            className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
-          >
-            <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
-              <Calendar className="h-5 w-5 text-brand-primary" />
-            </div>
-            <div>
-              <div className="font-sans text-sm font-semibold text-foreground">
-                All events
-              </div>
-              <div className="font-sans text-xs text-muted-foreground mt-0.5">
-                {eventCount != null ? `${eventCount} upcoming` : "View calendar"}
-              </div>
-            </div>
-          </Link>
-
-          {/* Lectures */}
-          {lectureCount != null && lectureCount > 0 && (
-            <Link
-              href="/lectures"
-              className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
-            >
-              <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
-                <Play className="h-5 w-5 text-brand-primary" />
-              </div>
-              <div>
-                <div className="font-sans text-sm font-semibold text-foreground">
-                  Lectures
-                </div>
-                <div className="font-sans text-xs text-muted-foreground mt-0.5">
-                  {lectureCount} in library
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {/* Directory */}
-          <Link
-            href="/directory"
-            className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
-          >
-            <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
-              <Users className="h-5 w-5 text-brand-primary" />
-            </div>
-            <div>
-              <div className="font-sans text-sm font-semibold text-foreground">
-                Directory
-              </div>
-              <div className="font-sans text-xs text-muted-foreground mt-0.5">
-                {memberCount != null ? `${memberCount} members` : "View all"}
-              </div>
-            </div>
-          </Link>
-
-          {/* Announcements */}
-          <Link
-            href="/announcements"
-            className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
-          >
-            <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
-              <Bell className="h-5 w-5 text-brand-primary" />
-            </div>
-            <div>
-              <div className="font-sans text-sm font-semibold text-foreground">
-                Announcements
-              </div>
-              <div className="font-sans text-xs text-muted-foreground mt-0.5">
-                {announcementCount != null && announcementCount > 0
-                  ? `${announcementCount} new`
-                  : "See all"}
-              </div>
-            </div>
-          </Link>
-
-          {/* Give — only when funds are collecting and the admin tile is on */}
-          {showGiveTile && (
-            <Link
-              href="/give"
-              className="flex items-center gap-3.5 bg-card border border-border rounded-2xl p-4 hover:bg-muted/40 transition-colors"
-            >
-              <div className="w-[42px] h-[42px] rounded-xl bg-brand-warm flex items-center justify-center flex-shrink-0">
-                <Heart className="h-5 w-5 text-brand-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-sans text-sm font-semibold text-foreground">
-                  Give
-                </div>
-                <div className="font-sans text-xs text-muted-foreground mt-0.5 truncate">
-                  {giveTileSubtitle}
-                </div>
-              </div>
-            </Link>
-          )}
-        </div>
       </section>
 
       {/* ── Your turn to serve ───────────────────────────────────────────── */}
