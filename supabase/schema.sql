@@ -416,8 +416,9 @@ ALTER TABLE "public"."announcements" OWNER TO "postgres";
 CREATE TABLE IF NOT EXISTS "public"."calendar_subscription_tokens" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "user_id" "uuid" NOT NULL,
-    "token" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "token_hash" "text" NOT NULL,
+    "expires_at" timestamp with time zone NOT NULL
 );
 
 
@@ -1041,7 +1042,7 @@ ALTER TABLE ONLY "public"."calendar_subscription_tokens"
 
 
 ALTER TABLE ONLY "public"."calendar_subscription_tokens"
-    ADD CONSTRAINT "calendar_subscription_tokens_token_key" UNIQUE ("token");
+    ADD CONSTRAINT "calendar_subscription_tokens_token_hash_key" UNIQUE ("token_hash");
 
 
 
@@ -1920,6 +1921,10 @@ CREATE POLICY "Members can read settings" ON "public"."site_settings" FOR SELECT
 
 
 CREATE POLICY "Members can submit their own feedback" ON "public"."feedback" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "profile_id") AND ( SELECT "public"."is_member"() AS "is_member")));
+
+
+
+CREATE POLICY "Members can update own subscription token" ON "public"."calendar_subscription_tokens" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
