@@ -1,3 +1,10 @@
+## [0.20.10](https://github.com/cwaits6/small-group-hub/compare/v0.20.9...v0.20.10) (2026-07-26)
+
+
+### Bug Fixes
+
+* hash calendar subscription tokens and add sliding expiry ([#278](https://github.com/cwaits6/small-group-hub/issues/278)) ([7126afe](https://github.com/cwaits6/small-group-hub/commit/7126afed1b1cbcb427c187629719c80e68ac67e6)), closes [#219](https://github.com/cwaits6/small-group-hub/issues/219) [#219](https://github.com/cwaits6/small-group-hub/issues/219)
+
 ## [0.20.9](https://github.com/cwaits6/small-group-hub/compare/v0.20.8...v0.20.9) (2026-07-26)
 
 
