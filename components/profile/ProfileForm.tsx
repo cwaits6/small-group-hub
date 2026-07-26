@@ -636,13 +636,13 @@ export function ProfileForm({
             <Label className="text-base">
               Birthday {relaxValidation ? <Optional /> : <Required />}
             </Label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-3">
               <Select
                 items={MONTHS}
                 value={state.birth_month}
                 onValueChange={(v) => update("birth_month", v ?? "")}
               >
-                <SelectTrigger className="py-5 text-base">
+                <SelectTrigger className="w-full py-5 text-base">
                   <SelectValue placeholder="Month" />
                 </SelectTrigger>
                 <SelectContent>

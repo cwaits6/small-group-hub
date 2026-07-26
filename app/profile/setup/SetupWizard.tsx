@@ -165,7 +165,7 @@ function MemberAddForm({
       </div>
       <div>
         <Label className="text-sm">Birthday (optional)</Label>
-        <div className="grid grid-cols-3 gap-2 mt-1">
+        <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-2 mt-1">
           <Select
             items={MONTHS}
             value={form.birth_month}
@@ -173,7 +173,7 @@ function MemberAddForm({
               setForm((f) => ({ ...f, birth_month: v ?? "" }))
             }
           >
-            <SelectTrigger className="text-sm">
+            <SelectTrigger className="w-full text-sm">
               <SelectValue placeholder="Month" />
             </SelectTrigger>
             <SelectContent>
@@ -751,13 +751,13 @@ export function SetupWizard({ profile, userEmail }: SetupWizardProps) {
               <p className="text-sm text-muted-foreground">
                 Month and day are required. Year is optional.
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-[1.6fr_1fr_1fr] gap-3">
                 <Select
                   items={MONTHS}
                   value={birthMonth}
                   onValueChange={(v) => setBirthMonth(v ?? "")}
                 >
-                  <SelectTrigger className="text-base py-5">
+                  <SelectTrigger className="w-full text-base py-5">
                     <SelectValue placeholder="Month" />
                   </SelectTrigger>
                   <SelectContent>

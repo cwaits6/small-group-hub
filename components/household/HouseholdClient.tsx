@@ -706,6 +706,7 @@ export function HouseholdClient({
             <FamilyMemberForm
               key={fmSheetState?.mode === "edit" ? fmSheetState.member.id : "new"}
               member={fmSheetState?.mode === "edit" ? fmSheetState.member : null}
+              family={family}
               onSaved={() => {
                 setFmSheetState(null);
                 router.refresh();
