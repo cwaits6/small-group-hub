@@ -58,6 +58,11 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
   const hasDesktopSidebar =
     isMember && SIDEBAR_ROUTES.some((r) => pathname.startsWith(r));
 
+  // The admin area supplies its own nav (AdminSidebarNav: a persistent rail on
+  // desktop, a horizontal bar on mobile) plus a "Back to app" link. Swap, don't
+  // stack: suppress the member-nav drawer here so admin has one nav system.
+  const isAdminArea = pathname.startsWith("/admin");
+
   return (
     <header
       className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
@@ -82,8 +87,9 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
               <Menu className="h-6 w-6" aria-hidden="true" />
             </Button>
           )}
-          {/* Mobile (or no sidebar): menu button opens the nav drawer */}
-          {profile && isMember && (
+          {/* Mobile (or no sidebar): menu button opens the nav drawer.
+              Hidden in the admin area, which supplies its own nav. */}
+          {profile && isMember && !isAdminArea && (
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger
                 render={
@@ -166,7 +172,7 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
               size="lg"
               onClick={handleSignOut}
               className={`text-base border-slate-200 hover:border-destructive/30 hover:text-destructive hover:bg-destructive/10 ${
-                isMember ? "hidden md:inline-flex" : ""
+                isMember && !isAdminArea ? "hidden md:inline-flex" : ""
               }`}
             >
               <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
