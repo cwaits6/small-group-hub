@@ -1,3 +1,10 @@
+# [0.21.0](https://github.com/cwaits6/small-group-hub/compare/v0.20.10...v0.21.0) (2026-07-27)
+
+
+### Features
+
+* single admin entry point with dedicated /admin area ([#280](https://github.com/cwaits6/small-group-hub/issues/280)) ([c163e3d](https://github.com/cwaits6/small-group-hub/commit/c163e3d4fb3cb1c9b0f122def74ce61c3338755a)), closes [#277](https://github.com/cwaits6/small-group-hub/issues/277) [#277](https://github.com/cwaits6/small-group-hub/issues/277)
+
 ## [0.20.10](https://github.com/cwaits6/small-group-hub/compare/v0.20.9...v0.20.10) (2026-07-26)
 
 
