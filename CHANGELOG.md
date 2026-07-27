@@ -1,3 +1,10 @@
+## [0.21.2](https://github.com/cwaits6/small-group-hub/compare/v0.21.1...v0.21.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* give the admin area a single nav system ([#282](https://github.com/cwaits6/small-group-hub/issues/282)) ([2928b9f](https://github.com/cwaits6/small-group-hub/commit/2928b9f3d7e3cae5b98838020b793c32725d8748)), closes [#280](https://github.com/cwaits6/small-group-hub/issues/280)
+
 ## [0.21.1](https://github.com/cwaits6/small-group-hub/compare/v0.21.0...v0.21.1) (2026-07-27)
 
 
