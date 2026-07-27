@@ -32,6 +32,8 @@ import type { MemberGroup } from "@/lib/types";
 import { siteConfig } from "@/lib/config";
 import { GroupRosterDialog } from "./GroupRosterDialog";
 import { IconPicker } from "./IconPicker";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 interface GroupFormState {
   name: string;
@@ -224,33 +226,28 @@ export default function GroupsPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
+      <PageContainer>
         <p className="text-xl text-muted-foreground">Loading...</p>
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold text-brand-primary">
-            Member Groups
-          </h1>
-          <p className="text-base text-muted-foreground mt-1">
-            Create and manage groups. Control which groups appear as filter
-            chips in the member directory.
-          </p>
-        </div>
-        <Button
-          size="lg"
-          onClick={openCreate}
-          className="bg-brand-primary hover:bg-brand-primary/90 text-white"
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          New Group
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Member Groups"
+        subtitle="Create and manage groups. Control which groups appear as filter chips in the member directory."
+        actions={
+          <Button
+            size="lg"
+            onClick={openCreate}
+            className="bg-brand-primary hover:bg-brand-primary/90 text-white"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            New Group
+          </Button>
+        }
+      />
 
       {groups.length === 0 ? (
         <Card>
@@ -504,6 +501,6 @@ export default function GroupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageContainer>
   );
 }

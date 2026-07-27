@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Cake, ChevronRight, Heart, House, Users } from "lucide-react";
 import type { ComponentType } from "react";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 export const metadata = {
   title: "Directory",
@@ -19,10 +21,8 @@ const tiles: {
 
 export default function DirectoryPage() {
   return (
-    <div className="container mx-auto px-4 py-12 max-w-4xl">
-      <h1 className="font-serif text-4xl md:text-5xl font-medium tracking-tight text-foreground mb-8">
-        Directory
-      </h1>
+    <PageContainer>
+      <PageHeader title="Directory" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {tiles.map((tile) => (
@@ -42,6 +42,6 @@ export default function DirectoryPage() {
           </Link>
         ))}
       </div>
-    </div>
+    </PageContainer>
   );
 }
