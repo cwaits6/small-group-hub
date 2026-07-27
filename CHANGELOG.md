@@ -1,3 +1,10 @@
+## [0.21.1](https://github.com/cwaits6/small-group-hub/compare/v0.21.0...v0.21.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* unify page-header and container shell across people surfaces ([#279](https://github.com/cwaits6/small-group-hub/issues/279)) ([d5cbf72](https://github.com/cwaits6/small-group-hub/commit/d5cbf727e797069abf6ceceaf69d92495c82199a)), closes [#253](https://github.com/cwaits6/small-group-hub/issues/253) [#239](https://github.com/cwaits6/small-group-hub/issues/239)
+
 # [0.21.0](https://github.com/cwaits6/small-group-hub/compare/v0.20.10...v0.21.0) (2026-07-27)
 
 
