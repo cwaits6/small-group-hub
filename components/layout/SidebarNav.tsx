@@ -254,13 +254,13 @@ export function SidebarNav({
             })}
           </>
         )}
-      </div>
 
-      {isEditor && (
-        <div className="mt-2 shrink-0 border-t border-border pt-2">
-          {renderLink({ href: "/admin", label: "Admin", icon: Cog })}
-        </div>
-      )}
+        {isEditor && (
+          <div className="mt-2 border-t border-border pt-2">
+            {renderLink({ href: "/admin", label: "Admin", icon: Cog })}
+          </div>
+        )}
+      </div>
     </>
   );
 }
