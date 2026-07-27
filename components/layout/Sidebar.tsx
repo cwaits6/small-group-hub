@@ -20,7 +20,7 @@ export function Sidebar({ profile, hasServingAccess }: SidebarProps) {
     >
       <nav
         aria-label="Main navigation"
-        className="flex-1 overflow-y-auto py-4 px-2 space-y-1"
+        className="flex flex-1 flex-col overflow-hidden py-4 px-2"
       >
         <SidebarNav
           profile={profile}

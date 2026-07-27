@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isContentEditorAllowed } from "@/lib/admin-access";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -90,7 +91,10 @@ export async function updateSession(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "admin") {
+    const contentEditorAllowed =
+      profile?.role === "content_editor" && isContentEditorAllowed(pathname);
+
+    if (profile?.role !== "admin" && !contentEditorAllowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
