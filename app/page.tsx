@@ -1,10 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Christicon } from "@christicons/react";
 import { siteConfig } from "@/lib/config";
+import { getOptionalUser } from "@/lib/supabase/current-user";
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Signed-in members have no use for the public marketing hero — send them to
+  // the app. Without this, an authenticated visitor to "/" sees the logged-out
+  // hero under a member header (with "Sign Out"), which reads as a bug.
+  if (await getOptionalUser()) {
+    redirect("/dashboard");
+  }
+
   return (
     <div>
       {/* ── Hero ── */}
