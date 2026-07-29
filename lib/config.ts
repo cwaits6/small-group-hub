@@ -11,7 +11,7 @@ export const siteConfig = {
   email: {
     from:
       process.env.NEXT_PUBLIC_EMAIL_FROM ||
-      "Incouragers <noreply@incouragers.org>",
+      "two42 <noreply@incouragers.org>",
   },
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY || "#B85C38",
