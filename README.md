@@ -234,9 +234,10 @@ For significant changes, please open an issue first to discuss.
 Copyright (C) 2026 Cody Waits.
 
 Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). You are free to
-use, study, modify, and self-host this software. If you run a modified version as a
-network service, the AGPL requires you to make your modified source available to that
-service's users. See [LICENSE](./LICENSE) for the full terms.
+use, study, modify, and self-host this software. If users remotely interact with a modified
+version over a network, AGPL section 13 requires that those users be prominently offered a
+free opportunity to receive the Corresponding Source of that version. See [LICENSE](./LICENSE)
+for the full terms.
 
 ---
 
