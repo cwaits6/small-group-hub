@@ -1,4 +1,4 @@
-# Small Group Hub
+# Two42
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.1-black?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -8,9 +8,11 @@
 [![Deploy with Vercel](https://img.shields.io/badge/Deploy%20with-Vercel-black?style=flat-square&logo=vercel)](https://vercel.com/new/clone?repository-url=https://github.com/codyhinz/incouragers)
 [![Open Source](https://img.shields.io/badge/Open-Source-orange?style=flat-square&logo=opensourceinitiative)](https://github.com/codyhinz/incouragers)
 
-**A purpose-built web app for church small groups — replacing Facebook groups with a warm, simple community platform.**
+**A purpose-built web app for church connection groups — replacing Facebook groups with a warm, simple community platform.**
 
-Small Group Hub was originally built for the **Incouragers** Sunday small group class at **First Redeemer Church** — a group of ~150 members who needed a better home than Facebook. Designed for all ages and comfortable on any device, it gives your group a dedicated space for events, announcements, lectures, and community — without the noise of social media.
+> **Two42** — read "two forty-two," for **Acts 2:42**: the early church devoted to teaching, fellowship, breaking bread, and prayer.
+
+Two42 was originally built for the **Incouragers** Sunday small group class at **First Redeemer Church** — a group of ~150 members who needed a better home than Facebook. Designed for all ages and comfortable on any device, it gives your group a dedicated space for events, announcements, lectures, and community — without the noise of social media.
 
 It's open source and fully configurable, so any small group or church class can fork it, swap in their name and colors, and have it running in under an hour.
 
