@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Christicon } from "@christicons/react";
+import { siteConfig } from "@/lib/config";
 
 export default function HomePage() {
   return (
@@ -14,7 +15,7 @@ export default function HomePage() {
             <div className="flex items-center gap-3 mb-6">
               <div className="w-7 h-px bg-brand-accent" />
               <span className="text-brand-accent text-xs font-semibold tracking-[0.2em] uppercase">
-                InCouragers
+                {siteConfig.name}
               </span>
             </div>
 

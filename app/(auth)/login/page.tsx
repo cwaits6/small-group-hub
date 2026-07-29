@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AuthShell } from "../_components/AuthShell";
+import { siteConfig } from "@/lib/config";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -60,7 +61,7 @@ export default function LoginPage() {
     <AuthShell
       eyebrow="Sign in"
       title="Sign in to"
-      em="InCouragers"
+      em={siteConfig.name}
       kicker="Sign in to see what's happening, who's coming, and what we're studying."
       altPrompt="New here?"
       altLabel="Request to join →"

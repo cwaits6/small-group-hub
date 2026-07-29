@@ -1,5 +1,5 @@
 export const siteConfig = {
-  name: process.env.NEXT_PUBLIC_APP_NAME || "Incouragers",
+  name: process.env.NEXT_PUBLIC_APP_NAME || "two42",
   description:
     process.env.NEXT_PUBLIC_APP_DESCRIPTION ||
     "A welcoming community of faith, growing together in God's Word.",
@@ -10,7 +10,7 @@ export const siteConfig = {
     process.env.NEXT_PUBLIC_CHURCH_NAME || "First Redeemer Church",
   brandLine:
     process.env.NEXT_PUBLIC_BRAND_LINE || "First Redeemer · Est. 2014",
-  logoMonogram: process.env.NEXT_PUBLIC_LOGO_MONOGRAM || "I",
+  logoMonogram: process.env.NEXT_PUBLIC_LOGO_MONOGRAM || "42",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   email: {
     from:
