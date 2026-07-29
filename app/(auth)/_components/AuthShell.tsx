@@ -48,13 +48,8 @@ export function AuthShell({
               {monogramLetter}
             </span>
           </div>
-          <div>
-            <div className="font-serif text-[1.25rem] font-semibold leading-tight tracking-[-0.01em]">
-              {siteConfig.name}
-            </div>
-            <div className="font-sans text-base font-medium tracking-[0.18em] uppercase text-white/70 mt-0.5">
-              {siteConfig.brandLine}
-            </div>
+          <div className="font-serif text-[1.25rem] font-semibold leading-tight tracking-[-0.01em]">
+            {siteConfig.name}
           </div>
         </div>
 

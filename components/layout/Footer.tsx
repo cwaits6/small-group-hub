@@ -53,7 +53,7 @@ export function Footer() {
 
         <div className="border-t border-white/10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-white/60 text-base">
-            &copy; {new Date().getFullYear()} {siteConfig.name} · {siteConfig.churchName}
+            &copy; {new Date().getFullYear()} {siteConfig.name}
           </p>
           <p className="text-white/50 text-sm flex items-center gap-1">
             Made with <Heart className="h-3.5 w-3.5 text-brand-accent fill-brand-accent" /> for our community

@@ -6,10 +6,6 @@ export const siteConfig = {
   tagline:
     process.env.NEXT_PUBLIC_APP_TAGLINE ||
     "To be the body of Christ through fellowship, discipleship and the faithful study of the Word of God.",
-  churchName:
-    process.env.NEXT_PUBLIC_CHURCH_NAME || "First Redeemer Church",
-  brandLine:
-    process.env.NEXT_PUBLIC_BRAND_LINE || "First Redeemer · Est. 2014",
   logoMonogram: process.env.NEXT_PUBLIC_LOGO_MONOGRAM || "42",
   url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
   email: {

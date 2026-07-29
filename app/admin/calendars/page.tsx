@@ -88,7 +88,7 @@ export default function AdminCalendarsPage() {
                 id="cal-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Encouragers, First Redeemer"
+                placeholder="e.g. Youth, Worship, Missions"
                 required
                 className="text-base py-5"
               />
