@@ -19,7 +19,7 @@ A living design system for two42. Changes come via PR. When guidance conflicts, 
 Canonical assets are outlined SVGs in [`public/brand/`](../../public/brand) — Fraunces converted to vector paths, so the mark never silently falls back to a system font.
 
 - **Lockup:** `two` (lowercase word) + `42` (numeral), read together as "two forty-two."
-- **The `42` is the focal element** — heavier weight plus the accent color. `two` ≈ weight 360; `42` ≈ weight 620.
+- **The `42` is the focal element — set apart by color, not weight.** `two` and `42` share one weight (Fraunces ≈ 580, `-0.02em` tracking, display optical size); the `42` carries the accent color while `two` takes the ink color. The canonical SVGs are generated this way.
 - **Typeface:** Fraunces (variable display serif, high-contrast, display optical size).
 
 | File | Use |
