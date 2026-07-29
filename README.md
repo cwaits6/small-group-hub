@@ -1,4 +1,4 @@
-# Two42
+# two42
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.1-black?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
@@ -10,9 +10,9 @@
 
 **A purpose-built web app for church connection groups — replacing Facebook groups with a warm, simple community platform.**
 
-> **Two42** — read "two forty-two," for **Acts 2:42**: the early church devoted to teaching, fellowship, breaking bread, and prayer.
+> **two42** — read "two forty-two," for **Acts 2:42**: the early church devoted to teaching, fellowship, breaking bread, and prayer.
 
-Two42 was originally built for the **Incouragers** Sunday small group class at **First Redeemer Church** — a group of ~150 members who needed a better home than Facebook. Designed for all ages and comfortable on any device, it gives your group a dedicated space for events, announcements, lectures, and community — without the noise of social media.
+two42 was originally built for the **Incouragers** Sunday small group class at **First Redeemer Church** — a group of ~150 members who needed a better home than Facebook. Designed for all ages and comfortable on any device, it gives your group a dedicated space for events, announcements, lectures, and community — without the noise of social media.
 
 It's open source and fully configurable, so any small group or church class can fork it, swap in their name and colors, and have it running in under an hour.
 
@@ -22,11 +22,11 @@ It's open source and fully configurable, so any small group or church class can 
 
 The Incouragers class at First Redeemer Church needed a simple, welcoming space to replace their Facebook group. Members ranged widely in age and tech comfort — so everything had to be large, readable, and dead-simple to use. No cluttered feeds. No distracting algorithms. Just the group, their events, and their faith.
 
-Small Group Hub was built to solve exactly that. It has since been open-sourced so other groups can benefit from the same foundation.
+two42 was built to solve exactly that. It has since been open-sourced so other groups can benefit from the same foundation.
 
 ---
 
-## Why Small Group Hub?
+## Why two42?
 
 - **Simplicity** — Easy to navigate for all ages, no distracting social media noise
 - **Warmth** — Large fonts, readable text, and an inviting design that welcomes everyone

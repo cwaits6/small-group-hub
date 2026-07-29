@@ -1,6 +1,6 @@
-# Contributing to Two42
+# Contributing to two42
 
-Thanks for your interest — contributions are welcome. Two42 is open source under **AGPL-3.0**.
+Thanks for your interest — contributions are welcome. two42 is open source under **AGPL-3.0**.
 
 ## Before you start
 

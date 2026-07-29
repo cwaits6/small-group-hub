@@ -1,8 +1,8 @@
-# Two42 Individual Contributor License Agreement
+# two42 Individual Contributor License Agreement
 
 *Adapted from the Apache Software Foundation Individual Contributor License Agreement, v2.0.*
 
-Thank you for your interest in Two42 (the "Project"), owned by **Cody Waits** (the "Project Owner"). This agreement defines the terms under which you contribute. It protects you as a contributor and the Project Owner and its users; it does **not** change your right to use your own Contributions for any other purpose.
+Thank you for your interest in two42 (the "Project"), owned by **Cody Waits** (the "Project Owner"). This agreement defines the terms under which you contribute. It protects you as a contributor and the Project Owner and its users; it does **not** change your right to use your own Contributions for any other purpose.
 
 You accept and agree to the following terms for your present and future Contributions submitted to the Project. Except for the license granted here, you retain all right, title, and interest in and to your Contributions.
 
