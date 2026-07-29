@@ -1,3 +1,10 @@
+# [0.22.0](https://github.com/cwaits6/small-group-hub/compare/v0.21.2...v0.22.0) (2026-07-29)
+
+
+### Features
+
+* **brand:** establish two42 identity, design system, and clay rebrand ([#287](https://github.com/cwaits6/small-group-hub/issues/287)) ([9541ce4](https://github.com/cwaits6/small-group-hub/commit/9541ce4cfdf3dba564b063f6c7da93940b1add62)), closes [#B85C38](https://github.com/cwaits6/small-group-hub/issues/B85C38) [#E8A33D](https://github.com/cwaits6/small-group-hub/issues/E8A33D) [#2A211A](https://github.com/cwaits6/small-group-hub/issues/2A211A) [#F4EEE2](https://github.com/cwaits6/small-group-hub/issues/F4EEE2) [#8A4227](https://github.com/cwaits6/small-group-hub/issues/8A4227) [#2F6BA8](https://github.com/cwaits6/small-group-hub/issues/2F6BA8) [#B85C38](https://github.com/cwaits6/small-group-hub/issues/B85C38)
+
 ## [0.21.2](https://github.com/cwaits6/small-group-hub/compare/v0.21.1...v0.21.2) (2026-07-27)
 
 
