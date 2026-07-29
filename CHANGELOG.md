@@ -1,3 +1,10 @@
+## [0.22.1](https://github.com/cwaits6/small-group-hub/compare/v0.22.0...v0.22.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* redirect signed-in members away from public landing and join pages ([#290](https://github.com/cwaits6/small-group-hub/issues/290)) ([76b6adf](https://github.com/cwaits6/small-group-hub/commit/76b6adf555660588457e52bc267319984185b09d))
+
 # [0.22.0](https://github.com/cwaits6/small-group-hub/compare/v0.21.2...v0.22.0) (2026-07-29)
 
 
