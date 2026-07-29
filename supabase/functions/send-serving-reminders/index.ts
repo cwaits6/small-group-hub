@@ -34,9 +34,9 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!;
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
-const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "Incouragers <noreply@incouragers.org>";
-const APP_NAME = Deno.env.get("APP_NAME") || "Incouragers";
-const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#2F6BA8";
+const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
+const APP_NAME = Deno.env.get("APP_NAME") || "two42";
+const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 const SERVING_LINK_SECRET = Deno.env.get("SERVING_LINK_SECRET");
 const SERVING_LINK_MODE = Deno.env.get("SERVING_LINK_MODE") || "signed";
 

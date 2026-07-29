@@ -114,15 +114,13 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
               >
                 <SheetTitle className="sr-only">Navigation menu</SheetTitle>
                 <div className="flex flex-col h-full p-4">
-                  <div className="flex items-center gap-2 mb-6 mt-1">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center">
-                      <span className="text-white font-bold text-sm font-display">
-                        {siteConfig.logoMonogram}
-                      </span>
-                    </div>
-                    <span className="text-xl font-bold font-display text-brand-primary">
-                      {siteConfig.name}
-                    </span>
+                  <div className="flex items-center mb-6 mt-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/brand/two42-wordmark.svg"
+                      alt={siteConfig.name}
+                      className="h-7 w-auto"
+                    />
                   </div>
                   <nav
                     aria-label="Main navigation"
@@ -152,16 +150,14 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
 
           <Link
             href={isMember ? "/dashboard" : "/"}
-            className="flex items-center gap-2 group"
+            className="flex items-center group"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-primary-light to-brand-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
-              <span className="text-white font-bold text-sm font-display">
-                {siteConfig.logoMonogram}
-              </span>
-            </div>
-            <span className="text-xl font-bold font-display text-brand-primary tracking-tight">
-              {siteConfig.name}
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/two42-wordmark.svg"
+              alt={siteConfig.name}
+              className="h-7 w-auto"
+            />
           </Link>
         </div>
 

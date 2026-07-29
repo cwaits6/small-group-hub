@@ -17,8 +17,8 @@ export interface AuthShellProps {
 /**
  * Full-bleed two-column auth layout shell.
  *
- * Left column: brand panel (morning blue, devotional quote).
- * Right column: form area (warm cream background).
+ * Left column: brand panel (espresso ground, wordmark + devotional quote).
+ * Right column: form area (warm paper background).
  *
  * Mobile: stacks to single column with a short brand banner on top.
  */
@@ -32,31 +32,20 @@ export function AuthShell({
   altHref,
   children,
 }: AuthShellProps) {
-  const monogramLetter = siteConfig.logoMonogram || siteConfig.name.charAt(0);
-
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
       {/* ── LEFT — brand panel ── */}
       <div
-        className="relative bg-brand-primary text-white flex flex-col justify-between px-8 py-12 md:px-14 md:py-14 overflow-hidden"
+        className="relative bg-brand-navy text-white flex flex-col justify-between px-8 py-12 md:px-14 md:py-14 overflow-hidden"
         // On mobile: cap height so it reads as a banner, not a half-page
       >
-        {/* Top: monogram + group name */}
-        <div className="relative flex items-center gap-3.5">
-          <div className="w-9 h-9 rounded-md border-2 border-white/80 flex items-center justify-center shrink-0">
-            <span className="text-white font-bold text-base font-display leading-none">
-              {monogramLetter}
-            </span>
-          </div>
-          <div>
-            <div className="font-serif text-[1.25rem] font-semibold leading-tight tracking-[-0.01em]">
-              {siteConfig.name}
-            </div>
-            <div className="font-sans text-base font-medium tracking-[0.18em] uppercase text-white/70 mt-0.5">
-              {siteConfig.brandLine}
-            </div>
-          </div>
-        </div>
+        {/* Top: wordmark */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/two42-wordmark-dark.svg"
+          alt={siteConfig.name}
+          className="relative h-8 w-auto"
+        />
 
         {/* Middle: devotional quote — hidden on mobile to keep banner compact */}
         <div className="relative hidden md:block max-w-[460px]">
