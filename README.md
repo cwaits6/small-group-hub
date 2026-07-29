@@ -4,7 +4,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](./LICENSE)
 [![Deploy with Vercel](https://img.shields.io/badge/Deploy%20with-Vercel-black?style=flat-square&logo=vercel)](https://vercel.com/new/clone?repository-url=https://github.com/codyhinz/incouragers)
 [![Open Source](https://img.shields.io/badge/Open-Source-orange?style=flat-square&logo=opensourceinitiative)](https://github.com/codyhinz/incouragers)
 
@@ -231,7 +231,13 @@ For significant changes, please open an issue first to discuss.
 
 ## License
 
-MIT — free to use, fork, and adapt for your own group. See [LICENSE](./LICENSE).
+Copyright (C) 2026 Cody Waits.
+
+Licensed under the **GNU Affero General Public License v3.0** (AGPL-3.0). You are free to
+use, study, modify, and self-host this software. If users remotely interact with a modified
+version over a network, AGPL section 13 requires that those users be prominently offered a
+free opportunity to receive the Corresponding Source of that version. See [LICENSE](./LICENSE)
+for the full terms.
 
 ---
 
