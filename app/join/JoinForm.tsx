@@ -30,23 +30,28 @@ function JoinFormFields() {
     const email = formData.get("email") as string;
     const message = formData.get("message") as string;
 
-    const { error } = await supabase.from("access_requests").insert({
-      name,
-      email,
-      message: message || null,
-      // Store the family invite token on the access request so that when
-      // the user creates their account the family link can be established.
-      ...(inviteToken ? { invite_token: inviteToken } : {}),
-    });
+    try {
+      const { error } = await supabase.from("access_requests").insert({
+        name,
+        email,
+        message: message || null,
+        // Store the family invite token on the access request so that when
+        // the user creates their account the family link can be established.
+        ...(inviteToken ? { invite_token: inviteToken } : {}),
+      });
 
-    setLoading(false);
+      if (error) {
+        toast.error("Something went wrong. Please try again.");
+        return;
+      }
 
-    if (error) {
+      setSubmitted(true);
+    } catch {
+      // Network failure or an unexpected throw from the client.
       toast.error("Something went wrong. Please try again.");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setSubmitted(true);
   };
 
   if (submitted) {

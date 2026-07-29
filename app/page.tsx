@@ -1,30 +1,17 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { Christicon } from "@christicons/react";
 import { siteConfig } from "@/lib/config";
-import { createClient } from "@/lib/supabase/server";
+import { getOptionalUser } from "@/lib/supabase/current-user";
 
 export default async function HomePage() {
   // Signed-in members have no use for the public marketing hero — send them to
   // the app. Without this, an authenticated visitor to "/" sees the logged-out
   // hero under a member header (with "Sign Out"), which reads as a bug.
-  // Mirror the root layout: skip the getUser() call entirely when there are no
-  // auth cookies, so anonymous visitors don't trigger refresh-token errors.
-  const cookieStore = await cookies();
-  const hasAuthCookie = cookieStore
-    .getAll()
-    .some((c) => c.name.includes("auth-token"));
-  if (hasAuthCookie) {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      redirect("/dashboard");
-    }
+  if (await getOptionalUser()) {
+    redirect("/dashboard");
   }
 
   return (
