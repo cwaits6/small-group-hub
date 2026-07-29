@@ -18,11 +18,11 @@ export const siteConfig = {
       "Incouragers <noreply@incouragers.org>",
   },
   colors: {
-    primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY || "#2F6BA8",
-    primaryLight: process.env.NEXT_PUBLIC_COLOR_PRIMARY_LIGHT || "#3F506B",
-    accent: process.env.NEXT_PUBLIC_COLOR_ACCENT || "#E8A93C",
-    warm: process.env.NEXT_PUBLIC_COLOR_WARM || "#E2ECF7",
+    primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY || "#B85C38",
+    primaryLight: process.env.NEXT_PUBLIC_COLOR_PRIMARY_LIGHT || "#C97A54",
+    accent: process.env.NEXT_PUBLIC_COLOR_ACCENT || "#E8A33D",
+    warm: process.env.NEXT_PUBLIC_COLOR_WARM || "#F3E7D9",
     backgroundLight: process.env.NEXT_PUBLIC_COLOR_BG_LIGHT || "#FAEBC2",
-    backgroundMuted: process.env.NEXT_PUBLIC_COLOR_BG_MUTED || "#E5E0D4",
+    backgroundMuted: process.env.NEXT_PUBLIC_COLOR_BG_MUTED || "#E8DECF",
   },
 };

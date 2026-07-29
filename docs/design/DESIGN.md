@@ -24,9 +24,9 @@ Canonical assets are outlined SVGs in [`public/brand/`](../../public/brand) — 
 
 | File | Use |
 |---|---|
-| `two42-wordmark.svg` | ink `two` + accent `42` — **light** backgrounds |
-| `two42-wordmark-dark.svg` | bone `two` + accent `42` — **dark** backgrounds |
-| `two42-mark.svg` | the `42` tile (white on accent, rounded square) — favicon, avatar, app icon |
+| `two42-wordmark.svg` | Espresso `two` + Clay `42` — **light** backgrounds |
+| `two42-wordmark-dark.svg` | Warm Paper `two` + Marigold `42` — **dark** backgrounds |
+| `two42-mark.svg` | the `42` tile (Marigold on a Clay ground, rounded square) — favicon, avatar, app icon |
 
 **Rules**
 - Never re-typeset the wordmark in a live font — ship the SVG.
@@ -50,14 +50,18 @@ Fraunces and Inter load via `next/font/google`.
 
 ## Color
 
-Warm and earthen — deliberately not the church-tech default blue.
+Warm and earthen — deliberately not the church-tech default blue. Four brand colors, taken directly from the "The Table" wordmark study:
 
-- Ground: warm bone `#F1EBDF` (light) / warm near-black `#17150F` (dark)
-- Ink: `#221F19` (light) / bone (dark)
-- **Accent: terracotta** `#B85C38`, deep `#8A4227` (the text-safe variant on light grounds). Used for primary actions, active nav, and highlights.
-- Semantic colors (success / warning / danger) are separate from the accent.
+| Name | Hex | Role |
+|---|---|---|
+| **Clay** | `#B85C38` | primary accent — primary actions, active nav, and the `42` on light grounds. Deep clay `#8A4227` for gradients and as the text-safe variant on light grounds. |
+| **Marigold** | `#E8A33D` | secondary highlight — the `42` on dark grounds, plus accents and highlights |
+| **Espresso** | `#2A211A` | ink on light grounds / dark-mode ground |
+| **Warm Paper** | `#F4EEE2` | light-mode ground / text on dark grounds |
 
-The accent is the one color a tenant can override (see [Theming](#theming-multi-tenant)).
+Semantic colors (success / warning / danger) are separate from these four.
+
+Clay (the primary accent) is the one color a tenant can override (see [Theming](#theming-multi-tenant)).
 
 ---
 
@@ -67,7 +71,7 @@ Tokens come in two layers.
 
 **1. Product tokens — fixed.** Defined as CSS custom properties in `app/globals.css` (`@theme`): the Fraunces wordmark, shell chrome, structural neutrals, spacing, radii, and semantic colors. Not overridable by a tenant.
 
-**2. Tenant tokens — per-org.** Stored on **`organizations.branding`** (jsonb):
+**2. Tenant tokens — per-org (planned).** Not yet implemented — the schema/API and runtime below describe the intended design, not current behavior. The plan is to store these on an **`organizations.branding`** (jsonb) column:
 
 | Key | Meaning |
 |---|---|
@@ -75,7 +79,7 @@ Tokens come in two layers.
 | `logo_url` | their logo (falls back to their name set in Fraunces) |
 | `accent` | a single accent color, validated for contrast |
 
-Tenant tokens are resolved for the active org and applied to the app root at runtime. There is no per-tenant CSS bundle.
+Once built, tenant tokens will be resolved for the active org and applied to the app root at runtime; there will be no per-tenant CSS bundle.
 
 A tenant may not change layout, typography, structural or semantic colors, or the two42 wordmark on platform-level surfaces (sign-in, "powered by").
 
@@ -84,7 +88,7 @@ A tenant may not change layout, typography, structural or semantic colors, or th
 ## Accessibility floor
 
 - Body text ≥ 16px; never below 14px for meaningful content.
-- Text contrast ≥ 4.5:1 (≥ 3:1 for large text); the terracotta accent is text-safe only in its deep variant on light grounds.
+- Text contrast ≥ 4.5:1 (≥ 3:1 for large text); Clay is text-safe as body text only in its deep variant (`#8A4227`) on light grounds.
 - Touch targets ≥ 44×44px, with generous spacing.
 - Never encode meaning in color alone; pair it with a label or icon.
 - Assignment/roster UIs show current members by default with an explicit "add" mode — never full toggle lists.
