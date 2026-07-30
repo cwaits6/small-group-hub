@@ -29,51 +29,74 @@
 create extension if not exists pg_cron with schema pg_catalog;
 create extension if not exists pg_net with schema extensions;
 
+-- `private` is not in the API-exposed schema list (see supabase/config.toml),
+-- so this helper is reachable only from SQL (migrations, pg_cron), never via
+-- PostgREST — it builds requests authenticated with the service-role key.
+create schema if not exists private;
+
+-- Shared by every reminder job below: look up both vault secrets once, then
+-- POST to the given Edge Function path with the given body. Parameterizing
+-- job_name/schedule/function_path/body keeps that shape defined in one place
+-- instead of once per cron.schedule() call.
+create or replace function private.schedule_edge_reminder(
+  job_name text,
+  schedule text,
+  function_path text,
+  body jsonb
+) returns void
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform cron.schedule(
+    job_name,
+    schedule,
+    format(
+      $sql$
+      with secrets as (
+        select name, decrypted_secret
+        from vault.decrypted_secrets
+        where name in ('cron_project_url', 'cron_service_role_key')
+      )
+      select net.http_post(
+        url := (select decrypted_secret from secrets where name = 'cron_project_url') || %L,
+        headers := jsonb_build_object(
+          'Authorization', 'Bearer ' || (select decrypted_secret from secrets where name = 'cron_service_role_key'),
+          'Content-Type', 'application/json'
+        ),
+        body := %L::jsonb
+      );
+      $sql$,
+      function_path,
+      body::text
+    )
+  );
+end;
+$$;
+
+revoke all on function private.schedule_edge_reminder(text, text, text, jsonb) from public;
+
 -- cron.schedule() upserts by job name (pg_cron >= 1.4), so re-applying this
 -- migration — or applying it over jobs created by the original manual setup —
 -- converges each job to the definition below rather than duplicating it.
 
-select cron.schedule(
+select private.schedule_edge_reminder(
   'send-event-reminders-daily',
   '0 8 * * *',
-  $$
-  select net.http_post(
-    url := (select decrypted_secret from vault.decrypted_secrets where name = 'cron_project_url') || '/functions/v1/send-event-reminders',
-    headers := jsonb_build_object(
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_service_role_key'),
-      'Content-Type', 'application/json'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
+  '/functions/v1/send-event-reminders',
+  '{}'::jsonb
 );
 
-select cron.schedule(
+select private.schedule_edge_reminder(
   'send-serving-reminders-daily',
   '0 8 * * *',
-  $$
-  select net.http_post(
-    url := (select decrypted_secret from vault.decrypted_secrets where name = 'cron_project_url') || '/functions/v1/send-serving-reminders',
-    headers := jsonb_build_object(
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_service_role_key'),
-      'Content-Type', 'application/json'
-    ),
-    body := '{"mode":"daily"}'::jsonb
-  );
-  $$
+  '/functions/v1/send-serving-reminders',
+  '{"mode":"daily"}'::jsonb
 );
 
-select cron.schedule(
+select private.schedule_edge_reminder(
   'send-serving-monthly-broadcast',
   '0 8 1 * *',
-  $$
-  select net.http_post(
-    url := (select decrypted_secret from vault.decrypted_secrets where name = 'cron_project_url') || '/functions/v1/send-serving-reminders',
-    headers := jsonb_build_object(
-      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_service_role_key'),
-      'Content-Type', 'application/json'
-    ),
-    body := '{"mode":"monthly"}'::jsonb
-  );
-  $$
+  '/functions/v1/send-serving-reminders',
+  '{"mode":"monthly"}'::jsonb
 );
