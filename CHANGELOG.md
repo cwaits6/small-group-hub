@@ -1,3 +1,10 @@
+## [0.22.3](https://github.com/cwaits6/two42/compare/v0.22.2...v0.22.3) (2026-07-30)
+
+
+### Bug Fixes
+
+* **supabase:** capture reminder pg_cron schedules in migration ([#292](https://github.com/cwaits6/two42/issues/292)) ([c5844aa](https://github.com/cwaits6/two42/commit/c5844aa2f34c75767abde5d3d06b083e2c98d7f0)), closes [#220](https://github.com/cwaits6/two42/issues/220) [#220](https://github.com/cwaits6/two42/issues/220)
+
 ## [0.22.2](https://github.com/cwaits6/two42/compare/v0.22.1...v0.22.2) (2026-07-30)
 
 
