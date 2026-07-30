@@ -46,56 +46,51 @@ create table public.tenancy_probe_violation (
   id uuid primary key default gen_random_uuid()
 );
 
+-- Each catalog scan is computed once here and reused by both the "clean"
+-- assertion (excludes the probe table) and the "lint actually flags
+-- violations" assertion (includes it) below.
+create temporary table rls_missing on commit drop as
+  select t.table_name
+  from information_schema.tables t
+  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+    and t.table_name not in (select table_name from tenancy_allowlist)
+    and not exists (
+      select 1 from pg_catalog.pg_class c
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = t.table_name and c.relrowsecurity
+    );
+
+create temporary table org_id_missing on commit drop as
+  select t.table_name
+  from information_schema.tables t
+  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+    and t.table_name not in (select table_name from tenancy_allowlist)
+    and not exists (
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = t.table_name
+        and c.column_name = 'org_id'
+    );
+
 select is(
-  (select count(*)::int from information_schema.tables t
-    where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-      and t.table_name not in (select table_name from tenancy_allowlist)
-      and t.table_name <> 'tenancy_probe_violation'
-      and not exists (
-        select 1 from pg_catalog.pg_class c
-        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relname = t.table_name and c.relrowsecurity
-      )),
+  (select count(*)::int from rls_missing where table_name <> 'tenancy_probe_violation'),
   0,
   'every non-allowlisted public table has RLS enabled'
 );
 
 select isnt(
-  (select count(*)::int from information_schema.tables t
-    where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-      and t.table_name not in (select table_name from tenancy_allowlist)
-      and not exists (
-        select 1 from pg_catalog.pg_class c
-        join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-        where n.nspname = 'public' and c.relname = t.table_name and c.relrowsecurity
-      )),
+  (select count(*)::int from rls_missing),
   0,
   'lint DOES flag the injected no-RLS probe table when not excluded'
 );
 
 select is(
-  (select count(*)::int from information_schema.tables t
-    where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-      and t.table_name not in (select table_name from tenancy_allowlist)
-      and t.table_name <> 'tenancy_probe_violation'
-      and not exists (
-        select 1 from information_schema.columns c
-        where c.table_schema = 'public' and c.table_name = t.table_name
-          and c.column_name = 'org_id'
-      )),
+  (select count(*)::int from org_id_missing where table_name <> 'tenancy_probe_violation'),
   0,
   'every non-allowlisted public table has an org_id column'
 );
 
 select isnt(
-  (select count(*)::int from information_schema.tables t
-    where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-      and t.table_name not in (select table_name from tenancy_allowlist)
-      and not exists (
-        select 1 from information_schema.columns c
-        where c.table_schema = 'public' and c.table_name = t.table_name
-          and c.column_name = 'org_id'
-      )),
+  (select count(*)::int from org_id_missing),
   0,
   'lint DOES flag the injected no-org_id probe table when not excluded'
 );

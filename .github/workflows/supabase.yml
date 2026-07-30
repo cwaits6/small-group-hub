@@ -3,7 +3,7 @@ name: Supabase
 on:
   pull_request:
     branches: [main]
-    paths:
+    paths: &supabase_paths
       [
         "supabase/migrations/**",
         "supabase/tests/**",
@@ -12,13 +12,7 @@ on:
       ]
   push:
     branches: [main]
-    paths:
-      [
-        "supabase/migrations/**",
-        "supabase/tests/**",
-        "supabase/seed.sql",
-        "lib/supabase/database.types.ts",
-      ]
+    paths: *supabase_paths
 
 jobs:
   lint:
@@ -75,8 +69,8 @@ jobs:
 
       - name: Check generated types are up to date
         run: |
-          supabase gen types typescript --local --schema public > /tmp/database.types.ts
-          diff -u lib/supabase/database.types.ts /tmp/database.types.ts
+          npm run db:types
+          git diff --exit-code lib/supabase/database.types.ts
 
   migrate:
     name: Push migrations & dump schema
