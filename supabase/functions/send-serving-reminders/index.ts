@@ -1,32 +1,12 @@
 // Supabase Edge Function: send-serving-reminders
 //
-// Two modes, two pg_cron entries (run once in Supabase SQL editor — never CI):
+// Two modes, two pg_cron entries — schedule defined in
+// supabase/migrations/20260729000000_reminder_cron_schedules.sql (not here,
+// so it survives a point-in-time restore or self-host from this repo):
 //
-//   -- Daily: remind attendees of covered Sundays (Sat by default)
-//   select cron.schedule(
-//     'send-serving-reminders-daily',
-//     '0 8 * * *',
-//     $$
-//       select net.http_post(
-//         url := '<SUPABASE_PROJECT_URL>/functions/v1/send-serving-reminders',
-//         headers := '{"Authorization":"Bearer <SERVICE_ROLE_KEY>","Content-Type":"application/json"}'::jsonb,
-//         body := '{"mode":"daily"}'::jsonb
-//       );
-//     $$
-//   );
-//
-//   -- Monthly: broadcast open Sundays to the whole team on the 1st
-//   select cron.schedule(
-//     'send-serving-monthly-broadcast',
-//     '0 8 1 * *',
-//     $$
-//       select net.http_post(
-//         url := '<SUPABASE_PROJECT_URL>/functions/v1/send-serving-reminders',
-//         headers := '{"Authorization":"Bearer <SERVICE_ROLE_KEY>","Content-Type":"application/json"}'::jsonb,
-//         body := '{"mode":"monthly"}'::jsonb
-//       );
-//     $$
-//   );
+//   - "send-serving-reminders-daily": remind attendees of covered Sundays
+//     (per-team reminder_days, Sat by default — see serving_team_settings)
+//   - "send-serving-monthly-broadcast": broadcast open Sundays on the 1st
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

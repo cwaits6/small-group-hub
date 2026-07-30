@@ -1,5 +1,6 @@
 // Supabase Edge Function: send-event-reminders
-// Triggered by pg_cron daily at 8am
+// Triggered by pg_cron daily at 8am — schedule defined in
+// supabase/migrations/20260729000000_reminder_cron_schedules.sql
 // Sends email reminders to users RSVPed to events starting in the next 24 hours
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
