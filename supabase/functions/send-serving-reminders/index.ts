@@ -301,12 +301,18 @@ async function runMonthly(
     // Get all team members
     const { data: members } = await supabase
       .from("profile_groups")
-      .select("profiles(id, first_name, preferred_name, email)")
+      .select("profiles(id, first_name, preferred_name, email, email_announcements)")
       .eq("group_id", group_id);
 
     for (const row of members ?? []) {
-      const m = row.profiles as { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
-      if (!m?.email) continue;
+      const m = row.profiles as {
+        id: string;
+        first_name: string | null;
+        preferred_name: string | null;
+        email: string | null;
+        email_announcements: boolean;
+      } | null;
+      if (!m?.email || m.email_announcements === false) continue;
 
       const name = escapeHtml(m.preferred_name || m.first_name || "Friend");
       const safeTeam = escapeHtml(teamName);

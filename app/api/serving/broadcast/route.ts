@@ -88,7 +88,9 @@ export async function POST(request: Request) {
 
   const { data: memberRows } = await service
     .from("profile_groups")
-    .select("profiles(id, first_name, last_name, preferred_name, email, role)")
+    .select(
+      "profiles(id, first_name, last_name, preferred_name, email, role, email_announcements)"
+    )
     .eq("group_id", groupId);
 
   const members = (memberRows ?? [])
@@ -101,9 +103,13 @@ export async function POST(request: Request) {
           preferred_name: string | null;
           email: string | null;
           role: string;
+          email_announcements: boolean;
         } | null
     )
-    .filter((p): p is NonNullable<typeof p> => !!p?.email && p.role !== "pending");
+    .filter(
+      (p): p is NonNullable<typeof p> =>
+        !!p?.email && p.role !== "pending" && p.email_announcements !== false
+    );
 
   if (members.length === 0) {
     return NextResponse.json(
