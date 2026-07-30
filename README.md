@@ -75,7 +75,7 @@ two42 was built to solve exactly that. It has since been open-sourced so other g
 | Auth + Database | Supabase (PostgreSQL, RLS, Edge Functions) |
 | Hosting | Vercel (free tier) |
 | Email | Resend (free tier: 3,000 emails/month) |
-| Scheduling | Supabase pg_cron (event reminders) |
+| Scheduling | Supabase pg_cron — schedule defined in `supabase/migrations/` (event + serving reminders) |
 
 ---
 
