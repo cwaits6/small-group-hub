@@ -5,7 +5,7 @@
 // so it survives a point-in-time restore or self-host from this repo):
 //
 //   - "send-serving-reminders-daily": remind attendees of covered Sundays
-//     (per-team reminder_days, Sat by default — see serving_team_settings)
+//     (per-team reminder_days — see serving_team_settings)
 //   - "send-serving-monthly-broadcast": broadcast open Sundays on the 1st
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

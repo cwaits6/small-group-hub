@@ -13,10 +13,13 @@
 --   select vault.create_secret('https://<project-ref>.supabase.co', 'cron_project_url');
 --   select vault.create_secret('<service-role-key>', 'cron_service_role_key');
 --
--- Until both secrets exist, these jobs still run on schedule but their
--- net.http_post calls will fail (null url/Authorization) — check
--- `select * from net._http_response order by created desc limit 10;` if
--- reminders stop after a restore or fresh self-host.
+-- Until both secrets exist, these jobs still run on schedule but fail:
+-- if `cron_project_url` is missing, net.http_post raises before queuing
+-- anything (nothing shows up in net._http_response); if only
+-- `cron_service_role_key` is missing, the request goes out with a bad
+-- Authorization header and the failure shows up in net._http_response.
+-- Either way, `select * from cron.job_run_details order by start_time desc
+-- limit 10;` shows whether the job ran and why it failed.
 --
 -- The standard Supabase Postgres image (hosted, local CLI stack, and the
 -- official self-host docker-compose) already preloads pg_cron and pg_net via
