@@ -18,6 +18,19 @@ Next.js + Supabase app for a church small group, deployed on Vercel. Open source
 - The local Supabase stack (API `:54321`, Postgres `:54322`, Studio `:54323`) is a **single shared instance** used by every worktree and parallel agent session. Never stop, restart, or reset it.
 - Migrations are timestamped SQL files in `supabase/migrations/`. Keep them additive. Only one in-flight branch should introduce migrations at a time; if your task needs a schema change and another open PR already adds migrations, flag it instead of racing.
 
+### Testing
+
+- pgTAP suites live in `supabase/tests/`. Run them locally through the shared stack's container — each file is wrapped in `begin;`/`rollback;` so it never persists anything:
+
+  ```bash
+  docker exec -i supabase_db_small-group-hub \
+    psql -U postgres -d postgres -f - < supabase/tests/<file>.sql
+  ```
+
+- **Never run `supabase test db` locally.** It resets the database, which violates the shared-stack rules above. CI runs it in the `pgtap` job of `.github/workflows/supabase.yml` against an ephemeral, isolated Postgres.
+- Regenerate DB types after schema changes with `npm run db:types` (read-only against the local stack); CI fails if `lib/supabase/database.types.ts` drifts from the migrations.
+- Adding a `createServiceClient()` call site? Document it in `docs/security/service-role-inventory.md` in the same PR — every service-role query bypasses RLS and must be justified.
+
 ## Git & PRs
 
 - Conventional commits. Only `fix`, `feat`, `perf`, and breaking changes trigger a release. Use `ci:` / `ci(scope):` commits on `ci/` branches for CI/infra changes; `docs:` / `chore:` for other non-release changes.

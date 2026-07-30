@@ -3,10 +3,22 @@ name: Supabase
 on:
   pull_request:
     branches: [main]
-    paths: ["supabase/migrations/**"]
+    paths:
+      [
+        "supabase/migrations/**",
+        "supabase/tests/**",
+        "supabase/seed.sql",
+        "lib/supabase/database.types.ts",
+      ]
   push:
     branches: [main]
-    paths: ["supabase/migrations/**"]
+    paths:
+      [
+        "supabase/migrations/**",
+        "supabase/tests/**",
+        "supabase/seed.sql",
+        "lib/supabase/database.types.ts",
+      ]
 
 jobs:
   lint:
@@ -35,6 +47,36 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+  # Tenancy test harness (CWA-7 / #209). Runs entirely against an ephemeral
+  # local Supabase stack: no `supabase link`, no Supabase secrets in env, so
+  # it is safe for fork PRs and can never touch the remote project.
+  pgtap:
+    name: pgTAP tenancy harness (local only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.78.1
+
+      - name: Start local database
+        run: supabase db start
+
+      # Explicit file list: supabase/tests/site_settings_rls.sql predates
+      # pgTAP (plain SQL, no TAP output) and would fail pg_prove if swept up.
+      - name: Run pgTAP suite (local only — never --linked)
+        run: |
+          supabase test db \
+            supabase/tests/tenancy_leak_suite.sql \
+            supabase/tests/schema_tenancy_lint.sql
+
+      - name: Check generated types are up to date
+        run: |
+          supabase gen types typescript --local --schema public > /tmp/database.types.ts
+          diff -u lib/supabase/database.types.ts /tmp/database.types.ts
 
   migrate:
     name: Push migrations & dump schema
