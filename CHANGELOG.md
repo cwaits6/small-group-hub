@@ -1,3 +1,10 @@
+## [0.22.2](https://github.com/cwaits6/two42/compare/v0.22.1...v0.22.2) (2026-07-30)
+
+
+### Bug Fixes
+
+* **serving:** honor email_announcements opt-out in broadcast emails ([#218](https://github.com/cwaits6/two42/issues/218)) ([#291](https://github.com/cwaits6/two42/issues/291)) ([785dd01](https://github.com/cwaits6/two42/commit/785dd01d7ef13fe9d9729aa4da4cd524ad30266a))
+
 ## [0.22.1](https://github.com/cwaits6/small-group-hub/compare/v0.22.0...v0.22.1) (2026-07-29)
 
 
