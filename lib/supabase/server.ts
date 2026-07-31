@@ -1,13 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { resolveOrgSlug } from "@/lib/org";
 
 export async function createClient() {
   const cookieStore = await cookies();
+  const headerStore = await headers();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // Org resolution for anonymous reads (Phase 2, CWA-9): the DB's
+      // app_request_org_id() reads this header only when there is no
+      // authenticated principal, and only to select among public content.
+      global: {
+        headers: { "x-two42-org": resolveOrgSlug(headerStore.get("host")) },
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

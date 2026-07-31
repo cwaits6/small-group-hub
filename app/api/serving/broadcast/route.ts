@@ -44,7 +44,7 @@ export async function POST(request: Request) {
         .eq("profile_id", user.id)
         .eq("group_id", groupId)
         .maybeSingle(),
-      supabase.from("member_groups").select("id, name").eq("id", groupId).single(),
+      supabase.from("member_groups").select("id, name, org_id").eq("id", groupId).single(),
       supabase
         .from("serving_team_settings")
         .select("enabled, window_weeks")
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
   }
 
   const service = await createServiceClient();
-  const linkMode = await getServingLinkMode(supabase);
+  const linkMode = await getServingLinkMode(supabase, group.org_id);
 
   const { data: memberRows } = await service
     .from("profile_groups")

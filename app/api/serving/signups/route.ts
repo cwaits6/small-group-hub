@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   // Team must exist and have serving signups enabled
   const [{ data: group }, { data: settings }, { data: profile }] =
     await Promise.all([
-      supabase.from("member_groups").select("id, name").eq("id", groupId).single(),
+      supabase.from("member_groups").select("id, name, org_id").eq("id", groupId).single(),
       supabase
         .from("serving_team_settings")
         .select("enabled")
@@ -120,6 +120,7 @@ export async function POST(request: Request) {
     try {
       await sendSignupConfirmation(supabase, {
         signupId: signup.id,
+        orgId: group.org_id,
         groupId,
         groupName: group.name,
         serviceDate,

@@ -8,11 +8,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type ServingLinkMode = "signed" | "login";
 
 export async function getServingLinkMode(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  orgId: string
 ): Promise<ServingLinkMode> {
+  // org_id filter is required (Phase 2, CWA-9): on a service-role client a
+  // key-only read matches every org's row the moment a second org exists,
+  // making maybeSingle() error and silently fall back to the env default.
   const { data, error } = await supabase
     .from("site_settings")
     .select("value")
+    .eq("org_id", orgId)
     .eq("key", "serving_link_mode")
     .maybeSingle();
   if (error) {

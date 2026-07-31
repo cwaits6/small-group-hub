@@ -43,6 +43,7 @@ export async function sendSignupConfirmation(
   supabase: SupabaseClient,
   opts: {
     signupId: string;
+    orgId: string;
     groupId: string;
     groupName: string;
     serviceDate: string;
@@ -57,7 +58,7 @@ export async function sendSignupConfirmation(
     opts.familyId
   );
 
-  const linkMode = await getServingLinkMode(supabase);
+  const linkMode = await getServingLinkMode(supabase, opts.orgId);
   const cancelUrl =
     linkMode === "signed"
       ? `${siteConfig.url}/serving/go?token=${createServingToken({

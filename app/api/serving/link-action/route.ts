@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { displayName } from "@/lib/names";
-import { DEFAULT_ORG_ID } from "@/lib/org";
 import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { isValidServiceDate } from "@/lib/serving/sundays";
@@ -36,22 +35,32 @@ export async function POST(request: Request) {
 
   const service = await createServiceClient();
 
-  const linkMode = await getServingLinkMode(service);
+  // The group is fetched first: its org_id scopes the link-mode read
+  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  const { data: group } = await service
+    .from("member_groups")
+    .select("id, name, org_id")
+    .eq("id", payload.g)
+    .maybeSingle();
+
+  if (!group) {
+    return NextResponse.json(
+      { error: "This link is no longer valid — please use the site instead" },
+      { status: 400 }
+    );
+  }
+
+  const linkMode = await getServingLinkMode(service, group.org_id);
   if (linkMode === "login") {
     return NextResponse.json({ error: "login_required" }, { status: 403 });
   }
 
-  const [{ data: profile }, { data: group }, { data: settings }] =
+  const [{ data: profile }, { data: settings }] =
     await Promise.all([
       service
         .from("profiles")
         .select("id, first_name, last_name, preferred_name, family_id, email, role")
         .eq("id", payload.p)
-        .maybeSingle(),
-      service
-        .from("member_groups")
-        .select("id, name")
-        .eq("id", payload.g)
         .maybeSingle(),
       service
         .from("serving_team_settings")
@@ -110,9 +119,10 @@ export async function POST(request: Request) {
         family_id: profile.family_id,
         created_by: profile.id,
         // Service-role insert: the fail-closed org_id DEFAULT resolves to
-        // NULL without a session, so the org is passed explicitly (Phase 1
-        // interim — see lib/org.ts).
-        org_id: DEFAULT_ORG_ID,
+        // NULL without a session, so the org is passed explicitly — derived
+        // from the HMAC-validated group row, which the composite FK
+        // (group_id, org_id) also enforces.
+        org_id: group.org_id,
       })
       .select()
       .single();
@@ -134,7 +144,7 @@ export async function POST(request: Request) {
         attendees.map((a) => ({
           signup_id: signup.id,
           profile_id: a.id,
-          org_id: DEFAULT_ORG_ID,
+          org_id: group.org_id,
         }))
       );
     if (attendeeError) {
@@ -147,6 +157,7 @@ export async function POST(request: Request) {
       try {
         await sendSignupConfirmation(service, {
           signupId: signup.id,
+          orgId: group.org_id,
           groupId: payload.g,
           groupName: group.name,
           serviceDate: payload.d,

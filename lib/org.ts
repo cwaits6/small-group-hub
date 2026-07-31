@@ -10,3 +10,19 @@
  * constant is deleted then.
  */
 export const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
+
+/**
+ * Phase 2 (CWA-9 / #211): slug sent as the `x-two42-org` header on every
+ * Supabase client, so anonymous requests resolve an org via
+ * app_request_org_id() (authenticated principals always win over the
+ * header — it only ever selects among already-public content).
+ *
+ * Single-tenant interim: every host maps to the one deployed org. Phase 5
+ * (custom domains, #214) replaces this with real host → org resolution,
+ * which is why the host is already part of the signature.
+ */
+export const DEFAULT_ORG_SLUG = "default";
+
+export function resolveOrgSlug(_host?: string | null): string {
+  return process.env.NEXT_PUBLIC_ORG_SLUG || DEFAULT_ORG_SLUG;
+}

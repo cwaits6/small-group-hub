@@ -55,7 +55,24 @@ export default async function ServingLinkPage({
 
   const service = await createServiceClient();
 
-  const linkMode = await getServingLinkMode(service);
+  // The group is fetched first: its org_id scopes the link-mode read
+  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  const { data: group } = await service
+    .from("member_groups")
+    .select("id, name, org_id")
+    .eq("id", payload.g)
+    .maybeSingle();
+
+  if (!group) {
+    return (
+      <Message
+        title="This link has expired"
+        body="No problem — you can sign in to the site and manage your serving Sundays there."
+      />
+    );
+  }
+
+  const linkMode = await getServingLinkMode(service, group.org_id);
   if (linkMode === "login") {
     return (
       <Message
@@ -65,17 +82,12 @@ export default async function ServingLinkPage({
     );
   }
 
-  const [{ data: profile }, { data: group }, { data: settings }, { data: membership }, { data: signup }] =
+  const [{ data: profile }, { data: settings }, { data: membership }, { data: signup }] =
     await Promise.all([
       service
         .from("profiles")
         .select("id, first_name, preferred_name, family_id, role")
         .eq("id", payload.p)
-        .maybeSingle(),
-      service
-        .from("member_groups")
-        .select("id, name")
-        .eq("id", payload.g)
         .maybeSingle(),
       service
         .from("serving_team_settings")
