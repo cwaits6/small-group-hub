@@ -82,8 +82,14 @@ Every FK whose parent is an org-owned table is composite:
 `(fk_col, org_id) references parent (id, org_id)` — a child row can never
 reference a parent in another org, structurally. `ON DELETE SET NULL`
 relations use PG ≥ 15's column-list form `set null (<col>)` so `org_id`
-(NOT NULL) survives the parent's deletion; the pgTAP FK suite proves this
-for each of the seven such relations. FKs referencing `auth.users` cannot
+(NOT NULL) survives the parent's deletion. There are fifteen such
+relations; the pgTAP FK suite proves this for the seven capability/entity
+ones. The remaining eight are attribution columns whose parent is
+`profiles` (`author_id`, `created_by`, `profile_id`, `leader_id`,
+`sent_by`) — they use the same form, but no test exercises them and the
+schema lint asserts compositeness rather than the SET NULL column list, so
+dropping the column list on one of those would pass CI. FKs referencing
+`auth.users` cannot
 be composite (no `org_id` there) and `organization_members.profile_id` is
 deliberately single-column (the membership org is independent of the
 profile's pinned org — the Phase 4 platform-admin seam).
@@ -104,10 +110,21 @@ its `prayer_calendar_id` setting, the settings defaults, an empty about
 page, and an **approved access request for the owner** — so self-serve
 onboarding is org-first: provision, then create the auth user, and the
 fail-closed trigger needs no special case. Phase 4 must NOT solve
-onboarding by adding a fallback branch to `handle_new_user()`. EXECUTE is
-revoked from `public`/`anon`/`authenticated`; `SECURITY DEFINER` +
-`search_path = ''` + that REVOKE is the entire authorization story — do not
-add a GRANT without a caller check.
+onboarding by adding a fallback branch to `handle_new_user()`. An invalid
+slug raises `TN003`.
+
+Provisioning **never moves an existing profile between orgs**. If a profile
+with the owner's email already belongs to a different org, the call raises
+`TN004` and the whole transaction rolls back. An unscoped
+`update profiles set org_id = … where email = …` would be a cross-tenant
+write: once Phase 4 exposes a caller, passing a competing org's admin email
+would re-pin that admin into the caller's org, taking over the account. A
+"who may provision" authorization guard does not address that, so the
+primitive itself is closed here.
+
+EXECUTE is revoked from `public`/`anon`/`authenticated`; `SECURITY DEFINER`
++ `search_path = ''` + that REVOKE is the entire authorization story — do
+not add a GRANT without a caller check.
 
 ## Enforcement in CI
 

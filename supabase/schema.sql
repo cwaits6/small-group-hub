@@ -46,6 +46,10 @@ CREATE OR REPLACE FUNCTION "public"."app_request_org_id"() RETURNS "uuid"
     (select public.app_current_org_id()),
     (select o.id from public.organizations o
       where o.slug = nullif(
+        -- request.headers is only set (to a JSON object) by PostgREST; in
+        -- any other execution context it is unset or empty, and the nullif
+        -- below turns that into NULL rather than a JSON cast error, keeping
+        -- the fail-closed contract.
         nullif(current_setting('request.headers', true), '')::json
           ->> 'x-two42-org', ''))
   );
@@ -901,10 +905,10 @@ ALTER TABLE "public"."feedback" OWNER TO "postgres";
 CREATE TABLE IF NOT EXISTS "public"."giving_fund_methods" (
     "fund_id" "uuid" NOT NULL,
     "method" "text" NOT NULL,
-    "custom_handle" "text",
+    "custom_handle" "text" NOT NULL,
     "display_order" integer DEFAULT 0 NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
-    CONSTRAINT "giving_fund_methods_custom_handle_check" CHECK ((("custom_handle" IS NULL) OR (("char_length"("custom_handle") >= 1) AND ("char_length"("custom_handle") <= 120)))),
+    CONSTRAINT "giving_fund_methods_custom_handle_check" CHECK ((("char_length"("custom_handle") >= 1) AND ("char_length"("custom_handle") <= 120))),
     CONSTRAINT "giving_fund_methods_method_check" CHECK (("method" = ANY (ARRAY['venmo'::"text", 'paypal'::"text", 'cashapp'::"text", 'zelle'::"text", 'wallet'::"text"])))
 );
 

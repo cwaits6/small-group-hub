@@ -23,6 +23,21 @@ export const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
  */
 export const DEFAULT_ORG_SLUG = "default";
 
+/**
+ * Slug for the org this request is about, sent as `x-two42-org`.
+ *
+ * The mapping is NOT hardcoded: `NEXT_PUBLIC_ORG_SLUG` overrides it, and that
+ * override is coupled to `DEFAULT_ORG_ID` above with nothing enforcing the
+ * pair. The anon join form inserts `org_id = DEFAULT_ORG_ID` while the RLS
+ * policy that must accept it resolves the org from *this* slug, so setting
+ * `NEXT_PUBLIC_ORG_SLUG` to anything other than the seeded org's slug rejects
+ * every join submission with a bare 42501. Phase 3 removes the coupling by
+ * defaulting `access_requests.org_id` to `app_request_org_id()`; until then,
+ * change the two together or not at all.
+ *
+ * `_host` is unused in the single-tenant interim — it is already in the
+ * signature because Phase 5 (custom domains, #214) resolves host → org here.
+ */
 export function resolveOrgSlug(_host?: string | null): string {
   return process.env.NEXT_PUBLIC_ORG_SLUG || DEFAULT_ORG_SLUG;
 }

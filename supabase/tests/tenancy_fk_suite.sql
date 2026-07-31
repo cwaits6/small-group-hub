@@ -4,10 +4,19 @@
 --
 --   1. A child row in org A can never reference a parent row in org B —
 --      the FK itself rejects it (23503), independent of any policy.
---   2. Each of the 7 ON DELETE SET NULL (col) relations nulls ONLY the FK
---      column when the parent dies: org_id survives. This is the assertion
---      that fails loudly if someone "simplifies" the column list away (the
---      bare form would try to null org_id and blow up on NOT NULL).
+--   2. An ON DELETE SET NULL (col) relation nulls ONLY the FK column when
+--      the parent dies: org_id survives. This is the assertion that fails
+--      loudly if someone "simplifies" the column list away (the bare form
+--      would try to null org_id and blow up on NOT NULL).
+--
+-- Coverage boundary: 20260731000013_composite_fks.sql creates 15 SET NULL
+-- relations — the 7 capability/entity ones asserted below, plus 8
+-- attribution ones (announcements.author_id, feedback.profile_id, the
+-- created_by / leader_id / sent_by columns) that nothing here or in
+-- schema_tenancy_lint.sql exercises: the lint asserts compositeness, not
+-- the SET NULL column list. Closing that gap wants a structural check that
+-- every FK with confdeltype = 'n' names a non-org_id column list, which
+-- would cover all 15 plus any added later.
 --
 -- Exhaustive composite-ness of every FK is a structural invariant asserted
 -- by schema_tenancy_lint.sql; this file proves the runtime behavior on
@@ -100,8 +109,9 @@ select throws_ok(
   'family_members in org A cannot reference an org B household');
 
 select throws_ok(
-  $$ insert into public.giving_fund_methods (org_id, fund_id, method)
-     values (current_setting('fk.org_a')::uuid, current_setting('fk.fund_b')::uuid, 'zelle') $$,
+  $$ insert into public.giving_fund_methods (org_id, fund_id, method, custom_handle)
+     values (current_setting('fk.org_a')::uuid, current_setting('fk.fund_b')::uuid,
+             'zelle', 'cross-org-handle') $$,
   '23503', null,
   'giving_fund_methods in org A cannot reference an org B fund');
 
@@ -154,6 +164,8 @@ select throws_ok(
   'giving_funds in org A cannot grant co-stewardship to an org B profile');
 
 -- ── 2. ON DELETE SET NULL (col): the FK column nulls, org_id survives ──────
+-- The 7 capability/entity relations only — see the coverage boundary in the
+-- file header for the 8 attribution relations this does not reach.
 do $$
 declare
   org_a uuid := current_setting('fk.org_a')::uuid;

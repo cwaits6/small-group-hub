@@ -81,8 +81,11 @@ begin
 
   insert into public.giving_funds (org_id, name, steward_id, created_by)
     values (_org, _tag || ' fund', _owner, _owner) returning id into _fund;
-  insert into public.giving_fund_methods (org_id, fund_id, method)
-    values (_org, _fund, 'zelle');
+  -- custom_handle is NOT NULL (20260707000000_giving.sql) — omitting it
+  -- aborts the whole suite with 23502 in CI, where the schema is built from
+  -- the migrations rather than from the drifted shared local stack.
+  insert into public.giving_fund_methods (org_id, fund_id, method, custom_handle)
+    values (_org, _fund, 'zelle', _tag || '-zelle');
 
   insert into public.lecture_series (org_id, name)
     values (_org, _tag || ' series') returning id into _series;
@@ -355,6 +358,80 @@ begin
     select ok(member_spoof_own >= 1, 'org A member sending org B header still reads their own org');
 end $$;
 
+-- ── app_request_org_id() never raises on a malformed GUC (§9.2) ─────────────
+-- Regression guard for the nullif() in 20260731000001_org_helpers.sql:47.
+-- `current_setting('request.headers', true)` returns '' (not NULL) once the
+-- GUC has been set and cleared in the session, and ''::json raises 22P02.
+-- Every other test here sets request.headers to valid JSON, so without this
+-- block deleting the inner nullif() leaves the whole suite green.
+--
+-- This matters more than a leak would: the helper is called from the USING
+-- and WITH CHECK of all 30 restrictive policies, so if it raises, every
+-- query against every org-owned table errors for that connection — a total
+-- outage, not a leak.
+do $$
+declare
+  empty_result text;
+  unset_result text;
+  garbage_result text;
+  anon_rows text;
+begin
+  -- empty-string GUC → NULL, not 22P02
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', '', true);
+  begin
+    empty_result := coalesce((select public.app_request_org_id())::text, 'null');
+  exception when others then
+    empty_result := 'raised ' || sqlstate;
+  end;
+
+  -- valid JSON with no x-two42-org key → NULL
+  perform set_config('request.headers', '{}', true);
+  begin
+    unset_result := coalesce((select public.app_request_org_id())::text, 'null');
+  exception when others then
+    unset_result := 'raised ' || sqlstate;
+  end;
+
+  -- non-JSON garbage: behaviour is pinned here so it is a deliberate choice,
+  -- not an accident. What must never happen is it resolving AN ORG.
+  perform set_config('request.headers', 'not json at all', true);
+  begin
+    garbage_result := coalesce((select public.app_request_org_id())::text, 'null');
+  exception when others then
+    garbage_result := 'raised ' || sqlstate;
+  end;
+
+  -- and the end-to-end consequence: an anon read under an empty GUC returns
+  -- zero rows rather than erroring the statement.
+  perform set_config('request.headers', '', true);
+  set local role anon;
+  begin
+    anon_rows := (select count(*) from public.site_settings)::text;
+  exception when others then
+    anon_rows := 'raised ' || sqlstate;
+  end;
+  reset role;
+
+  perform set_config('leak_suite.guc_empty', empty_result, true);
+  perform set_config('leak_suite.guc_unset', unset_result, true);
+  perform set_config('leak_suite.guc_garbage', garbage_result, true);
+  perform set_config('leak_suite.guc_anon_rows', anon_rows, true);
+end $$;
+
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.guc_empty'), 'null',
+    'app_request_org_id() returns NULL (not 22P02) for an empty request.headers GUC');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.guc_unset'), 'null',
+    'app_request_org_id() returns NULL when request.headers carries no x-two42-org');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.guc_garbage'), 'raised 22P02',
+    'app_request_org_id() on non-JSON request.headers raises 22P02 rather than resolving an org');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.guc_anon_rows'), '0',
+    'an anon read under an empty request.headers GUC returns 0 rows rather than erroring');
+
 -- ── Write isolation (§9.3) ──────────────────────────────────────────────────
 do $$
 declare
@@ -407,6 +484,85 @@ begin
   insert into tenancy_leak_results
     select is(delete_b_count, 0, 'DELETE targeting org B rows affects 0 rows');
 end $$;
+
+-- ── Anon write isolation: the /join form's only public write path (§9.3) ────
+-- access_requests is the one table anon may INSERT into, and the header is
+-- its only org gate. Every other anon assertion in this suite is a read, so
+-- without this block the product's single public write path is untested.
+do $$
+declare
+  match_err text := null;
+  other_err text := null;
+  none_err text := null;
+  landed_org text;
+begin
+  -- anon with org A's header inserting a row tagged org A → accepted
+  set local role anon;
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('request.headers', json_build_object('x-two42-org', 'leak-suite-org-a')::text, true);
+  begin
+    insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('leak_suite.org_a')::uuid, 'anon joiner',
+            'anon-join@leak.example.test', 'pending');
+  exception when others then
+    match_err := sqlstate;
+  end;
+
+  -- …tagged org B while sending org A's header → rejected
+  begin
+    insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('leak_suite.org_b')::uuid, 'anon intruder',
+            'anon-intruder@leak.example.test', 'pending');
+  exception when others then
+    other_err := sqlstate;
+  end;
+
+  -- …with no header at all → rejected (app_request_org_id() is NULL)
+  perform set_config('request.headers', '{}', true);
+  begin
+    insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('leak_suite.org_a')::uuid, 'anon headerless',
+            'anon-headerless@leak.example.test', 'pending');
+  exception when others then
+    none_err := sqlstate;
+  end;
+  reset role;
+
+  select org_id::text into landed_org from public.access_requests
+    where email = 'anon-join@leak.example.test';
+
+  perform set_config('leak_suite.anon_match', coalesce(match_err, 'ok'), true);
+  perform set_config('leak_suite.anon_other', coalesce(other_err, 'ok'), true);
+  perform set_config('leak_suite.anon_none', coalesce(none_err, 'ok'), true);
+  perform set_config('leak_suite.anon_landed', coalesce(landed_org, 'none'), true);
+end $$;
+
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.anon_match'), 'ok',
+    'anon INSERT into access_requests succeeds when org_id matches the x-two42-org header');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.anon_landed'), current_setting('leak_suite.org_a'),
+    'the accepted anon access request landed in the header''s org');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.anon_other'), '42501',
+    'anon INSERT tagged another org than the header is rejected (RLS 42501)');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.anon_none'), '42501',
+    'anon INSERT with no x-two42-org header is rejected (RLS 42501)');
+
+-- Cross-layer coupling: JoinForm.tsx inserts org_id = DEFAULT_ORG_ID
+-- ("00000000-…-0001", lib/org.ts) while the policy above resolves the org
+-- from resolveOrgSlug()'s slug, which defaults to 'default'. Nothing in the
+-- app keeps the two in sync, so pin the one fact that makes them agree: the
+-- seeded default org must carry both that id AND that slug. If a migration
+-- ever renames it, this fails here instead of silently rejecting every join
+-- submission in production with a bare 42501 and no log line.
+insert into tenancy_leak_results
+  select is(
+    (select slug from public.organizations
+      where id = '00000000-0000-0000-0000-000000000001'::uuid),
+    'default',
+    'the seeded DEFAULT_ORG_ID org has slug ''default'' (lib/org.ts coupling holds)');
 
 -- ── platform_admins (org-orthogonal, unchanged by the org floor) ────────────
 do $$

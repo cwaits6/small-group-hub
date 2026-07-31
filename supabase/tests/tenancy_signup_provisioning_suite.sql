@@ -89,27 +89,32 @@ select is(
   current_setting('su.org_a')::uuid,
   'owner signup after provisioning resolves into the provisioned org');
 
--- Owner re-pin: a pre-existing profile is moved into the new org.
-do $$
-declare
-  org_c uuid;
-begin
-  -- su-owner-b already has a profile pinned to org B; provisioning org C
-  -- with the same owner email must re-pin them.
-  org_c := public.provision_organization('Signup Suite Org C', 'signup-suite-org-c', 'su-owner-b@leak.example.test');
-  perform set_config('su.org_c', org_c::text, true);
-end $$;
+-- Owner adoption is org-scoped: a profile that already belongs to another
+-- org is NEVER moved into the new one. su-owner-b already has a profile
+-- pinned to org B, so provisioning org C with that same owner email must
+-- raise TN004 rather than re-pin them (the cross-tenant write that would
+-- become an account-takeover primitive once Phase 4 exposes a caller).
+select throws_ok(
+  $$ select public.provision_organization('Signup Suite Org C', 'signup-suite-org-c', 'su-owner-b@leak.example.test') $$,
+  'TN004', null,
+  'provisioning refuses an owner email that already belongs to another org');
 
 select is(
   (select org_id from public.profiles where id = current_setting('su.owner_b')::uuid),
-  current_setting('su.org_c')::uuid,
-  'provisioning re-pins an existing owner profile''s org_id');
+  current_setting('su.org_b')::uuid,
+  'the rejected call left the existing owner profile in its original org');
 
 select ok(
-  exists (select 1 from public.organization_members
-    where org_id = current_setting('su.org_c')::uuid
-      and profile_id = current_setting('su.owner_b')::uuid),
-  'provisioning records the re-pinned owner''s organization membership');
+  not exists (select 1 from public.organizations where slug = 'signup-suite-org-c'),
+  'the rejected call left no partial org behind (atomic)');
+
+select ok(
+  not exists (
+    select 1 from public.organization_members om
+    join public.profiles p on p.id = om.profile_id
+    where p.id = current_setting('su.owner_b')::uuid
+      and om.org_id is distinct from current_setting('su.org_b')::uuid),
+  'the rejected call granted no membership outside the owner''s own org');
 
 -- Guardrails
 select throws_ok(
@@ -266,8 +271,8 @@ begin
   end;
   perform set_config('request.jwt.claims', json_build_object('sub', current_setting('su.user_meta_user'))::text, true);
   begin
-    -- user-meta@ landed in org A; use owner of org B instead? owner_b was
-    -- re-pinned to org C, so query as the app-meta user, who is in org B.
+    -- user-meta@ landed in org A, so it cannot stand in for an org B
+    -- principal; query as the app-meta user, who resolved into org B.
     perform set_config('request.jwt.claims', json_build_object('sub', current_setting('su.app_meta_user'))::text, true);
     b_result := public.giving_stewards_can_manage()::text;
   exception when others then

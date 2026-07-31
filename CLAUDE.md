@@ -18,6 +18,18 @@ Next.js + Supabase app for a church small group, deployed on Vercel. Open source
 - The local Supabase stack (API `:54321`, Postgres `:54322`, Studio `:54323`) is a **single shared instance** used by every worktree and parallel agent session. Never stop, restart, or reset it.
 - Migrations are timestamped SQL files in `supabase/migrations/`. Keep them additive. Only one in-flight branch should introduce migrations at a time; if your task needs a schema change and another open PR already adds migrations, flag it instead of racing.
 
+### Multi-tenancy (`org_id`)
+
+`org_id` is the enforced tenant boundary. `supabase/tests/schema_tenancy_lint.sql` hard-fails CI on each of these, so they are structural requirements for every migration, not style preferences:
+
+- **Every new table gets `org_id uuid not null default public.app_current_org_id()`** — the DEFAULT is fail-closed: no authenticated principal resolves NULL, which violates NOT NULL rather than guessing a tenant.
+- **Every org-owned table gets the restrictive isolation policy** (`as restrictive ... using (org_id = (select public.app_current_org_id()))`). It is the isolation floor; permissive policies compose on top as `ORG AND (arms)`, never `(ORG AND arm1) OR arm2`.
+- **No bare `using (true)` / `with check (true)`** on an org-owned table.
+- **Every FK into an org-owned parent is composite** — `(col, org_id) references parent(col, org_id)`. `on delete set null` must name the FK column explicitly, e.g. `on delete set null (calendar_id)`, or it will try to null `org_id` too.
+- **Wrap helper calls in RLS policy expressions as `(select public.helper())`** so the planner evaluates them once per statement (InitPlan). This repo has regressed on it twice. The rule is about policy expressions — inside SECURITY DEFINER function bodies the bare call is fine.
+
+Full rationale, the helper inventory, and the deviations register: [`docs/security/tenancy-model.md`](docs/security/tenancy-model.md).
+
 ### Testing
 
 - pgTAP suites live in `supabase/tests/`. Run them locally through the shared stack's container — each file is wrapped in `begin;`/`rollback;` so it never persists anything:

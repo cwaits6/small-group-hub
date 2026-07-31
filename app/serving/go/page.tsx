@@ -57,11 +57,25 @@ export default async function ServingLinkPage({
 
   // The group is fetched first: its org_id scopes the link-mode read
   // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
-  const { data: group } = await service
+  // supabase-js returns { data: null, error } rather than throwing, so an
+  // uncaptured error is indistinguishable from an absent row and renders as
+  // "expired" with nothing in the logs. Phase 3 moves this surface off the
+  // service-role key, at which point 42501 becomes reachable here.
+  const { data: group, error: groupError } = await service
     .from("member_groups")
     .select("id, name, org_id")
     .eq("id", payload.g)
     .maybeSingle();
+
+  if (groupError) {
+    console.error("Serving link page: group lookup failed for %s:", payload.g, groupError);
+    return (
+      <Message
+        title="Something went wrong"
+        body="We couldn't load this link just now. Please try again in a moment, or sign in to the site to manage your serving Sundays."
+      />
+    );
+  }
 
   if (!group) {
     return (
@@ -82,35 +96,56 @@ export default async function ServingLinkPage({
     );
   }
 
-  const [{ data: profile }, { data: settings }, { data: membership }, { data: signup }] =
-    await Promise.all([
-      service
-        .from("profiles")
-        .select("id, first_name, preferred_name, family_id, role")
-        .eq("id", payload.p)
-        .maybeSingle(),
-      service
-        .from("serving_team_settings")
-        .select("enabled")
-        .eq("group_id", payload.g)
-        .maybeSingle(),
-      service
-        .from("profile_groups")
-        .select("profile_id")
-        .eq("profile_id", payload.p)
-        .eq("group_id", payload.g)
-        .maybeSingle(),
-      service
-        .from("serving_signups")
-        .select(
-          "id, family_id, created_by, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
-        )
-        .eq("group_id", payload.g)
-        .eq("service_date", payload.d)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile, error: profileError },
+    { data: settings, error: settingsError },
+    { data: membership, error: membershipError },
+    { data: signup, error: signupError },
+  ] = await Promise.all([
+    service
+      .from("profiles")
+      .select("id, first_name, preferred_name, family_id, role")
+      .eq("id", payload.p)
+      .maybeSingle(),
+    service
+      .from("serving_team_settings")
+      .select("enabled")
+      .eq("group_id", payload.g)
+      .maybeSingle(),
+    service
+      .from("profile_groups")
+      .select("profile_id")
+      .eq("profile_id", payload.p)
+      .eq("group_id", payload.g)
+      .maybeSingle(),
+    service
+      .from("serving_signups")
+      .select(
+        "id, family_id, created_by, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
+      )
+      .eq("group_id", payload.g)
+      .eq("service_date", payload.d)
+      .maybeSingle(),
+  ]);
 
-  if (!profile || profile.role === "pending" || !group || !settings?.enabled) {
+  const loadError = profileError ?? settingsError ?? membershipError ?? signupError;
+  if (loadError) {
+    console.error(
+      "Serving link page: lookup failed for profile %s, group %s, date %s:",
+      payload.p,
+      payload.g,
+      payload.d,
+      loadError
+    );
+    return (
+      <Message
+        title="Something went wrong"
+        body="We couldn't load this link just now. Please try again in a moment, or sign in to the site to manage your serving Sundays."
+      />
+    );
+  }
+
+  if (!profile || profile.role === "pending" || !settings?.enabled) {
     return (
       <Message
         title="This link has expired"
@@ -150,11 +185,20 @@ export default async function ServingLinkPage({
         .filter(Boolean);
       let familyName: string | null = null;
       if (attendees.length > 1 && signup.family_id) {
-        const { data: family } = await service
+        const { data: family, error: familyError } = await service
           .from("family_units")
           .select("family_name")
           .eq("id", signup.family_id)
           .single();
+        // Non-fatal: the household name only enriches the "already covered"
+        // copy, so a failed read degrades to the attendee names.
+        if (familyError) {
+          console.error(
+            "Serving link page: family lookup failed for %s:",
+            signup.family_id,
+            familyError
+          );
+        }
         familyName = family?.family_name ?? null;
       }
       return (
@@ -168,7 +212,7 @@ export default async function ServingLinkPage({
     // Offer the spouse option when the member has one on file
     let spouseName: string | null = null;
     if (profile.family_id) {
-      const { data: spouse } = await service
+      const { data: spouse, error: spouseError } = await service
         .from("profiles")
         .select("id, first_name, preferred_name")
         .eq("family_id", profile.family_id)
@@ -176,6 +220,15 @@ export default async function ServingLinkPage({
         .neq("id", profile.id)
         .limit(1)
         .maybeSingle();
+      // Non-fatal: the spouse option is an opt-in extra, so a failed read
+      // degrades to not offering it rather than blocking the signup.
+      if (spouseError) {
+        console.error(
+          "Serving link page: spouse lookup failed for family %s:",
+          profile.family_id,
+          spouseError
+        );
+      }
       spouseName = spouse ? spouse.preferred_name || spouse.first_name : null;
     }
 

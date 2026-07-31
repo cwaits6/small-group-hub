@@ -46,6 +46,11 @@ function JoinFormFields() {
       });
 
       if (error) {
+        // This is the product's only public write path and it is anon-only, so
+        // there is no session to debug against. A 42501 here means the org_id
+        // above disagrees with the org the x-two42-org header resolves — see
+        // lib/org.ts and docs/security/tenancy-model.md.
+        console.error("Access request insert failed:", error);
         toast.error("Something went wrong. Please try again.");
         return;
       }

@@ -15,8 +15,13 @@
 --
 -- ON DELETE SET NULL uses PG15's column-list form `set null (<col>)` — the
 -- bare form would try to null org_id too, which is NOT NULL, so deleting
--- the parent would fail at runtime. The pgTAP suite proves org_id survives
--- each of these deletes.
+-- the parent would fail at runtime. This migration creates 15 of them: the
+-- 7 capability/entity references below, plus the 8 attribution references
+-- starting at "Attribution columns whose parent is public.profiles".
+-- tenancy_fk_suite.sql proves org_id survives the delete for the first 7
+-- only; the other 8 are currently unguarded (schema_tenancy_lint.sql
+-- asserts compositeness, not the SET NULL column list). See the FK suite
+-- header for the coverage boundary.
 --
 -- Left alone by design: FKs to auth.users (no org_id there); the
 -- org_id → organizations FKs themselves; organization_members.profile_id →
@@ -131,7 +136,10 @@ alter table public.serving_team_settings
   add constraint serving_team_settings_group_id_fkey
     foreign key (group_id, org_id) references public.member_groups (id, org_id) on delete cascade;
 
--- ── The 7 ON DELETE SET NULL capability/entity references (§3.3) ────────────
+-- ── The 7 capability/entity ON DELETE SET NULL references (§3.3) ────────────
+-- These are the SET NULL relations tenancy_fk_suite.sql exercises one by
+-- one; the 8 attribution ones further down use the same column-list form
+-- but have no runtime test.
 
 -- 1. An invite must not resolve a signup into another org's household.
 alter table public.access_requests
@@ -182,9 +190,14 @@ alter table public.giving_funds
     foreign key (co_steward_id, org_id) references public.profiles (id, org_id)
     on delete set null (co_steward_id);
 
--- ── Attribution columns whose parent is public.profiles ─────────────────────
+-- ── The 8 attribution ON DELETE SET NULL references (parent: profiles) ─────
 -- Lower risk (they render a name, they don't grant access) but composite is
 -- cheap in the same migration. FKs referencing auth.users stay single-column.
+--
+-- These use the same `set null (<col>)` column-list form as the 7 above and
+-- break the same way if it is dropped, but no pgTAP test exercises them —
+-- rewriting one as a bare `on delete set null` keeps CI green and fails in
+-- production on the first delete of the referenced profile.
 
 alter table public.announcements
   drop constraint announcements_author_id_fkey,

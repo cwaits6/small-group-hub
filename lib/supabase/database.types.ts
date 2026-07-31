@@ -691,21 +691,21 @@ export type Database = {
       }
       giving_fund_methods: {
         Row: {
-          custom_handle: string | null
+          custom_handle: string
           display_order: number
           fund_id: string
           method: string
           org_id: string
         }
         Insert: {
-          custom_handle?: string | null
+          custom_handle: string
           display_order?: number
           fund_id: string
           method: string
           org_id?: string
         }
         Update: {
-          custom_handle?: string | null
+          custom_handle?: string
           display_order?: number
           fund_id?: string
           method?: string

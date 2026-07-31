@@ -9,9 +9,8 @@
 -- Owner flow (§5 contract): provisioning creates the org AND an approved
 -- access_requests row for the owner's email BEFORE any auth user exists, so
 -- the owner's subsequent signup resolves fail-closed through
--- handle_new_user(). If a profile with that email already exists (seeds,
--- fixtures), it is re-pinned to the new org here — the deliberate omission
--- the Phase 1 stub documented.
+-- handle_new_user(). A profile with that email that already belongs to
+-- another org is rejected (TN004), never moved — see step 7.
 --
 -- Authorization: SECURITY DEFINER + search_path = '' + REVOKE from
 -- public/anon/authenticated is the WHOLE story. In Phase 2 the only callers
@@ -92,13 +91,29 @@ begin
   insert into public.access_requests (org_id, name, email, status, reviewed_at)
   values (_org_id, _name || ' owner', _owner_email, 'approved', now());
 
-  -- 7. Owner re-pin, for callers whose owner already exists (seeds and
+  -- 7. Owner adoption, for callers whose owner already exists (seeds and
   -- fixtures; a normal Phase-4 owner signs up AFTER provisioning and needs
-  -- none of this). Composite FKs make a cross-org family_id fail loudly
-  -- here rather than move a household silently.
-  update public.profiles set org_id = _org_id where email = _owner_email;
+  -- none of this).
+  --
+  -- A profile that already belongs to a DIFFERENT org is never moved. An
+  -- unscoped `update profiles set org_id = _org_id where email = ...` is a
+  -- cross-tenant write: once Phase 4 exposes a caller, passing a competing
+  -- org's admin email would re-pin that admin into the caller's org — an
+  -- account-takeover primitive that a "who may provision" guard does not
+  -- address. Raise instead, matching handle_new_user()'s TN001/TN002: an
+  -- email that already belongs elsewhere is a conflict for a human to
+  -- resolve, not something to silently resolve by moving the account.
+  if exists (
+    select 1 from public.profiles
+    where email = _owner_email and org_id is distinct from _org_id
+  ) then
+    raise exception 'owner email % already belongs to another organization', _owner_email
+      using errcode = 'TN004';
+  end if;
+
   insert into public.organization_members (org_id, profile_id)
-  select _org_id, id from public.profiles where email = _owner_email
+  select _org_id, id from public.profiles
+  where email = _owner_email and org_id = _org_id
   on conflict do nothing;
 
   return _org_id;
