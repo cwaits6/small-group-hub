@@ -1,3 +1,10 @@
+# [0.24.0](https://github.com/cwaits6/two42/compare/v0.23.0...v0.24.0) (2026-07-31)
+
+
+### Features
+
+* **tenancy:** Phase 1 org spine — organizations, platform_admins, org_id ([#210](https://github.com/cwaits6/two42/issues/210)) ([#297](https://github.com/cwaits6/two42/issues/297)) ([f486773](https://github.com/cwaits6/two42/commit/f486773d29a2d221dc89d913ab9d1a7f4581d077)), closes [#221](https://github.com/cwaits6/two42/issues/221)
+
 # [0.23.0](https://github.com/cwaits6/two42/compare/v0.22.3...v0.23.0) (2026-07-31)
 
 
