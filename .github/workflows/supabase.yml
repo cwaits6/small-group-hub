@@ -3,10 +3,16 @@ name: Supabase
 on:
   pull_request:
     branches: [main]
-    paths: ["supabase/migrations/**"]
+    paths: &supabase_paths
+      [
+        "supabase/migrations/**",
+        "supabase/tests/**",
+        "supabase/seed.sql",
+        "lib/supabase/database.types.ts",
+      ]
   push:
     branches: [main]
-    paths: ["supabase/migrations/**"]
+    paths: *supabase_paths
 
 jobs:
   lint:
@@ -35,6 +41,43 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+  # Tenancy test harness (CWA-7 / #209). Runs entirely against an ephemeral
+  # local Supabase stack: no `supabase link`, no Supabase secrets in env, so
+  # it is safe for fork PRs and can never touch the remote project.
+  pgtap:
+    name: pgTAP tenancy harness (local only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.78.1
+
+      - name: Start local database
+        run: supabase db start
+
+      # supabase/tests/site_settings_rls.sql predates pgTAP (plain SQL, no
+      # TAP output) and would fail pg_prove; every other supabase/tests/*.sql
+      # is discovered automatically so new suites can't be silently skipped.
+      - name: Run pgTAP suite (local only — never --linked)
+        run: |
+          files=()
+          while IFS= read -r -d '' f; do files+=("$f"); done \
+            < <(find supabase/tests -name '*.sql' ! -name 'site_settings_rls.sql' -print0 | sort -z)
+          echo "Running: ${files[*]}"
+          supabase test db "${files[@]}"
+
+      - name: Check generated types are up to date
+        run: |
+          npm run db:types
+          git diff --exit-code lib/supabase/database.types.ts
 
   migrate:
     name: Push migrations & dump schema
