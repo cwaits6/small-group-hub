@@ -20,6 +20,11 @@ create table public.organization_members (
   primary key (org_id, profile_id)
 );
 
+-- The membership-visibility policy and profiles-FK cascade both look up by
+-- profile_id alone, which the (org_id, profile_id) primary key can't serve.
+create index organization_members_profile_id_idx
+  on public.organization_members (profile_id);
+
 alter table public.organizations enable row level security;
 alter table public.organization_members enable row level security;
 
@@ -53,3 +58,10 @@ begin
   return _org_id;
 end;
 $$;
+
+-- Postgres grants EXECUTE to PUBLIC on new functions, and a SECURITY DEFINER
+-- function in public is callable through PostgREST RPC — without this revoke,
+-- any anon/authenticated request could provision orgs. Test/seed SQL runs as
+-- postgres, which bypasses ACLs, so the sole intended write path still works.
+revoke execute on function public.provision_organization(text, uuid)
+  from public, anon, authenticated;
