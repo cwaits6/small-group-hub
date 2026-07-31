@@ -87,10 +87,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "access_requests_invite_token_fkey"
-            columns: ["invite_token"]
+            columns: ["invite_token", "org_id"]
             isOneToOne: false
             referencedRelation: "family_invites"
-            referencedColumns: ["token"]
+            referencedColumns: ["token", "org_id"]
           },
           {
             foreignKeyName: "access_requests_org_id_fkey"
@@ -135,17 +135,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "announcements_author_id_fkey"
-            columns: ["author_id"]
+            columns: ["author_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "announcements_author_id_fkey"
-            columns: ["author_id"]
+            columns: ["author_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "announcements_org_id_fkey"
@@ -191,17 +191,17 @@ export type Database = {
           },
           {
             foreignKeyName: "calendar_subscription_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
+            columns: ["user_id", "org_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "calendar_subscription_tokens_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
+            columns: ["user_id", "org_id"]
+            isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -243,17 +243,17 @@ export type Database = {
           },
           {
             foreignKeyName: "class_teachers_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: true
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "class_teachers_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: true
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -285,17 +285,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "event_calendars_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "event_calendars_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "event_calendars_org_id_fkey"
@@ -385,24 +385,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "events_calendar_id_fkey"
-            columns: ["calendar_id"]
+            columns: ["calendar_id", "org_id"]
             isOneToOne: false
             referencedRelation: "event_calendars"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "events_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "events_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "events_org_id_fkey"
@@ -413,10 +413,10 @@ export type Database = {
           },
           {
             foreignKeyName: "events_series_id_fkey"
-            columns: ["series_id"]
+            columns: ["series_id", "org_id"]
             isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -460,31 +460,31 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "family_invites_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_invites_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory_full"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_invites_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_units"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_invites_family_member_id_fkey"
-            columns: ["family_member_id"]
+            columns: ["family_member_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_members"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_invites_org_id_fkey"
@@ -550,24 +550,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "family_members_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_members_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory_full"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_members_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_units"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "family_members_org_id_fkey"
@@ -675,37 +675,37 @@ export type Database = {
           },
           {
             foreignKeyName: "feedback_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "feedback_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
       giving_fund_methods: {
         Row: {
-          custom_handle: string
+          custom_handle: string | null
           display_order: number
           fund_id: string
           method: string
           org_id: string
         }
         Insert: {
-          custom_handle: string
+          custom_handle?: string | null
           display_order?: number
           fund_id: string
           method: string
           org_id?: string
         }
         Update: {
-          custom_handle?: string
+          custom_handle?: string | null
           display_order?: number
           fund_id?: string
           method?: string
@@ -714,10 +714,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "giving_fund_methods_fund_id_fkey"
-            columns: ["fund_id"]
+            columns: ["fund_id", "org_id"]
             isOneToOne: false
             referencedRelation: "giving_funds"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_fund_methods_org_id_fkey"
@@ -777,31 +777,31 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "giving_funds_co_steward_id_fkey"
-            columns: ["co_steward_id"]
+            columns: ["co_steward_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_funds_co_steward_id_fkey"
-            columns: ["co_steward_id"]
+            columns: ["co_steward_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_funds_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_funds_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_funds_org_id_fkey"
@@ -812,17 +812,17 @@ export type Database = {
           },
           {
             foreignKeyName: "giving_funds_steward_id_fkey"
-            columns: ["steward_id"]
+            columns: ["steward_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "giving_funds_steward_id_fkey"
-            columns: ["steward_id"]
+            columns: ["steward_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -910,17 +910,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lectures_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "lectures_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "lectures_org_id_fkey"
@@ -931,10 +931,10 @@ export type Database = {
           },
           {
             foreignKeyName: "lectures_series_id_fkey"
-            columns: ["series_id"]
+            columns: ["series_id", "org_id"]
             isOneToOne: false
             referencedRelation: "lecture_series"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1163,24 +1163,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prayer_call_sessions_event_id_fkey"
-            columns: ["event_id"]
+            columns: ["event_id", "org_id"]
             isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_call_sessions_leader_id_fkey"
-            columns: ["leader_id"]
+            columns: ["leader_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_call_sessions_leader_id_fkey"
-            columns: ["leader_id"]
+            columns: ["leader_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_call_sessions_org_id_fkey"
@@ -1231,17 +1231,17 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prayer_requests_author_id_fkey"
-            columns: ["author_id"]
+            columns: ["author_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_requests_author_id_fkey"
-            columns: ["author_id"]
+            columns: ["author_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_requests_org_id_fkey"
@@ -1281,31 +1281,31 @@ export type Database = {
           },
           {
             foreignKeyName: "prayer_responses_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_responses_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_responses_request_id_fkey"
-            columns: ["request_id"]
+            columns: ["request_id", "org_id"]
             isOneToOne: false
             referencedRelation: "prayer_requests"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "prayer_responses_request_id_fkey"
-            columns: ["request_id"]
+            columns: ["request_id", "org_id"]
             isOneToOne: false
             referencedRelation: "prayer_wall"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1337,10 +1337,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profile_groups_group_id_fkey"
-            columns: ["group_id"]
+            columns: ["group_id", "org_id"]
             isOneToOne: false
             referencedRelation: "member_groups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profile_groups_org_id_fkey"
@@ -1351,17 +1351,17 @@ export type Database = {
           },
           {
             foreignKeyName: "profile_groups_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profile_groups_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1504,24 +1504,24 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory_full"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_units"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profiles_org_id_fkey"
@@ -1560,10 +1560,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "rsvps_event_id_fkey"
-            columns: ["event_id"]
+            columns: ["event_id", "org_id"]
             isOneToOne: false
             referencedRelation: "events"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "rsvps_org_id_fkey"
@@ -1574,17 +1574,17 @@ export type Database = {
           },
           {
             foreignKeyName: "rsvps_user_id_fkey"
-            columns: ["user_id"]
+            columns: ["user_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "rsvps_user_id_fkey"
-            columns: ["user_id"]
+            columns: ["user_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1622,10 +1622,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "serving_broadcasts_group_id_fkey"
-            columns: ["group_id"]
+            columns: ["group_id", "org_id"]
             isOneToOne: false
             referencedRelation: "member_groups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_broadcasts_org_id_fkey"
@@ -1636,17 +1636,17 @@ export type Database = {
           },
           {
             foreignKeyName: "serving_broadcasts_sent_by_fkey"
-            columns: ["sent_by"]
+            columns: ["sent_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_broadcasts_sent_by_fkey"
-            columns: ["sent_by"]
+            columns: ["sent_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1676,24 +1676,24 @@ export type Database = {
           },
           {
             foreignKeyName: "serving_signup_attendees_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signup_attendees_profile_id_fkey"
-            columns: ["profile_id"]
+            columns: ["profile_id", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signup_attendees_signup_id_fkey"
-            columns: ["signup_id"]
+            columns: ["signup_id", "org_id"]
             isOneToOne: false
             referencedRelation: "serving_signups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
         ]
       }
@@ -1728,45 +1728,45 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "serving_signups_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_created_by_fkey"
-            columns: ["created_by"]
+            columns: ["created_by", "org_id"]
             isOneToOne: false
             referencedRelation: "profiles_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory_full"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_units"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_group_id_fkey"
-            columns: ["group_id"]
+            columns: ["group_id", "org_id"]
             isOneToOne: false
             referencedRelation: "member_groups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_signups_org_id_fkey"
@@ -1811,10 +1811,10 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "serving_team_settings_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: true
+            columns: ["group_id", "org_id"]
+            isOneToOne: false
             referencedRelation: "member_groups"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "serving_team_settings_org_id_fkey"
@@ -1871,6 +1871,7 @@ export type Database = {
           created_at: string | null
           family_name: string | null
           id: string | null
+          org_id: string | null
           phone_home: string | null
           photo_url: string | null
           postal_code: string | null
@@ -1885,6 +1886,7 @@ export type Database = {
           created_at?: string | null
           family_name?: string | null
           id?: string | null
+          org_id?: string | null
           phone_home?: never
           photo_url?: string | null
           postal_code?: never
@@ -1899,13 +1901,22 @@ export type Database = {
           created_at?: string | null
           family_name?: string | null
           id?: string | null
+          org_id?: string | null
           phone_home?: never
           photo_url?: string | null
           postal_code?: never
           state?: never
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "family_units_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       families_directory_full: {
         Row: {
@@ -1918,6 +1929,7 @@ export type Database = {
           family_name: string | null
           id: string | null
           members: Json | null
+          org_id: string | null
           phone_home: string | null
           photo_url: string | null
           postal_code: string | null
@@ -1934,6 +1946,7 @@ export type Database = {
           family_name?: string | null
           id?: string | null
           members?: never
+          org_id?: string | null
           phone_home?: never
           photo_url?: string | null
           postal_code?: never
@@ -1950,13 +1963,22 @@ export type Database = {
           family_name?: string | null
           id?: string | null
           members?: never
+          org_id?: string | null
           phone_home?: never
           photo_url?: string | null
           postal_code?: never
           state?: never
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "family_units_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prayer_wall: {
         Row: {
@@ -1971,11 +1993,20 @@ export type Database = {
           is_answered: boolean | null
           last_name: string | null
           mine: boolean | null
+          org_id: string | null
           praying_count: number | null
           preferred_name: string | null
           visible_to_warriors: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prayer_requests_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles_directory: {
         Row: {
@@ -1997,6 +2028,7 @@ export type Database = {
           id: string | null
           last_name: string | null
           occupation: string | null
+          org_id: string | null
           phone_home: string | null
           phone_mobile: string | null
           phone_work: string | null
@@ -2009,23 +2041,30 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "families_directory_full"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "org_id"]
           },
           {
             foreignKeyName: "profiles_family_id_fkey"
-            columns: ["family_id"]
+            columns: ["family_id", "org_id"]
             isOneToOne: false
             referencedRelation: "family_units"
+            referencedColumns: ["id", "org_id"]
+          },
+          {
+            foreignKeyName: "profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2033,6 +2072,7 @@ export type Database = {
     }
     Functions: {
       app_current_org_id: { Args: never; Returns: string }
+      app_request_org_id: { Args: never; Returns: string }
       current_family_id: { Args: never; Returns: string }
       get_own_email: { Args: never; Returns: string }
       get_own_role: { Args: never; Returns: string }
@@ -2049,7 +2089,7 @@ export type Database = {
       is_platform_admin: { Args: never; Returns: boolean }
       is_prayer_warrior: { Args: never; Returns: boolean }
       provision_organization: {
-        Args: { _name: string; _owner_id: string }
+        Args: { _name: string; _owner_email: string; _slug: string }
         Returns: string
       }
     }
