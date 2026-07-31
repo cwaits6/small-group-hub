@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_ORG_ID } from "@/lib/org";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
@@ -35,6 +36,10 @@ function JoinFormFields() {
         name,
         email,
         message: message || null,
+        // Anon insert: the fail-closed org_id DEFAULT resolves to NULL
+        // without a session, so the org is passed explicitly (Phase 1
+        // interim — see lib/org.ts).
+        org_id: DEFAULT_ORG_ID,
         // Store the family invite token on the access request so that when
         // the user creates their account the family link can be established.
         ...(inviteToken ? { invite_token: inviteToken } : {}),

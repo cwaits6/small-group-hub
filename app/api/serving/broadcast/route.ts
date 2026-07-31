@@ -6,6 +6,7 @@ import { getServingLinkMode } from "@/lib/serving/config";
 import { createServingToken } from "@/lib/serving/links";
 import { upcomingSundays } from "@/lib/serving/sundays";
 import { sendServingBroadcastEmail } from "@/lib/email/serving";
+import type { Profile } from "@/lib/types";
 
 /**
  * Leader "Email the team" broadcast: emails every team member the Sundays
@@ -96,15 +97,10 @@ export async function POST(request: Request) {
   const members = (memberRows ?? [])
     .map(
       (r) =>
-        r.profiles as unknown as {
-          id: string;
-          first_name: string | null;
-          last_name: string | null;
-          preferred_name: string | null;
-          email: string | null;
-          role: string;
-          email_announcements: boolean;
-        } | null
+        r.profiles as unknown as Pick<
+          Profile,
+          "id" | "first_name" | "last_name" | "preferred_name" | "email" | "role" | "email_announcements"
+        > | null
     )
     .filter(
       (p): p is NonNullable<typeof p> =>

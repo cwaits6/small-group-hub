@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-    paths:
+    paths: &semgrep_paths
       - '**'
       - '!**.md'
       - '!docs/**'
@@ -24,20 +24,7 @@ on:
   pull_request:
     branches:
       - main
-    paths:
-      - '**'
-      - '!**.md'
-      - '!docs/**'
-      - '!LICENSE'
-      - '!.claude/**'
-      - '!.agents/**'
-      - '!.archon/**'
-      - '!.zap/**'
-      - '!.coderabbit.yaml'
-      - '!renovate.json5'
-      - '!.releaserc.json'
-      - '!.gitignore'
-      - '!.env.example'
+    paths: *semgrep_paths
 
 permissions:
   contents: write

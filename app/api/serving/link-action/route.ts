@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { displayName } from "@/lib/names";
+import { DEFAULT_ORG_ID } from "@/lib/org";
 import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { isValidServiceDate } from "@/lib/serving/sundays";
@@ -108,6 +109,10 @@ export async function POST(request: Request) {
         service_date: payload.d,
         family_id: profile.family_id,
         created_by: profile.id,
+        // Service-role insert: the fail-closed org_id DEFAULT resolves to
+        // NULL without a session, so the org is passed explicitly (Phase 1
+        // interim — see lib/org.ts).
+        org_id: DEFAULT_ORG_ID,
       })
       .select()
       .single();
@@ -125,7 +130,13 @@ export async function POST(request: Request) {
 
     const { error: attendeeError } = await service
       .from("serving_signup_attendees")
-      .insert(attendees.map((a) => ({ signup_id: signup.id, profile_id: a.id })));
+      .insert(
+        attendees.map((a) => ({
+          signup_id: signup.id,
+          profile_id: a.id,
+          org_id: DEFAULT_ORG_ID,
+        }))
+      );
     if (attendeeError) {
       console.error("Signed-link attendee insert failed:", attendeeError);
       await service.from("serving_signups").delete().eq("id", signup.id);

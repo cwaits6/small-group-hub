@@ -71,7 +71,7 @@ Tokens come in two layers.
 
 **1. Product tokens — fixed.** Defined as CSS custom properties in `app/globals.css` (`@theme`): the Fraunces wordmark, shell chrome, structural neutrals, spacing, radii, and semantic colors. Not overridable by a tenant.
 
-**2. Tenant tokens — per-org (planned).** Not yet implemented — the schema/API and runtime below describe the intended design, not current behavior. The plan is to store these on an **`organizations.branding`** (jsonb) column:
+**2. Tenant tokens — per-org (planned).** The **`organizations.branding`** (jsonb) column exists in the schema (Phase 1, #210) but nothing reads or applies it yet — the API and runtime below describe the intended design, not current behavior:
 
 | Key | Meaning |
 |---|---|
