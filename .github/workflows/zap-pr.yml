@@ -4,6 +4,26 @@ on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
+    # Only scan PRs that can affect the deployed app. Later patterns override
+    # earlier ones: .github/** is excluded as a whole, but this workflow and its
+    # comment script are re-included so changes to the scan itself still run it.
+    # .zap/ (suppression rules) is intentionally NOT excluded.
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.github/**'
+      - '.github/workflows/zap-pr.yml'
+      - '.github/scripts/zap_pr_comment.py'
+      - '!.claude/**'
+      - '!.agents/**'
+      - '!.archon/**'
+      - '!.coderabbit.yaml'
+      - '!renovate.json5'
+      - '!.releaserc.json'
+      - '!.gitignore'
+      - '!.env.example'
   workflow_dispatch:
     inputs:
       target_url:
