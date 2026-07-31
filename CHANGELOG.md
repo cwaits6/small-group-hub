@@ -1,3 +1,10 @@
+# [0.23.0](https://github.com/cwaits6/two42/compare/v0.22.3...v0.23.0) (2026-07-31)
+
+
+### Features
+
+* **tenancy:** add pgTAP tenancy test harness and service-role inventory ([#293](https://github.com/cwaits6/two42/issues/293)) ([6ebf310](https://github.com/cwaits6/two42/commit/6ebf3109989a09bddb67961d0b32d2e663eb73a4)), closes [#209](https://github.com/cwaits6/two42/issues/209) [#209](https://github.com/cwaits6/two42/issues/209)
+
 ## [0.22.3](https://github.com/cwaits6/two42/compare/v0.22.2...v0.22.3) (2026-07-30)
 
 
