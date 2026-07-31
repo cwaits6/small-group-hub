@@ -7,7 +7,24 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!;
+// Service key resolution. The platform reserves the SUPABASE_ prefix for
+// its own injected vars, so SUPABASE_SECRET_KEY can never be set manually
+// via `supabase secrets set`: on hosted projects with new-style API keys it
+// arrives as the JSON map SUPABASE_SECRET_KEYS (keyed by key name, "default"
+// unless renamed); legacy projects and the local CLI stack inject
+// SUPABASE_SERVICE_ROLE_KEY instead.
+function resolveServiceKey(): string {
+  const direct = Deno.env.get("SUPABASE_SECRET_KEY");
+  if (direct) return direct;
+  const map = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (map) {
+    const keys = JSON.parse(map) as Record<string, string>;
+    const key = keys["default"] ?? Object.values(keys)[0];
+    if (key) return key;
+  }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+}
+const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
