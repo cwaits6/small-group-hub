@@ -37,20 +37,46 @@ export async function POST(request: Request) {
   }
 
   // Team must exist and have serving signups enabled
-  const [{ data: group }, { data: settings }, { data: profile }] =
-    await Promise.all([
-      supabase.from("member_groups").select("id, name, org_id").eq("id", groupId).single(),
-      supabase
-        .from("serving_team_settings")
-        .select("enabled")
-        .eq("group_id", groupId)
-        .maybeSingle(),
-      supabase
-        .from("profiles")
-        .select("id, first_name, last_name, preferred_name, family_id")
-        .eq("id", user.id)
-        .single(),
-    ]);
+  const [
+    { data: group, error: groupError },
+    { data: settings, error: settingsError },
+    { data: profile, error: profileError },
+  ] = await Promise.all([
+    supabase.from("member_groups").select("id, name, org_id").eq("id", groupId).single(),
+    supabase
+      .from("serving_team_settings")
+      .select("enabled")
+      .eq("group_id", groupId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("id, first_name, last_name, preferred_name, family_id")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  // A failed read (including an RLS denial) must surface as a 500, not
+  // masquerade as "not enabled" (404) below. PGRST116 is .single() finding
+  // zero rows — genuinely missing data, which the existing check handles.
+  const lookupError = (
+    [
+      ["group", groupError],
+      ["settings", settingsError],
+      ["profile", profileError],
+    ] as const
+  ).find(([, e]) => e && e.code !== "PGRST116");
+  if (lookupError) {
+    console.error(
+      "Serving signup %s lookup failed for group %s:",
+      lookupError[0],
+      groupId,
+      lookupError[1]
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   if (!group || !settings?.enabled || !profile) {
     return NextResponse.json(

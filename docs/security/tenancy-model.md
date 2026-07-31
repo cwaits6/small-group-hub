@@ -60,8 +60,10 @@ create policy "org isolation" on public.<table>
 Postgres ANDs restrictive policies with the OR-combined permissive ones, so
 isolation holds even if a permissive policy — today's or a future one —
 forgets its org predicate. `WITH CHECK` also blocks re-tagging a row's
-`org_id`. `organizations` (the tenant root, no `org_id`) is pinned by
-primary key instead.
+`org_id`. `organizations` (the tenant root, no `org_id`) carries the same
+restrictive floor with row visibility restricted by
+`id = (select public.app_request_org_id())` — its own row *is* the org, so
+the primary key stands in for `org_id`.
 
 The permissive policies are additionally rewritten as
 `ORG AND (role arms)` — org predicate factored out front exactly once — for
@@ -83,16 +85,17 @@ Every FK whose parent is an org-owned table is composite:
 reference a parent in another org, structurally. `ON DELETE SET NULL`
 relations use PG ≥ 15's column-list form `set null (<col>)` so `org_id`
 (NOT NULL) survives the parent's deletion. There are fifteen such
-relations; the pgTAP FK suite proves this for the seven capability/entity
-ones. The remaining eight are attribution columns whose parent is
-`profiles` (`author_id`, `created_by`, `profile_id`, `leader_id`,
-`sent_by`) — they use the same form, but no test exercises them and the
-schema lint asserts compositeness rather than the SET NULL column list, so
-dropping the column list on one of those would pass CI. FKs referencing
-`auth.users` cannot
-be composite (no `org_id` there) and `organization_members.profile_id` is
-deliberately single-column (the membership org is independent of the
-profile's pinned org — the Phase 4 platform-admin seam).
+relations; the pgTAP FK suite proves the runtime behavior for the seven
+capability/entity ones, and the schema lint structurally asserts — for
+every FK, current and future — that a `SET NULL` action on an
+`org_id`-carrying FK names a column list excluding `org_id`, so dropping
+the column list on any of them fails CI. FKs referencing `auth.users`
+cannot be composite (no `org_id` there). `organization_members.profile_id`
+is deliberately single-column, and is the composite-FK check's one named
+exemption (`organization_members_profile_id_fkey` in
+`schema_tenancy_lint.sql`): the membership org is intentionally independent
+of the profile's pinned org — the seam the Phase 4 platform-admin
+authorization contract builds on.
 
 ## Signup and provisioning contracts
 
@@ -135,13 +138,18 @@ probe:
    referencing `org_id`;
 2. no policy on an org-owned table has a bare `true` predicate;
 3. every FK into an org-owned parent is composite on `org_id`;
-4. every `SECURITY DEFINER` function reading an org-owned table references
+4. every `ON DELETE SET NULL` on an `org_id`-carrying FK names a column
+   list that excludes `org_id`;
+5. every `SECURITY DEFINER` function reading an org-owned table references
    `org_id`;
 
 plus the Phase 0/1 checks (RLS enabled, `org_id` present, NOT NULL, the
 exact `app_current_org_id()` default). The only remaining allowlist is for
 local-stack stray tables that exist in no migration; the two by-design
-exemptions (`organizations`, `platform_admins`) are structural, not data.
+table exemptions (`organizations`, `platform_admins`) are structural, not
+data, and the composite-FK check carries the one named FK exemption
+documented above (`organization_members_profile_id_fkey` — the Phase 4
+platform seam).
 
 ## Known limits (accepted, tracked)
 

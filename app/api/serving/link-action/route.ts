@@ -5,6 +5,7 @@ import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { isValidServiceDate } from "@/lib/serving/sundays";
 import {
+  findSpouse,
   notifyLeadersOfCancel,
   resolveSignupLabel,
   sendSignupConfirmation,
@@ -140,23 +141,9 @@ export async function POST(request: Request) {
 
     const attendees: NamedProfile[] = [profile];
     if (includeSpouse && profile.family_id) {
-      const { data: spouse, error: spouseError } = await service
-        .from("profiles")
-        .select("id, first_name, last_name, preferred_name")
-        .eq("family_id", profile.family_id)
-        .in("relationship", ["primary", "spouse"])
-        .neq("id", profile.id)
-        .limit(1)
-        .maybeSingle();
-      // Non-fatal: the spouse is an opt-in extra, so a failed read degrades to
-      // signing up the member alone rather than failing the whole action.
-      if (spouseError) {
-        console.error(
-          "Signed-link spouse lookup failed for family %s:",
-          profile.family_id,
-          spouseError
-        );
-      }
+      // findSpouse is non-fatal: a failed read degrades to signing up the
+      // member alone rather than failing the whole action.
+      const spouse = await findSpouse(service, profile.family_id, profile.id);
       if (spouse) attendees.push(spouse);
     }
 

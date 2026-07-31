@@ -5,7 +5,7 @@ import { siteConfig } from "@/lib/config";
 import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { formatServiceDate, isValidServiceDate } from "@/lib/serving/sundays";
-import { signupDisplayName } from "@/lib/serving/display";
+import { findSpouse, resolveSignupLabel } from "@/lib/serving/server";
 import { LinkActionConfirm } from "@/components/serving/LinkActionConfirm";
 
 export const metadata = { title: `Serving | ${siteConfig.name}` };
@@ -183,52 +183,28 @@ export default async function ServingLinkPage({
           preferred_name: string | null;
         })
         .filter(Boolean);
-      let familyName: string | null = null;
-      if (attendees.length > 1 && signup.family_id) {
-        const { data: family, error: familyError } = await service
-          .from("family_units")
-          .select("family_name")
-          .eq("id", signup.family_id)
-          .single();
-        // Non-fatal: the household name only enriches the "already covered"
-        // copy, so a failed read degrades to the attendee names.
-        if (familyError) {
-          console.error(
-            "Serving link page: family lookup failed for %s:",
-            signup.family_id,
-            familyError
-          );
-        }
-        familyName = family?.family_name ?? null;
-      }
+      // resolveSignupLabel is non-fatal: the household name only enriches
+      // the "already covered" copy, so a failed read degrades to the
+      // attendee names.
+      const coveredLabel = await resolveSignupLabel(
+        service,
+        attendees,
+        signup.family_id
+      );
       return (
         <Message
           title="That Sunday is covered"
-          body={`${signupDisplayName(attendees, familyName)} already has ${dateLabel} — thank you for offering! Check the serving page for other open Sundays.`}
+          body={`${coveredLabel} already has ${dateLabel} — thank you for offering! Check the serving page for other open Sundays.`}
         />
       );
     }
 
-    // Offer the spouse option when the member has one on file
+    // Offer the spouse option when the member has one on file. findSpouse is
+    // non-fatal: a failed read degrades to not offering the option rather
+    // than blocking the signup.
     let spouseName: string | null = null;
     if (profile.family_id) {
-      const { data: spouse, error: spouseError } = await service
-        .from("profiles")
-        .select("id, first_name, preferred_name")
-        .eq("family_id", profile.family_id)
-        .in("relationship", ["primary", "spouse"])
-        .neq("id", profile.id)
-        .limit(1)
-        .maybeSingle();
-      // Non-fatal: the spouse option is an opt-in extra, so a failed read
-      // degrades to not offering it rather than blocking the signup.
-      if (spouseError) {
-        console.error(
-          "Serving link page: spouse lookup failed for family %s:",
-          profile.family_id,
-          spouseError
-        );
-      }
+      const spouse = await findSpouse(service, profile.family_id, profile.id);
       spouseName = spouse ? spouse.preferred_name || spouse.first_name : null;
     }
 

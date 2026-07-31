@@ -10,13 +10,13 @@
 --      would try to null org_id and blow up on NOT NULL).
 --
 -- Coverage boundary: 20260731000013_composite_fks.sql creates 15 SET NULL
--- relations — the 7 capability/entity ones asserted below, plus 8
--- attribution ones (announcements.author_id, feedback.profile_id, the
--- created_by / leader_id / sent_by columns) that nothing here or in
--- schema_tenancy_lint.sql exercises: the lint asserts compositeness, not
--- the SET NULL column list. Closing that gap wants a structural check that
--- every FK with confdeltype = 'n' names a non-org_id column list, which
--- would cover all 15 plus any added later.
+-- relations — the 7 capability/entity ones asserted below get their runtime
+-- behavior proven here; the remaining 8 attribution ones
+-- (announcements.author_id, feedback.profile_id, the created_by /
+-- leader_id / sent_by columns) are covered structurally by
+-- schema_tenancy_lint.sql's check 3b, which asserts every FK with
+-- confdeltype = 'n' whose referencing columns include org_id names a
+-- column list excluding org_id — all 15 plus any added later.
 --
 -- Exhaustive composite-ness of every FK is a structural invariant asserted
 -- by schema_tenancy_lint.sql; this file proves the runtime behavior on

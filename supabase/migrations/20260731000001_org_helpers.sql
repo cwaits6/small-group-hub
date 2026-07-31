@@ -27,18 +27,20 @@ $$;
 comment on function public.app_current_org_id() is
   'Org of the calling principal, resolved from their own profiles row only. NULL for anon/service callers — fail-closed by construction. Wrap call sites as (select public.app_current_org_id()) so the planner evaluates it once per statement (InitPlan).';
 
--- Org this HTTP request is *about*. Prefers the authenticated principal, so
--- a logged-in user can never widen (or switch) their own scope by sending a
--- header. Falls back to host/slug resolution via the x-two42-org request
--- header only for anonymous callers — and anon permissive policies only ever
--- expose orgs' already-public content, so the header selects among public
--- surfaces, never grants access.
+-- Org this HTTP request is *about*. Branches on the presence of an
+-- authenticated principal, not on whether their org resolved: a logged-in
+-- user can never widen (or switch) their own scope by sending a header —
+-- including a JWT whose profiles row is gone, which resolves NULL and fails
+-- closed rather than falling back to header resolution. Host/slug resolution
+-- via the x-two42-org request header applies only to anonymous callers — and
+-- anon permissive policies only ever expose orgs' already-public content, so
+-- the header selects among public surfaces, never grants access.
 create or replace function public.app_request_org_id() returns uuid
   language sql stable security definer set search_path = ''
 as $$
-  select coalesce(
-    (select public.app_current_org_id()),
-    (select o.id from public.organizations o
+  select case
+    when (select auth.uid()) is not null then (select public.app_current_org_id())
+    else (select o.id from public.organizations o
       where o.slug = nullif(
         -- request.headers is only set (to a JSON object) by PostgREST; in
         -- any other execution context it is unset or empty, and the nullif
@@ -46,7 +48,7 @@ as $$
         -- the fail-closed contract.
         nullif(current_setting('request.headers', true), '')::json
           ->> 'x-two42-org', ''))
-  );
+  end;
 $$;
 
 comment on function public.app_request_org_id() is

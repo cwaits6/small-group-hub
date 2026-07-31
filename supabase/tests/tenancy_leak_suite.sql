@@ -175,6 +175,12 @@ begin
       on tb.table_schema = c.table_schema and tb.table_name = c.table_name
     where c.table_schema = 'public' and c.column_name = 'org_id'
       and tb.table_type = 'BASE TABLE'
+      -- Local-stack stray (mirrors schema_tenancy_lint.sql's
+      -- tenancy_local_strays): exists on the shared local dev stack only,
+      -- in no migration on this branch, so CI's migrations-built database
+      -- (the actual gate) never contains it. Excluded here so the
+      -- completeness gate stays meaningful on local runs too.
+      and c.table_name <> 'payment_handles'
     order by 1
   loop
     execute format('select count(*) from public.%I where org_id = $1', t)

@@ -269,7 +269,6 @@ begin
   exception when others then
     a_result := 'raised ' || sqlstate;
   end;
-  perform set_config('request.jwt.claims', json_build_object('sub', current_setting('su.user_meta_user'))::text, true);
   begin
     -- user-meta@ landed in org A, so it cannot stand in for an org B
     -- principal; query as the app-meta user, who resolved into org B.

@@ -91,30 +91,25 @@ begin
   insert into public.access_requests (org_id, name, email, status, reviewed_at)
   values (_org_id, _name || ' owner', _owner_email, 'approved', now());
 
-  -- 7. Owner adoption, for callers whose owner already exists (seeds and
-  -- fixtures; a normal Phase-4 owner signs up AFTER provisioning and needs
-  -- none of this).
-  --
-  -- A profile that already belongs to a DIFFERENT org is never moved. An
-  -- unscoped `update profiles set org_id = _org_id where email = ...` is a
-  -- cross-tenant write: once Phase 4 exposes a caller, passing a competing
-  -- org's admin email would re-pin that admin into the caller's org — an
-  -- account-takeover primitive that a "who may provision" guard does not
-  -- address. Raise instead, matching handle_new_user()'s TN001/TN002: an
-  -- email that already belongs elsewhere is a conflict for a human to
-  -- resolve, not something to silently resolve by moving the account.
+  -- 7. The owner email must not already have a profile. The org created
+  -- above holds no profiles yet, so ANY existing profile with this email
+  -- necessarily belongs to another org — and a profile is never moved
+  -- between orgs. An unscoped `update profiles set org_id = _org_id where
+  -- email = ...` would be a cross-tenant write: once Phase 4 exposes a
+  -- caller, passing a competing org's admin email would re-pin that admin
+  -- into the caller's org — an account-takeover primitive that a "who may
+  -- provision" guard does not address. Raise instead, matching
+  -- handle_new_user()'s TN001/TN002: an email that already belongs
+  -- elsewhere is a conflict for a human to resolve, not something to
+  -- silently resolve by moving the account. The owner's profiles and
+  -- organization_members rows are created by handle_new_user() when they
+  -- sign up AFTER provisioning, through the approved access request above.
   if exists (
-    select 1 from public.profiles
-    where email = _owner_email and org_id is distinct from _org_id
+    select 1 from public.profiles where email = _owner_email
   ) then
     raise exception 'owner email % already belongs to another organization', _owner_email
       using errcode = 'TN004';
   end if;
-
-  insert into public.organization_members (org_id, profile_id)
-  select _org_id, id from public.profiles
-  where email = _owner_email and org_id = _org_id
-  on conflict do nothing;
 
   return _org_id;
 end;

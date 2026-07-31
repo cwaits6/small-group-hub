@@ -3,7 +3,10 @@
 Implementation plan for [#211](https://github.com/cwaits6/two42/issues/211) (CWA-9),
 Phase 2 of the multi-tenancy rearchitecture (epic [#209](https://github.com/cwaits6/two42/issues/209)–[#214](https://github.com/cwaits6/two42/issues/214)).
 
-**Status:** plan only. No migrations, no app code, no CI changes in this branch.
+**Status:** implemented. This branch (PR #302) carries the Phase 2 migrations,
+application code, and CI changes built from this plan; the document is kept as
+the design record. Where the implementation diverged (e.g. the final
+`app_request_org_id()` shape below), the migrations are the source of truth.
 
 ---
 
@@ -12,8 +15,8 @@ Phase 2 of the multi-tenancy rearchitecture (epic [#209](https://github.com/cwai
 | Phase | Issue | Owns |
 |---|---|---|
 | 0 (done) | #209 | pgTAP tenancy harness (`schema_tenancy_lint`, `tenancy_leak_suite`), stub `organizations` / `organization_members` / `provision_organization()`, service-role inventory |
-| 1 (in flight, `feature/cwa-8`) | #210 | Org spine: `organizations` + `platform_admins`, `org_id` on ~27 tables with `DEFAULT app_current_org_id()`, backfill to a fixed org-#1 UUID, re-scoped PKs/uniques, temporary legacy global uniques, org-leading indexes |
-| **2 (this plan)** | **#211** | **Make `org_id` the enforced boundary: org-aware helpers, RLS rewrite, composite FKs, fail-closed `handle_new_user()`, real `provision_organization()`** |
+| 1 (done, PR #297) | #210 | Org spine: `organizations` + `platform_admins`, `org_id` on ~27 tables with `DEFAULT app_current_org_id()`, backfill to a fixed org-#1 UUID, re-scoped PKs/uniques, temporary legacy global uniques, org-leading indexes |
+| **2 (this plan — implemented in this branch)** | **#211** | **Make `org_id` the enforced boundary: org-aware helpers, RLS rewrite, composite FKs, fail-closed `handle_new_user()`, real `provision_organization()`** |
 | 3 | #212 | Service-role call sites, signed tokens, branding → DB, email, storage |
 | 4 | #213 | Onboarding, platform admin, public routes, tenant-#2 gate |
 | 5 | #214 | Custom domains, per-org email, private storage, billing |
@@ -68,19 +71,22 @@ as $$
   select org_id from public.profiles where id = (select auth.uid());
 $$;
 
--- Org this HTTP request is *about*. Prefers the authenticated principal, so a
--- logged-in user can never widen their own scope by sending a header. Falls
--- back to host/slug resolution only for anonymous callers, and only ever
--- selects among orgs' already-public content.
+-- Org this HTTP request is *about*. Branches on the presence of an
+-- authenticated principal, not on whether their org resolved: a logged-in
+-- user can never widen their own scope by sending a header — including a JWT
+-- whose profiles row is gone, which resolves NULL and fails closed rather
+-- than falling back to header resolution. Host/slug resolution applies only
+-- to anonymous callers, and only ever selects among orgs' already-public
+-- content.
 create or replace function public.app_request_org_id() returns uuid
   language sql stable security definer set search_path = ''
 as $$
-  select coalesce(
-    (select public.app_current_org_id()),
-    (select o.id from public.organizations o
+  select case
+    when (select auth.uid()) is not null then (select public.app_current_org_id())
+    else (select o.id from public.organizations o
       where o.slug = nullif(
         current_setting('request.headers', true)::json ->> 'x-two42-org', ''))
-  );
+  end;
 $$;
 ```
 

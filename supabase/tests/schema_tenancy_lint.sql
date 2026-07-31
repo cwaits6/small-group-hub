@@ -30,7 +30,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(33);
 
 -- Structural, permanent exemptions — named once, joined by every check.
 create temporary table tenancy_root_tables on commit drop as
@@ -73,17 +73,25 @@ alter table public.tenancy_probe_wrong_default enable row level security;
 -- isolation policy AND carries a bare-true permissive policy.
 create table public.tenancy_probe_rls_shape (
   id uuid primary key default gen_random_uuid(),
-  org_id uuid not null default public.app_current_org_id()
+  org_id uuid not null default public.app_current_org_id(),
+  -- Referenced by the bare-SET NULL probe FK below.
+  unique (id, org_id)
 );
 alter table public.tenancy_probe_rls_shape enable row level security;
 create policy "probe bare true" on public.tenancy_probe_rls_shape
   for select using (true);
 
--- Phase 2 probe: a non-composite FK into an org-owned parent.
+-- Phase 2 probes: a non-composite FK into an org-owned parent, and a
+-- composite FK whose ON DELETE SET NULL is the bare form (no column list —
+-- a parent delete would try to null org_id too).
 create table public.tenancy_probe_fk_child (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null default public.app_current_org_id(),
-  parent_id uuid references public.tenancy_probe_rls_shape (id)
+  parent_id uuid references public.tenancy_probe_rls_shape (id),
+  setnull_parent_id uuid,
+  foreign key (setnull_parent_id, org_id)
+    references public.tenancy_probe_rls_shape (id, org_id)
+    on delete set null
 );
 alter table public.tenancy_probe_fk_child enable row level security;
 
@@ -336,6 +344,45 @@ select isnt(
   (select count(*)::int from noncomposite_fks),
   0,
   'lint DOES flag the injected non-composite probe FK when not excluded'
+);
+
+-- ── Phase 2 check 3b (§9.4): SET NULL actions must spare org_id ────────────
+-- A composite FK's bare `on delete set null` nulls EVERY referencing column,
+-- org_id included — which NOT NULL turns into a runtime error on the first
+-- parent delete. The PG15 column-list form `set null (<col>)` is required
+-- (see 20260731000013_composite_fks.sql). The FK suite proves the runtime
+-- behavior for representative relations; this check covers all 15 SET NULL
+-- relations structurally, plus any added later: every FK whose referencing
+-- columns include org_id and whose delete action is SET NULL must carry a
+-- column list, and that list must not name org_id.
+create temporary table setnull_hits_org_id on commit drop as
+  select con.conname::text as violation
+  from pg_catalog.pg_constraint con
+  where con.contype = 'f'
+    and con.connamespace = 'public'::regnamespace
+    and con.confdeltype = 'n'
+    and exists (
+      select 1 from pg_catalog.pg_attribute a
+      where a.attrelid = con.conrelid and a.attname = 'org_id'
+        and a.attnum = any (con.conkey))
+    and (
+      coalesce(cardinality(con.confdelsetcols), 0) = 0
+      or exists (
+        select 1 from pg_catalog.pg_attribute a
+        where a.attrelid = con.conrelid and a.attname = 'org_id'
+          and a.attnum = any (con.confdelsetcols))
+    );
+
+select is(
+  (select count(*)::int from setnull_hits_org_id where violation not like 'tenancy\_probe\_%'),
+  0,
+  'every ON DELETE SET NULL on an org_id-carrying FK names a column list excluding org_id'
+);
+
+select isnt(
+  (select count(*)::int from setnull_hits_org_id),
+  0,
+  'lint DOES flag the injected bare-SET NULL probe FK when not excluded'
 );
 
 -- ── Phase 2 check 4 (§9.4): SECURITY DEFINER functions reference org_id ────
