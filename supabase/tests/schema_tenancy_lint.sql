@@ -181,7 +181,11 @@ create temporary table org_id_wrong_default on commit drop as
       join pg_catalog.pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relname = t.table_name
         and a.attname = 'org_id'
-        and pg_get_expr(d.adbin, d.adrelid) <> 'app_current_org_id()'
+        -- pg_get_expr renders the call schema-qualified or not depending on
+        -- the session search_path; both spellings are the same function and
+        -- ONLY these two exact renderings are valid.
+        and pg_get_expr(d.adbin, d.adrelid) not in
+          ('app_current_org_id()', 'public.app_current_org_id()')
     );
 
 select is(
@@ -220,13 +224,34 @@ select throws_ok(
 -- the legacy unique (which current app onConflict targets still depend on)
 -- or lose the composite PK without a test catching it.
 select col_is_pk('public', 'page_content', array['org_id', 'slug'], 'page_content PK is (org_id, slug)');
-select has_unique('public', 'page_content', 'page_content retains a slug-only unique for legacy onConflict targets');
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.page_content'::regclass
+      and conname = 'page_content_slug_legacy_key' and contype = 'u'
+  ),
+  'page_content retains the slug-only legacy unique for legacy onConflict targets'
+);
 
 select col_is_pk('public', 'site_settings', array['org_id', 'key'], 'site_settings PK is (org_id, key)');
-select has_unique('public', 'site_settings', 'site_settings retains a key-only unique for legacy onConflict targets');
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.site_settings'::regclass
+      and conname = 'site_settings_key_legacy_key' and contype = 'u'
+  ),
+  'site_settings retains the key-only legacy unique for legacy onConflict targets'
+);
 
 select col_is_pk('public', 'about_page', array['org_id', 'id'], 'about_page PK is (org_id, id)');
-select has_unique('public', 'about_page', 'about_page retains an id-only unique (singleton guard)');
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.about_page'::regclass
+      and conname = 'about_page_id_legacy_key' and contype = 'u'
+  ),
+  'about_page retains the id-only legacy unique (singleton guard)'
+);
 
 select col_is_pk('public', 'class_teachers', array['id'], 'class_teachers PK stays plain id');
 select ok(

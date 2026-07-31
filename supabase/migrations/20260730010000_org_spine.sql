@@ -332,6 +332,12 @@ create unique index member_groups_org_id_functional_role_key
 -- Phase 0); Phase 2 replaces it with real provisioning. Slug is derived
 -- from the name with a random suffix — fixture orgs only, never a real
 -- identity (#221).
+-- Known limitation, intentional: this stub does NOT re-pin the owner's
+-- profiles.org_id, so app_current_org_id() for the owner keeps resolving
+-- to the org handle_new_user() stamped (the default org) — the leak suite
+-- asserts exactly that. Fixture org membership flows through
+-- organization_members / is_org_member() instead. Owner pinning belongs
+-- to Phase 2's real provisioning (CWA-9 §provision_organization).
 create or replace function public.provision_organization(_name text, _owner_id uuid)
 returns uuid
 language plpgsql security definer set search_path = ''
