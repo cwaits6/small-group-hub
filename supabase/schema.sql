@@ -240,6 +240,20 @@ $$;
 ALTER FUNCTION "public"."is_member"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_org_member"("_org_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select exists (
+    select 1 from public.organization_members
+    where org_id = _org_id and profile_id = auth.uid()
+  );
+$$;
+
+
+ALTER FUNCTION "public"."is_org_member"("_org_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_prayer_warrior"() RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -252,6 +266,23 @@ $$;
 
 
 ALTER FUNCTION "public"."is_prayer_warrior"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+declare
+  _org_id uuid;
+begin
+  insert into public.organizations (name) values (_name) returning id into _org_id;
+  insert into public.organization_members (org_id, profile_id) values (_org_id, _owner_id);
+  return _org_id;
+end;
+$$;
+
+
+ALTER FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
@@ -792,6 +823,26 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
 ALTER TABLE "public"."member_groups" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."organization_members" (
+    "org_id" "uuid" NOT NULL,
+    "profile_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."organization_members" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."organizations" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "name" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."organizations" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."page_content" (
     "slug" "text" NOT NULL,
     "title" "text" NOT NULL,
@@ -1121,6 +1172,16 @@ ALTER TABLE ONLY "public"."member_groups"
 
 
 
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_pkey" PRIMARY KEY ("org_id", "profile_id");
+
+
+
+ALTER TABLE ONLY "public"."organizations"
+    ADD CONSTRAINT "organizations_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "public"."page_content"
     ADD CONSTRAINT "page_content_pkey" PRIMARY KEY ("slug");
 
@@ -1224,6 +1285,10 @@ CREATE INDEX "family_members_family_id_idx" ON "public"."family_members" USING "
 
 
 CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("series_id");
+
+
+
+CREATE INDEX "organization_members_profile_id_idx" ON "public"."organization_members" USING "btree" ("profile_id");
 
 
 
@@ -1487,6 +1552,16 @@ ALTER TABLE ONLY "public"."lectures"
 
 ALTER TABLE ONLY "public"."member_groups"
     ADD CONSTRAINT "member_groups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."organization_members"
+    ADD CONSTRAINT "organization_members_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
 
 
 
@@ -2074,6 +2149,20 @@ ALTER TABLE "public"."lectures" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."member_groups" ENABLE ROW LEVEL SECURITY;
 
 
+CREATE POLICY "members can view their own org memberships" ON "public"."organization_members" FOR SELECT USING (("profile_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "org members can view their orgs" ON "public"."organizations" FOR SELECT USING ("public"."is_org_member"("id"));
+
+
+
+ALTER TABLE "public"."organization_members" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."organizations" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."page_content" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2201,9 +2290,20 @@ GRANT ALL ON FUNCTION "public"."is_member"() TO "service_role";
 
 
 
+GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "anon";
 GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") TO "service_role";
 
 
 
@@ -2342,6 +2442,18 @@ GRANT ALL ON TABLE "public"."lectures" TO "service_role";
 GRANT ALL ON TABLE "public"."member_groups" TO "anon";
 GRANT ALL ON TABLE "public"."member_groups" TO "authenticated";
 GRANT ALL ON TABLE "public"."member_groups" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."organization_members" TO "anon";
+GRANT ALL ON TABLE "public"."organization_members" TO "authenticated";
+GRANT ALL ON TABLE "public"."organization_members" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."organizations" TO "anon";
+GRANT ALL ON TABLE "public"."organizations" TO "authenticated";
+GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 
 
 
