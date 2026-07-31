@@ -70,6 +70,8 @@ $$;
 
 grant execute on function public.app_current_org_id() to anon, authenticated, service_role;
 
+set check_function_bodies = on;  -- re-enable: the only forward-reference is above
+
 -- 4. org_id rollout. Per table: add nullable column, backfill to the
 -- default org, set the fail-closed default, set NOT NULL, FK, index.
 -- Never ADD COLUMN with the function default directly — the migration
@@ -258,8 +260,9 @@ alter table public.page_content add constraint page_content_pkey primary key (or
 -- code relying on slug alone being unique keeps working. Only one org
 -- exists today, so this is not yet a real restriction. Phase 2 drops it.
 alter table public.page_content add constraint page_content_slug_legacy_key unique (slug);
-
-create index page_content_org_id_idx on public.page_content (org_id);
+-- No standalone org_id index: page_content_pkey (org_id, slug) already
+-- serves org_id-only lookups via the leftmost-prefix rule (same treatment
+-- as profiles above).
 
 -- site_settings: PK key → (org_id, key).
 alter table public.site_settings add column org_id uuid;
@@ -271,8 +274,8 @@ alter table public.site_settings add constraint site_settings_org_id_fkey foreig
 alter table public.site_settings drop constraint site_settings_pkey;
 alter table public.site_settings add constraint site_settings_pkey primary key (org_id, key);
 alter table public.site_settings add constraint site_settings_key_legacy_key unique (key);
-
-create index site_settings_org_id_idx on public.site_settings (org_id);
+-- No standalone org_id index: site_settings_pkey (org_id, key) already
+-- serves org_id-only lookups via the leftmost-prefix rule.
 
 -- class_teachers: PK stays id; UNIQUE(profile_id) → UNIQUE(org_id, profile_id),
 -- old one kept (renamed) as the temporary legacy unique.
@@ -284,8 +287,9 @@ alter table public.class_teachers add constraint class_teachers_org_id_fkey fore
 
 alter table public.class_teachers rename constraint class_teachers_profile_id_key to class_teachers_profile_id_legacy_key;
 alter table public.class_teachers add constraint class_teachers_org_id_profile_id_key unique (org_id, profile_id);
-
-create index class_teachers_org_id_idx on public.class_teachers (org_id);
+-- No standalone org_id index: class_teachers_org_id_profile_id_key
+-- (org_id, profile_id) already serves org_id-only lookups via the
+-- leftmost-prefix rule.
 
 -- about_page: singleton; PK id (boolean CHECKed true) → (org_id, id).
 alter table public.about_page add column org_id uuid;
@@ -299,8 +303,8 @@ alter table public.about_page add constraint about_page_pkey primary key (org_id
 -- Legacy: id stays boolean CHECKed true, so this trivially still means
 -- "at most one about_page row in the whole table" until Phase 2 drops it.
 alter table public.about_page add constraint about_page_id_legacy_key unique (id);
-
-create index about_page_org_id_idx on public.about_page (org_id);
+-- No standalone org_id index: about_page_pkey (org_id, id) already serves
+-- org_id-only lookups via the leftmost-prefix rule.
 
 -- member_groups: plain org_id rollout plus re-adding functional_role.
 alter table public.member_groups add column org_id uuid;

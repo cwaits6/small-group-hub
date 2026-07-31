@@ -118,6 +118,54 @@ begin
     select ok(is_member_own, 'is_org_member() is true for org A member''s own org');
   insert into tenancy_leak_results
     select ok(not is_member_other, 'is_org_member() is false for org A member checking org B');
+
+  insert into tenancy_leak_results
+    select is(
+      (select org_id from public.profiles where id = user_a),
+      '00000000-0000-0000-0000-000000000001'::uuid,
+      'handle_new_user() stamps new signups into the default org'
+    );
+
+  insert into tenancy_leak_results
+    select ok(
+      exists (
+        select 1 from public.organization_members
+        where org_id = '00000000-0000-0000-0000-000000000001'::uuid and profile_id = user_a
+      ),
+      'handle_new_user() inserts the matching organization_members row'
+    );
+end $$;
+
+-- platform_admins RLS (new Phase 1 primitive): a platform admin can see
+-- their own roster row; a non-admin (including a regular org member) can
+-- see none. No bootstrap path exists yet to populate this table in normal
+-- operation, but the policy is reachable the moment a row is seeded.
+do $$
+declare
+  admin_user uuid := gen_random_uuid();
+  plain_user uuid := gen_random_uuid();
+  admin_visible_count int;
+  plain_visible_count int;
+begin
+  insert into auth.users (id, email) values
+    (admin_user, 'platform-admin-fixture@example.test'),
+    (plain_user, 'plain-fixture@example.test');
+  insert into public.platform_admins (profile_id) values (admin_user);
+
+  set local role authenticated;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', admin_user)::text, true);
+  select count(*) into admin_visible_count from public.platform_admins;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', plain_user)::text, true);
+  select count(*) into plain_visible_count from public.platform_admins;
+
+  reset role;
+
+  insert into tenancy_leak_results
+    select ok(admin_visible_count = 1, 'a platform admin can see platform_admins rows');
+  insert into tenancy_leak_results
+    select ok(plain_visible_count = 0, 'a non-admin cannot see platform_admins rows');
 end $$;
 
 select line from tenancy_leak_results;

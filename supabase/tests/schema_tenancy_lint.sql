@@ -13,7 +13,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(22);
 
 create temporary table tenancy_allowlist (table_name text primary key) on commit drop;
 insert into tenancy_allowlist (table_name) values
@@ -50,6 +50,16 @@ create table public.tenancy_probe_no_default (
 -- RLS enabled so this probe only trips the NOT NULL/DEFAULT checks it
 -- exists to exercise, not the unrelated RLS check above.
 alter table public.tenancy_probe_no_default enable row level security;
+
+-- Third negative-test probe (Phase 1): org_id is NOT NULL and HAS a
+-- default, so it passes the two checks above, but the default isn't
+-- app_current_org_id() — proving the wrong-default check below isn't
+-- vacuous.
+create table public.tenancy_probe_wrong_default (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null default gen_random_uuid()  -- deliberately wrong default
+);
+alter table public.tenancy_probe_wrong_default enable row level security;
 
 -- Each catalog scan is computed once here and reused by both the "clean"
 -- assertion (excludes the probe table) and the "lint actually flags
@@ -151,6 +161,125 @@ select isnt(
   (select count(*)::int from org_id_no_default),
   0,
   'lint DOES flag the injected no-default probe table when not excluded'
+);
+
+-- Phase 1 gate (tighter): org_id's DEFAULT must be app_current_org_id()
+-- specifically, not just "any non-null default" — org_id_no_default above
+-- would pass for a hardcoded UUID, gen_random_uuid(), or a copy-pasted
+-- wrong function just as easily.
+create temporary table org_id_wrong_default on commit drop as
+  select t.table_name
+  from information_schema.tables t
+  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
+    and t.table_name not in (select table_name from tenancy_allowlist)
+    and t.table_name <> 'organization_members'
+    and exists (
+      select 1
+      from pg_catalog.pg_attrdef d
+      join pg_catalog.pg_attribute a on a.attrelid = d.adrelid and a.attnum = d.adnum
+      join pg_catalog.pg_class c on c.oid = d.adrelid
+      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = t.table_name
+        and a.attname = 'org_id'
+        and pg_get_expr(d.adbin, d.adrelid) <> 'app_current_org_id()'
+    );
+
+select is(
+  (select count(*)::int from org_id_wrong_default where table_name <> 'tenancy_probe_wrong_default'),
+  0,
+  'every non-allowlisted table''s org_id DEFAULT is app_current_org_id() specifically'
+);
+
+select isnt(
+  (select count(*)::int from org_id_wrong_default),
+  0,
+  'lint DOES flag the injected wrong-default probe table when not excluded'
+);
+
+-- Fail-closed runtime check: as the postgres/service-role role (no
+-- auth.uid(), matching this file's own execution context), an org_id-less
+-- insert on a representative plain-rollout table and a representative
+-- PK-rescoped table must both be rejected, not silently misrouted.
+select throws_ok(
+  $$ insert into public.event_calendars (name) values ('tenancy-lint-probe') $$,
+  '23502',
+  null,
+  'service-role insert into a plain org_id-rollout table is rejected without explicit org_id'
+);
+
+select throws_ok(
+  $$ insert into public.page_content (slug, title, body) values ('tenancy-lint-probe-slug', 'Probe', 'x') $$,
+  '23502',
+  null,
+  'service-role insert into a PK-rescoped table is rejected without explicit org_id'
+);
+
+-- PK/unique re-scoping (Review Focus Area #2): confirm the new composite
+-- PK and the retained legacy single-column unique both actually exist for
+-- each of the 4 re-scoped tables, so a later migration can't silently drop
+-- the legacy unique (which current app onConflict targets still depend on)
+-- or lose the composite PK without a test catching it.
+select col_is_pk('public', 'page_content', array['org_id', 'slug'], 'page_content PK is (org_id, slug)');
+select has_unique('public', 'page_content', 'page_content retains a slug-only unique for legacy onConflict targets');
+
+select col_is_pk('public', 'site_settings', array['org_id', 'key'], 'site_settings PK is (org_id, key)');
+select has_unique('public', 'site_settings', 'site_settings retains a key-only unique for legacy onConflict targets');
+
+select col_is_pk('public', 'about_page', array['org_id', 'id'], 'about_page PK is (org_id, id)');
+select has_unique('public', 'about_page', 'about_page retains an id-only unique (singleton guard)');
+
+select col_is_pk('public', 'class_teachers', array['id'], 'class_teachers PK stays plain id');
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.class_teachers'::regclass
+      and conname = 'class_teachers_org_id_profile_id_key' and contype = 'u'
+  ),
+  'class_teachers has (org_id, profile_id) unique'
+);
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conrelid = 'public.class_teachers'::regclass
+      and conname = 'class_teachers_profile_id_legacy_key' and contype = 'u'
+  ),
+  'class_teachers retains the renamed legacy profile_id-only unique'
+);
+
+-- Backfill correctness (Review Focus Area #3), data level: every existing
+-- row on every org_id-bearing, non-allowlisted table must have landed on
+-- the constant default-org UUID, not just "non-null" (which the earlier
+-- checks already cover). Requires dynamic SQL since this inspects row
+-- data, not catalog metadata, per table.
+create temporary table org_id_bad_backfill (table_name text) on commit drop;
+do $$
+declare
+  t text;
+  bad_count bigint;
+begin
+  for t in
+    select ts.table_name from information_schema.tables ts
+    where ts.table_schema = 'public' and ts.table_type = 'BASE TABLE'
+      and ts.table_name not in (select table_name from tenancy_allowlist)
+      and exists (
+        select 1 from information_schema.columns c
+        where c.table_schema = 'public' and c.table_name = ts.table_name
+          and c.column_name = 'org_id'
+      )
+  loop
+    execute format(
+      'select count(*) from public.%I where org_id <> %L::uuid', t, '00000000-0000-0000-0000-000000000001'
+    ) into bad_count;
+    if bad_count > 0 then
+      insert into org_id_bad_backfill values (t);
+    end if;
+  end loop;
+end $$;
+
+select is(
+  (select count(*)::int from org_id_bad_backfill),
+  0,
+  'every org_id-bearing, non-allowlisted table has all existing rows backfilled to the default org'
 );
 
 select * from finish();
