@@ -1,12 +1,47 @@
 name: Semgrep
 
+# Only scan changes that touch files the scan can act on. Later patterns
+# override earlier ones; this workflow file re-triggers itself so changes
+# to the scan setup are tested on their own PR.
 on:
   push:
     branches:
       - main
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.github/**'
+      - '.github/workflows/semgrep.yml'
+      - '!.claude/**'
+      - '!.agents/**'
+      - '!.archon/**'
+      - '!.zap/**'
+      - '!.coderabbit.yaml'
+      - '!renovate.json5'
+      - '!.releaserc.json'
+      - '!.gitignore'
+      - '!.env.example'
   pull_request:
     branches:
       - main
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.github/**'
+      - '.github/workflows/semgrep.yml'
+      - '!.claude/**'
+      - '!.agents/**'
+      - '!.archon/**'
+      - '!.zap/**'
+      - '!.coderabbit.yaml'
+      - '!renovate.json5'
+      - '!.releaserc.json'
+      - '!.gitignore'
+      - '!.env.example'
 
 permissions:
   contents: write

@@ -4,6 +4,25 @@ on:
   pull_request:
     branches:
       - main
+    # Only scan PRs that touch files the scan can act on. Later patterns
+    # override earlier ones; this workflow file re-triggers itself so
+    # changes to the scan setup are tested on their own PR.
+    paths:
+      - '**'
+      - '!**.md'
+      - '!docs/**'
+      - '!LICENSE'
+      - '!.github/**'
+      - '.github/workflows/trivy.yml'
+      - '!.claude/**'
+      - '!.agents/**'
+      - '!.archon/**'
+      - '!.zap/**'
+      - '!.coderabbit.yaml'
+      - '!renovate.json5'
+      - '!.releaserc.json'
+      - '!.gitignore'
+      - '!.env.example'
 
 permissions:
   contents: read
