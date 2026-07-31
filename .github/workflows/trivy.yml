@@ -5,15 +5,14 @@ on:
     branches:
       - main
     # Only scan PRs that touch files the scan can act on. Later patterns
-    # override earlier ones; this workflow file re-triggers itself so
-    # changes to the scan setup are tested on their own PR.
+    # override earlier ones: README.md is re-included so Trivy's secret
+    # detection still covers it. .github/ is not excluded.
     paths:
       - '**'
       - '!**.md'
+      - 'README.md'
       - '!docs/**'
       - '!LICENSE'
-      - '!.github/**'
-      - '.github/workflows/trivy.yml'
       - '!.claude/**'
       - '!.agents/**'
       - '!.archon/**'

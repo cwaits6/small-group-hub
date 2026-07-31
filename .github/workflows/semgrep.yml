@@ -1,8 +1,8 @@
 name: Semgrep
 
 # Only scan changes that touch files the scan can act on. Later patterns
-# override earlier ones; this workflow file re-triggers itself so changes
-# to the scan setup are tested on their own PR.
+# override earlier ones. .github/ is not excluded — semgrep's auto config
+# includes GitHub Actions security rules.
 on:
   push:
     branches:
@@ -12,8 +12,6 @@ on:
       - '!**.md'
       - '!docs/**'
       - '!LICENSE'
-      - '!.github/**'
-      - '.github/workflows/semgrep.yml'
       - '!.claude/**'
       - '!.agents/**'
       - '!.archon/**'
@@ -31,8 +29,6 @@ on:
       - '!**.md'
       - '!docs/**'
       - '!LICENSE'
-      - '!.github/**'
-      - '.github/workflows/semgrep.yml'
       - '!.claude/**'
       - '!.agents/**'
       - '!.archon/**'
