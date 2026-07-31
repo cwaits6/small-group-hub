@@ -68,9 +68,11 @@ jobs:
       # is discovered automatically so new suites can't be silently skipped.
       - name: Run pgTAP suite (local only — never --linked)
         run: |
-          files=$(find supabase/tests -name '*.sql' ! -name 'site_settings_rls.sql' | sort)
-          echo "Running: $files"
-          supabase test db $files
+          files=()
+          while IFS= read -r -d '' f; do files+=("$f"); done \
+            < <(find supabase/tests -name '*.sql' ! -name 'site_settings_rls.sql' -print0 | sort -z)
+          echo "Running: ${files[*]}"
+          supabase test db "${files[@]}"
 
       - name: Check generated types are up to date
         run: |
