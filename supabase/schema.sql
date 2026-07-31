@@ -23,6 +23,17 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
+CREATE OR REPLACE FUNCTION "public"."app_current_org_id"() RETURNS "uuid"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select org_id from public.profiles where id = (select auth.uid());
+$$;
+
+
+ALTER FUNCTION "public"."app_current_org_id"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."current_family_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -137,6 +148,7 @@ declare
   _full_name text := new.raw_user_meta_data->>'full_name';
   _first text;
   _last text;
+  _default_org_id uuid := '00000000-0000-0000-0000-000000000001';
 begin
   if exists (
     select 1 from public.access_requests
@@ -156,8 +168,13 @@ begin
     end if;
   end if;
 
-  insert into public.profiles (id, first_name, last_name, email, role, relationship)
-  values (new.id, _first, _last, new.email, _role, 'primary');
+  insert into public.profiles (id, first_name, last_name, email, role, relationship, org_id)
+  values (new.id, _first, _last, new.email, _role, 'primary', _default_org_id);
+
+  insert into public.organization_members (org_id, profile_id)
+  values (_default_org_id, new.id)
+  on conflict do nothing;
+
   return new;
 end;
 $$;
@@ -254,6 +271,17 @@ $$;
 ALTER FUNCTION "public"."is_org_member"("_org_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."is_platform_admin"() RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select exists (select 1 from public.platform_admins where profile_id = (select auth.uid()));
+$$;
+
+
+ALTER FUNCTION "public"."is_platform_admin"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."is_prayer_warrior"() RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -275,7 +303,13 @@ CREATE OR REPLACE FUNCTION "public"."provision_organization"("_name" "text", "_o
 declare
   _org_id uuid;
 begin
-  insert into public.organizations (name) values (_name) returning id into _org_id;
+  insert into public.organizations (name, slug)
+  values (
+    _name,
+    lower(regexp_replace(_name, '[^a-zA-Z0-9]+', '-', 'g'))
+      || '-' || left(gen_random_uuid()::text, 8)
+  )
+  returning id into _org_id;
   insert into public.organization_members (org_id, profile_id) values (_org_id, _owner_id);
   return _org_id;
 end;
@@ -404,6 +438,7 @@ CREATE TABLE IF NOT EXISTS "public"."about_page" (
     "body" "text" DEFAULT ''::"text" NOT NULL,
     "updated_by" "uuid",
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "about_page_id_check" CHECK ("id")
 );
 
@@ -423,6 +458,7 @@ CREATE TABLE IF NOT EXISTS "public"."access_requests" (
     "signup_token" "text",
     "token_expires_at" timestamp with time zone,
     "invite_token" "uuid",
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "access_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'denied'::"text"])))
 );
 
@@ -437,7 +473,8 @@ CREATE TABLE IF NOT EXISTS "public"."announcements" (
     "is_published" boolean DEFAULT false NOT NULL,
     "author_id" "uuid",
     "published_at" timestamp with time zone,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -449,7 +486,8 @@ CREATE TABLE IF NOT EXISTS "public"."calendar_subscription_tokens" (
     "user_id" "uuid" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "token_hash" "text" NOT NULL,
-    "expires_at" timestamp with time zone NOT NULL
+    "expires_at" timestamp with time zone NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -462,7 +500,8 @@ CREATE TABLE IF NOT EXISTS "public"."class_teachers" (
     "title" "text" DEFAULT 'Teacher'::"text" NOT NULL,
     "bio" "text" DEFAULT ''::"text" NOT NULL,
     "sort_order" integer DEFAULT 0 NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -474,7 +513,8 @@ CREATE TABLE IF NOT EXISTS "public"."event_calendars" (
     "name" "text" NOT NULL,
     "color" "text",
     "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -504,6 +544,7 @@ CREATE TABLE IF NOT EXISTS "public"."events" (
     "meeting_passcode" "text",
     "meeting_show_on_dashboard" boolean DEFAULT true NOT NULL,
     "meeting_lead_minutes" integer DEFAULT 15 NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "events_meeting_lead_minutes_check" CHECK ((("meeting_lead_minutes" >= 0) AND ("meeting_lead_minutes" <= 1440))),
     CONSTRAINT "events_recurrence_end_mode_check" CHECK (("recurrence_end_mode" = ANY (ARRAY['never'::"text", 'count'::"text", 'until'::"text"]))),
     CONSTRAINT "events_recurrence_frequency_check" CHECK (("recurrence_frequency" = ANY (ARRAY['daily'::"text", 'weekly'::"text", 'monthly'::"text", 'yearly'::"text"])))
@@ -527,7 +568,8 @@ CREATE TABLE IF NOT EXISTS "public"."family_units" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "anniversary" "date",
-    "photo_url" "text"
+    "photo_url" "text",
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -586,6 +628,7 @@ CREATE TABLE IF NOT EXISTS "public"."family_members" (
     "claimed_profile_id" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "family_members_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
     CONSTRAINT "family_members_birth_month_check" CHECK ((("birth_month" >= 1) AND ("birth_month" <= 12))),
     CONSTRAINT "family_members_birth_year_check" CHECK ((("birth_year" >= 1900) AND ("birth_year" <= 2100))),
@@ -639,6 +682,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "setup_completed" boolean DEFAULT false NOT NULL,
     "is_prayer_warrior" boolean DEFAULT false NOT NULL,
     "email_announcements" boolean DEFAULT true NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
     CONSTRAINT "profiles_birth_month_check" CHECK ((("birth_month" >= 1) AND ("birth_month" <= 12))),
     CONSTRAINT "profiles_birth_year_check" CHECK ((("birth_year" >= 1900) AND ("birth_year" <= 2100))),
@@ -718,7 +762,8 @@ CREATE TABLE IF NOT EXISTS "public"."family_invites" (
     "sent_at" timestamp with time zone,
     "accepted_at" timestamp with time zone,
     "created_by" "uuid",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -731,6 +776,7 @@ CREATE TABLE IF NOT EXISTS "public"."feedback" (
     "type" "text" NOT NULL,
     "message" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "feedback_message_check" CHECK ((("char_length"("message") >= 1) AND ("char_length"("message") <= 2000))),
     CONSTRAINT "feedback_type_check" CHECK (("type" = ANY (ARRAY['idea'::"text", 'problem'::"text"])))
 );
@@ -744,6 +790,7 @@ CREATE TABLE IF NOT EXISTS "public"."giving_fund_methods" (
     "method" "text" NOT NULL,
     "custom_handle" "text" NOT NULL,
     "display_order" integer DEFAULT 0 NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "giving_fund_methods_custom_handle_check" CHECK ((("char_length"("custom_handle") >= 1) AND ("char_length"("custom_handle") <= 120))),
     CONSTRAINT "giving_fund_methods_method_check" CHECK (("method" = ANY (ARRAY['venmo'::"text", 'paypal'::"text", 'cashapp'::"text", 'zelle'::"text", 'wallet'::"text"])))
 );
@@ -765,6 +812,7 @@ CREATE TABLE IF NOT EXISTS "public"."giving_funds" (
     "created_by" "uuid",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "giving_funds_name_check" CHECK ((("char_length"("name") >= 1) AND ("char_length"("name") <= 80))),
     CONSTRAINT "giving_funds_steward_role_check" CHECK ((("steward_role" IS NULL) OR ("char_length"("steward_role") <= 60)))
 );
@@ -778,7 +826,8 @@ CREATE TABLE IF NOT EXISTS "public"."lecture_series" (
     "name" "text" NOT NULL,
     "teacher" "text",
     "is_archived" boolean DEFAULT false NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -797,7 +846,8 @@ CREATE TABLE IF NOT EXISTS "public"."lectures" (
     "series_id" "uuid",
     "week_number" integer,
     "scripture_reference" "text",
-    "summary" "text"
+    "summary" "text",
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -816,7 +866,9 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "show_in_directory_filter" boolean DEFAULT true NOT NULL,
     "is_serving_role" boolean DEFAULT false NOT NULL,
-    "grants_prayer_access" boolean DEFAULT false NOT NULL
+    "grants_prayer_access" boolean DEFAULT false NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
+    "functional_role" "text"
 );
 
 
@@ -836,7 +888,11 @@ ALTER TABLE "public"."organization_members" OWNER TO "postgres";
 CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "slug" "text" NOT NULL,
+    "branding" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "status" "text" DEFAULT 'active'::"text" NOT NULL,
+    CONSTRAINT "organizations_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'suspended'::"text"])))
 );
 
 
@@ -848,11 +904,21 @@ CREATE TABLE IF NOT EXISTS "public"."page_content" (
     "title" "text" NOT NULL,
     "body" "text" DEFAULT ''::"text" NOT NULL,
     "updated_by" "uuid",
-    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
 ALTER TABLE "public"."page_content" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."platform_admins" (
+    "profile_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "public"."platform_admins" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."prayer_call_sessions" (
@@ -868,6 +934,7 @@ CREATE TABLE IF NOT EXISTS "public"."prayer_call_sessions" (
     "display_order" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "prayer_call_sessions_dial_in_check" CHECK ((("dial_in" IS NULL) OR ("char_length"("dial_in") <= 40))),
     CONSTRAINT "prayer_call_sessions_join_url_check" CHECK ((("join_url" IS NULL) OR ("char_length"("join_url") <= 500))),
     CONSTRAINT "prayer_call_sessions_pin_check" CHECK ((("pin" IS NULL) OR ("char_length"("pin") <= 20))),
@@ -888,6 +955,7 @@ CREATE TABLE IF NOT EXISTS "public"."prayer_requests" (
     "is_answered" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "prayer_requests_body_check" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 2000))),
     CONSTRAINT "prayer_requests_category_check" CHECK (("category" = ANY (ARRAY['health'::"text", 'family'::"text", 'thanksgiving'::"text", 'prodigal'::"text", 'guidance'::"text", 'grief'::"text"])))
 );
@@ -899,7 +967,8 @@ ALTER TABLE "public"."prayer_requests" OWNER TO "postgres";
 CREATE TABLE IF NOT EXISTS "public"."prayer_responses" (
     "request_id" "uuid" NOT NULL,
     "profile_id" "uuid" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -949,7 +1018,8 @@ CREATE TABLE IF NOT EXISTS "public"."profile_groups" (
     "group_id" "uuid" NOT NULL,
     "assigned_by" "uuid",
     "assigned_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "is_leader" boolean DEFAULT false NOT NULL
+    "is_leader" boolean DEFAULT false NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -995,6 +1065,7 @@ CREATE TABLE IF NOT EXISTS "public"."rsvps" (
     "user_id" "uuid" NOT NULL,
     "status" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "rsvps_status_check" CHECK (("status" = ANY (ARRAY['yes'::"text", 'no'::"text", 'maybe'::"text"])))
 );
 
@@ -1009,7 +1080,8 @@ CREATE TABLE IF NOT EXISTS "public"."serving_broadcasts" (
     "subject" "text" NOT NULL,
     "open_dates" "date"[] DEFAULT '{}'::"date"[] NOT NULL,
     "recipient_count" integer DEFAULT 0 NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -1018,7 +1090,8 @@ ALTER TABLE "public"."serving_broadcasts" OWNER TO "postgres";
 
 CREATE TABLE IF NOT EXISTS "public"."serving_signup_attendees" (
     "signup_id" "uuid" NOT NULL,
-    "profile_id" "uuid" NOT NULL
+    "profile_id" "uuid" NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -1031,7 +1104,8 @@ CREATE TABLE IF NOT EXISTS "public"."serving_signups" (
     "service_date" "date" NOT NULL,
     "family_id" "uuid",
     "created_by" "uuid" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -1046,6 +1120,7 @@ CREATE TABLE IF NOT EXISTS "public"."serving_team_settings" (
     "window_weeks" integer DEFAULT 8 NOT NULL,
     "updated_by" "uuid",
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "serving_team_settings_reminder_days_check" CHECK (("reminder_days" <@ ARRAY[0, 1, 2, 3, 4, 5, 6])),
     CONSTRAINT "serving_team_settings_reminder_method_check" CHECK (("reminder_method" = 'email'::"text")),
     CONSTRAINT "serving_team_settings_window_weeks_check" CHECK ((("window_weeks" >= 1) AND ("window_weeks" <= 26)))
@@ -1060,7 +1135,8 @@ CREATE TABLE IF NOT EXISTS "public"."site_settings" (
     "value" "text",
     "updated_by" "uuid",
     "updated_at" timestamp with time zone,
-    "is_public" boolean DEFAULT false NOT NULL
+    "is_public" boolean DEFAULT false NOT NULL,
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -1068,7 +1144,12 @@ ALTER TABLE "public"."site_settings" OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."about_page"
-    ADD CONSTRAINT "about_page_pkey" PRIMARY KEY ("id");
+    ADD CONSTRAINT "about_page_id_legacy_key" UNIQUE ("id");
+
+
+
+ALTER TABLE ONLY "public"."about_page"
+    ADD CONSTRAINT "about_page_pkey" PRIMARY KEY ("org_id", "id");
 
 
 
@@ -1103,12 +1184,17 @@ ALTER TABLE ONLY "public"."calendar_subscription_tokens"
 
 
 ALTER TABLE ONLY "public"."class_teachers"
+    ADD CONSTRAINT "class_teachers_org_id_profile_id_key" UNIQUE ("org_id", "profile_id");
+
+
+
+ALTER TABLE ONLY "public"."class_teachers"
     ADD CONSTRAINT "class_teachers_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."class_teachers"
-    ADD CONSTRAINT "class_teachers_profile_id_key" UNIQUE ("profile_id");
+    ADD CONSTRAINT "class_teachers_profile_id_legacy_key" UNIQUE ("profile_id");
 
 
 
@@ -1182,8 +1268,23 @@ ALTER TABLE ONLY "public"."organizations"
 
 
 
+ALTER TABLE ONLY "public"."organizations"
+    ADD CONSTRAINT "organizations_slug_key" UNIQUE ("slug");
+
+
+
 ALTER TABLE ONLY "public"."page_content"
-    ADD CONSTRAINT "page_content_pkey" PRIMARY KEY ("slug");
+    ADD CONSTRAINT "page_content_pkey" PRIMARY KEY ("org_id", "slug");
+
+
+
+ALTER TABLE ONLY "public"."page_content"
+    ADD CONSTRAINT "page_content_slug_legacy_key" UNIQUE ("slug");
+
+
+
+ALTER TABLE ONLY "public"."platform_admins"
+    ADD CONSTRAINT "platform_admins_pkey" PRIMARY KEY ("profile_id");
 
 
 
@@ -1248,7 +1349,12 @@ ALTER TABLE ONLY "public"."serving_team_settings"
 
 
 ALTER TABLE ONLY "public"."site_settings"
-    ADD CONSTRAINT "site_settings_pkey" PRIMARY KEY ("key");
+    ADD CONSTRAINT "site_settings_key_legacy_key" UNIQUE ("key");
+
+
+
+ALTER TABLE ONLY "public"."site_settings"
+    ADD CONSTRAINT "site_settings_pkey" PRIMARY KEY ("org_id", "key");
 
 
 
@@ -1256,7 +1362,27 @@ CREATE INDEX "access_requests_invite_token_idx" ON "public"."access_requests" US
 
 
 
+CREATE INDEX "access_requests_org_id_idx" ON "public"."access_requests" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "announcements_org_id_idx" ON "public"."announcements" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "calendar_subscription_tokens_org_id_idx" ON "public"."calendar_subscription_tokens" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "event_calendars_org_id_idx" ON "public"."event_calendars" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "events_calendar_id_idx" ON "public"."events" USING "btree" ("calendar_id");
+
+
+
+CREATE INDEX "events_org_id_idx" ON "public"."events" USING "btree" ("org_id");
 
 
 
@@ -1276,6 +1402,10 @@ CREATE INDEX "family_invites_family_member_id_idx" ON "public"."family_invites" 
 
 
 
+CREATE INDEX "family_invites_org_id_idx" ON "public"."family_invites" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "family_members_claimed_profile_idx" ON "public"."family_members" USING "btree" ("claimed_profile_id");
 
 
@@ -1284,11 +1414,51 @@ CREATE INDEX "family_members_family_id_idx" ON "public"."family_members" USING "
 
 
 
+CREATE INDEX "family_members_org_id_idx" ON "public"."family_members" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "family_units_org_id_idx" ON "public"."family_units" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "feedback_org_id_idx" ON "public"."feedback" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "giving_fund_methods_org_id_idx" ON "public"."giving_fund_methods" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "giving_funds_org_id_idx" ON "public"."giving_funds" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "lecture_series_org_id_idx" ON "public"."lecture_series" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "lectures_org_id_idx" ON "public"."lectures" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("series_id");
 
 
 
+CREATE UNIQUE INDEX "member_groups_org_id_functional_role_key" ON "public"."member_groups" USING "btree" ("org_id", "functional_role") WHERE ("functional_role" IS NOT NULL);
+
+
+
+CREATE INDEX "member_groups_org_id_idx" ON "public"."member_groups" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "organization_members_profile_id_idx" ON "public"."organization_members" USING "btree" ("profile_id");
+
+
+
+CREATE INDEX "prayer_call_sessions_org_id_idx" ON "public"."prayer_call_sessions" USING "btree" ("org_id");
 
 
 
@@ -1300,6 +1470,14 @@ CREATE INDEX "prayer_requests_created_at_idx" ON "public"."prayer_requests" USIN
 
 
 
+CREATE INDEX "prayer_requests_org_id_idx" ON "public"."prayer_requests" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "prayer_responses_org_id_idx" ON "public"."prayer_responses" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "prayer_responses_profile_id_idx" ON "public"."prayer_responses" USING "btree" ("profile_id");
 
 
@@ -1308,11 +1486,19 @@ CREATE INDEX "profile_groups_group_id_idx" ON "public"."profile_groups" USING "b
 
 
 
+CREATE INDEX "profile_groups_org_id_idx" ON "public"."profile_groups" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "profiles_family_id_idx" ON "public"."profiles" USING "btree" ("family_id");
 
 
 
-CREATE INDEX "profiles_last_first_idx" ON "public"."profiles" USING "btree" ("last_name", "first_name");
+CREATE INDEX "profiles_org_id_last_first_idx" ON "public"."profiles" USING "btree" ("org_id", "last_name", "first_name");
+
+
+
+CREATE INDEX "rsvps_org_id_idx" ON "public"."rsvps" USING "btree" ("org_id");
 
 
 
@@ -1320,11 +1506,27 @@ CREATE INDEX "rsvps_user_id_idx" ON "public"."rsvps" USING "btree" ("user_id");
 
 
 
+CREATE INDEX "serving_broadcasts_org_id_idx" ON "public"."serving_broadcasts" USING "btree" ("org_id");
+
+
+
+CREATE INDEX "serving_signup_attendees_org_id_idx" ON "public"."serving_signup_attendees" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "serving_signup_attendees_profile_idx" ON "public"."serving_signup_attendees" USING "btree" ("profile_id");
 
 
 
+CREATE INDEX "serving_signups_org_id_idx" ON "public"."serving_signups" USING "btree" ("org_id");
+
+
+
 CREATE INDEX "serving_signups_service_date_idx" ON "public"."serving_signups" USING "btree" ("service_date");
+
+
+
+CREATE INDEX "serving_team_settings_org_id_idx" ON "public"."serving_team_settings" USING "btree" ("org_id");
 
 
 
@@ -1441,12 +1643,22 @@ CREATE OR REPLACE TRIGGER "profiles_touch_updated_at" BEFORE UPDATE ON "public".
 
 
 ALTER TABLE ONLY "public"."about_page"
+    ADD CONSTRAINT "about_page_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."about_page"
     ADD CONSTRAINT "about_page_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
 
 
 ALTER TABLE ONLY "public"."access_requests"
     ADD CONSTRAINT "access_requests_invite_token_fkey" FOREIGN KEY ("invite_token") REFERENCES "public"."family_invites"("token") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."access_requests"
+    ADD CONSTRAINT "access_requests_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1460,8 +1672,23 @@ ALTER TABLE ONLY "public"."announcements"
 
 
 
+ALTER TABLE ONLY "public"."announcements"
+    ADD CONSTRAINT "announcements_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."calendar_subscription_tokens"
+    ADD CONSTRAINT "calendar_subscription_tokens_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."calendar_subscription_tokens"
     ADD CONSTRAINT "calendar_subscription_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."class_teachers"
+    ADD CONSTRAINT "class_teachers_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1475,6 +1702,11 @@ ALTER TABLE ONLY "public"."event_calendars"
 
 
 
+ALTER TABLE ONLY "public"."event_calendars"
+    ADD CONSTRAINT "event_calendars_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."events"
     ADD CONSTRAINT "events_calendar_id_fkey" FOREIGN KEY ("calendar_id") REFERENCES "public"."event_calendars"("id") ON DELETE SET NULL;
 
@@ -1482,6 +1714,11 @@ ALTER TABLE ONLY "public"."events"
 
 ALTER TABLE ONLY "public"."events"
     ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."events"
+    ADD CONSTRAINT "events_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1505,6 +1742,11 @@ ALTER TABLE ONLY "public"."family_invites"
 
 
 
+ALTER TABLE ONLY "public"."family_invites"
+    ADD CONSTRAINT "family_invites_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."family_members"
     ADD CONSTRAINT "family_members_claimed_profile_id_fkey" FOREIGN KEY ("claimed_profile_id") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
 
@@ -1515,6 +1757,21 @@ ALTER TABLE ONLY "public"."family_members"
 
 
 
+ALTER TABLE ONLY "public"."family_members"
+    ADD CONSTRAINT "family_members_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."family_units"
+    ADD CONSTRAINT "family_units_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."feedback"
+    ADD CONSTRAINT "feedback_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."feedback"
     ADD CONSTRAINT "feedback_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
 
@@ -1522,6 +1779,11 @@ ALTER TABLE ONLY "public"."feedback"
 
 ALTER TABLE ONLY "public"."giving_fund_methods"
     ADD CONSTRAINT "giving_fund_methods_fund_id_fkey" FOREIGN KEY ("fund_id") REFERENCES "public"."giving_funds"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."giving_fund_methods"
+    ADD CONSTRAINT "giving_fund_methods_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1536,12 +1798,27 @@ ALTER TABLE ONLY "public"."giving_funds"
 
 
 ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
     ADD CONSTRAINT "giving_funds_steward_id_fkey" FOREIGN KEY ("steward_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."lecture_series"
+    ADD CONSTRAINT "lecture_series_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."lectures"
     ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."lectures"
+    ADD CONSTRAINT "lectures_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1552,6 +1829,11 @@ ALTER TABLE ONLY "public"."lectures"
 
 ALTER TABLE ONLY "public"."member_groups"
     ADD CONSTRAINT "member_groups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."member_groups"
+    ADD CONSTRAINT "member_groups_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1566,7 +1848,17 @@ ALTER TABLE ONLY "public"."organization_members"
 
 
 ALTER TABLE ONLY "public"."page_content"
+    ADD CONSTRAINT "page_content_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."page_content"
     ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."platform_admins"
+    ADD CONSTRAINT "platform_admins_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
@@ -1580,8 +1872,23 @@ ALTER TABLE ONLY "public"."prayer_call_sessions"
 
 
 
+ALTER TABLE ONLY "public"."prayer_call_sessions"
+    ADD CONSTRAINT "prayer_call_sessions_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."prayer_requests"
     ADD CONSTRAINT "prayer_requests_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."prayer_requests"
+    ADD CONSTRAINT "prayer_requests_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."prayer_responses"
+    ADD CONSTRAINT "prayer_responses_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1606,6 +1913,11 @@ ALTER TABLE ONLY "public"."profile_groups"
 
 
 ALTER TABLE ONLY "public"."profile_groups"
+    ADD CONSTRAINT "profile_groups_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."profile_groups"
     ADD CONSTRAINT "profile_groups_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
 
 
@@ -1625,8 +1937,18 @@ ALTER TABLE ONLY "public"."profiles"
 
 
 
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."rsvps"
     ADD CONSTRAINT "rsvps_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."rsvps"
+    ADD CONSTRAINT "rsvps_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1641,7 +1963,17 @@ ALTER TABLE ONLY "public"."serving_broadcasts"
 
 
 ALTER TABLE ONLY "public"."serving_broadcasts"
+    ADD CONSTRAINT "serving_broadcasts_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_broadcasts"
     ADD CONSTRAINT "serving_broadcasts_sent_by_fkey" FOREIGN KEY ("sent_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."serving_signup_attendees"
+    ADD CONSTRAINT "serving_signup_attendees_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -1670,13 +2002,28 @@ ALTER TABLE ONLY "public"."serving_signups"
 
 
 
+ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."serving_team_settings"
     ADD CONSTRAINT "serving_team_settings_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."serving_team_settings"
+    ADD CONSTRAINT "serving_team_settings_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."serving_team_settings"
     ADD CONSTRAINT "serving_team_settings_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."site_settings"
+    ADD CONSTRAINT "site_settings_org_id_fkey" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE CASCADE;
 
 
 
@@ -2166,6 +2513,13 @@ ALTER TABLE "public"."organizations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."page_content" ENABLE ROW LEVEL SECURITY;
 
 
+CREATE POLICY "platform admins can view platform admins" ON "public"."platform_admins" FOR SELECT USING (( SELECT "public"."is_platform_admin"() AS "is_platform_admin"));
+
+
+
+ALTER TABLE "public"."platform_admins" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."prayer_call_sessions" ENABLE ROW LEVEL SECURITY;
 
 
@@ -2203,6 +2557,12 @@ GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "anon";
+GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "service_role";
 
 
 
@@ -2293,6 +2653,12 @@ GRANT ALL ON FUNCTION "public"."is_member"() TO "service_role";
 GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."is_org_member"("_org_id" "uuid") TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "anon";
+GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "service_role";
 
 
 
@@ -2460,6 +2826,12 @@ GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 GRANT ALL ON TABLE "public"."page_content" TO "anon";
 GRANT ALL ON TABLE "public"."page_content" TO "authenticated";
 GRANT ALL ON TABLE "public"."page_content" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."platform_admins" TO "anon";
+GRANT ALL ON TABLE "public"."platform_admins" TO "authenticated";
+GRANT ALL ON TABLE "public"."platform_admins" TO "service_role";
 
 
 
