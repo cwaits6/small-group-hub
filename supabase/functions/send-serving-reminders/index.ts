@@ -19,6 +19,10 @@ const APP_NAME = Deno.env.get("APP_NAME") || "two42";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 const SERVING_LINK_SECRET = Deno.env.get("SERVING_LINK_SECRET");
 const SERVING_LINK_MODE = Deno.env.get("SERVING_LINK_MODE") || "signed";
+// Phase 1 interim (org spine, #210): service-role inserts get NULL from the
+// fail-closed org_id DEFAULT, so the default org is passed explicitly.
+// Mirrors lib/org.ts; Phase 3 makes this function org-iterating.
+const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 // ── HMAC token (same format as lib/serving/links.ts) ─────────────────────────
 
@@ -343,6 +347,7 @@ async function runMonthly(
     await supabase.from("serving_broadcasts").insert({
       group_id,
       sent_by: null,
+      org_id: DEFAULT_ORG_ID,
       subject: `${teamName}: monthly open-Sunday broadcast`,
       open_dates: openDates,
       recipient_count: teamSent,
