@@ -10,6 +10,25 @@ tables it touches.
 **Adding a new `createServiceClient()` call site? Add a row here in the same
 PR, with the justification and the tenancy risk.**
 
+## Phase 2 status (CWA-9 / #211)
+
+`org_id` is now the database-enforced boundary for anon/authenticated roles
+(see [`tenancy-model.md`](tenancy-model.md)) — but service-role clients
+carry `BYPASSRLS`, so **every site below remains a Phase 3 (#212) work
+item**. What Phase 2 already closed on this surface:
+
+- `getServingLinkMode()` (`lib/serving/config.ts`) now requires an `orgId`
+  and filters `site_settings` on it — the key-only read errored outright at
+  two orgs. All four call sites derive the org from the validated group row.
+- `app/api/serving/link-action/route.ts` derives `org_id` for its inserts
+  from the HMAC-validated group row instead of the hardcoded default-org
+  constant; the composite `(group_id, org_id)` FK enforces the pairing.
+- The DB-layer analogue, `giving_stewards_can_manage()`, is org-scoped in
+  the schema itself.
+
+Nothing else in the tables below changed; the per-site mitigations are the
+Phase 3 checklist.
+
 ## App routes and pages (13 sites)
 
 | File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
