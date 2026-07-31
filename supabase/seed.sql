@@ -1,5 +1,16 @@
 -- Seed a local admin user for development
 -- Email: admin@local.dev / Password: password123
+
+-- Phase 2 (CWA-9): handle_new_user() is fail-closed — a signup with no
+-- approved access request or family invite raises. Seed the approval first
+-- so the trigger resolves the admin into the default org.
+INSERT INTO public.access_requests (org_id, name, email, status, reviewed_at)
+SELECT '00000000-0000-0000-0000-000000000001', 'Local Admin', 'admin@local.dev', 'approved', now()
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.access_requests
+  WHERE email = 'admin@local.dev' AND status = 'approved'
+);
+
 INSERT INTO auth.users (
   id,
   instance_id,
