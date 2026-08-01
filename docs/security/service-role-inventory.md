@@ -20,6 +20,10 @@ item**. What Phase 2 already closed on this surface:
 - `getServingLinkMode()` (`lib/serving/config.ts`) now requires an `orgId`
   and filters `site_settings` on it — the key-only read errored outright at
   two orgs. All four call sites derive the org from the validated group row.
+  One copy of the bug class remains open: `resolveCanSign` in
+  `supabase/functions/send-serving-reminders/index.ts` duplicates the
+  key-only read with the service-role client. It stays with the edge
+  functions' Phase 3 org-iteration item below rather than closing here.
 - `app/api/serving/link-action/route.ts` derives `org_id` for its inserts
   from the HMAC-validated group row instead of the hardcoded default-org
   constant; the composite `(group_id, org_id)` FK enforces the pairing.

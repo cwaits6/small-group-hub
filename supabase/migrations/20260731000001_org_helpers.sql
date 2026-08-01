@@ -35,6 +35,12 @@ comment on function public.app_current_org_id() is
 -- via the x-two42-org request header applies only to anonymous callers — and
 -- anon permissive policies only ever expose orgs' already-public content, so
 -- the header selects among public surfaces, never grants access.
+--
+-- organizations.status is deliberately NOT consulted here: neither helper
+-- cuts access for a 'suspended' org, so suspension currently does nothing.
+-- Enforcement belongs to Phase 4 (#213), which owns the /platform
+-- suspend surface and must decide the cut point (helper predicate vs.
+-- middleware) together with its UX — don't assume it's enforced until then.
 create or replace function public.app_request_org_id() returns uuid
   language sql stable security definer set search_path = ''
 as $$
