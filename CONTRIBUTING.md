@@ -5,7 +5,7 @@ Thanks for your interest — contributions are welcome. two42 is open source und
 ## Before you start
 
 - For anything non-trivial, **open an issue first** to discuss the approach.
-- By contributing, you agree to the **Contributor License Agreement** ([CLA.md](./CLA.md)). A bot will ask you to sign it once, on your first pull request; PRs can't be merged until it's signed. The CLA lets the project be offered both under AGPL-3.0 and, where needed, under separate commercial terms — it does not take away your own rights to your contribution.
+- Contributions are accepted under the repository's AGPL-3.0 license (inbound = outbound). There is no CLA to sign.
 
 ## Workflow
 
@@ -16,8 +16,6 @@ Thanks for your interest — contributions are welcome. two42 is open source und
 ## Database & migrations
 
 - Migrations are timestamped SQL in `supabase/migrations/` and must stay **additive**.
-- Never target the remote Supabase project directly; CI/CD owns remote schema state.
-- Coordinate schema changes — only one in-flight branch should introduce migrations at a time.
 
 ## Design & UI
 
