@@ -253,6 +253,38 @@ select is(
   'pending',
   'invite-only signup starts as pending (approval logic unchanged)');
 
+-- ── Case-insensitive email resolution ───────────────────────────────────────
+-- GoTrue lowercases auth emails; access requests store them as typed. An
+-- exact match would raise TN001 for a request entered with capitals —
+-- locking that person out of signup entirely.
+do $$
+declare
+  u uuid := gen_random_uuid();
+begin
+  insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('su.org_a')::uuid, 'mixed case',
+            'Mixed.Case@Leak.Example.Test', 'approved');
+  insert into auth.users (id, email) values (u, 'mixed.case@leak.example.test');
+  perform set_config('su.mixed_case_user', u::text, true);
+end $$;
+
+select is(
+  (select org_id from public.profiles where id = current_setting('su.mixed_case_user')::uuid),
+  current_setting('su.org_a')::uuid,
+  'a lowercased auth email matches an access request stored with capitals');
+
+select is(
+  (select role from public.profiles where id = current_setting('su.mixed_case_user')::uuid),
+  'member',
+  'the case-insensitive match still resolves the approved role, not pending');
+
+-- The TN004 duplicate-owner guard uses the same comparison: a case-variant
+-- of an existing profile email is still the same account.
+select throws_ok(
+  $$ select public.provision_organization('Signup Suite Org D', 'signup-suite-org-d', 'SU-OWNER-B@leak.example.test') $$,
+  'TN004', null,
+  'provisioning refuses a case-variant of an owner email that already belongs to another org');
+
 -- ── giving_stewards_can_manage(): per-org settings, no 21000 (§4.2) ────────
 do $$
 declare

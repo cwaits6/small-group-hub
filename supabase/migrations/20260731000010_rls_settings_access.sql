@@ -34,11 +34,25 @@ create policy "Admins can update settings" on public.site_settings
 -- org-pinned — the inserted row's org must match the org the request
 -- resolves to (the x-two42-org header for anon, the caller's own org when
 -- authenticated). The bare `WITH CHECK (true)` disappears.
+--
+-- The row must also arrive un-reviewed. status = 'approved' is the signup
+-- trust anchor (handle_new_user() mints a member profile from it), and the
+-- status CHECK alone would let anyone self-approve straight through
+-- PostgREST. Review fields and signup tokens are only ever set server-side
+-- (admin approve / invite flows run as service_role, which bypasses RLS),
+-- so a public insert carrying any of them is forged.
 
 drop policy "Anyone can submit access request" on public.access_requests;
 create policy "Anyone can submit access request" on public.access_requests
   for insert to anon, authenticated
-  with check (org_id = (select public.app_request_org_id()));
+  with check (
+    org_id = (select public.app_request_org_id())
+    and status = 'pending'
+    and reviewed_by is null
+    and reviewed_at is null
+    and signup_token is null
+    and token_expires_at is null
+  );
 
 drop policy "Admins can view access requests" on public.access_requests;
 create policy "Admins can view access requests" on public.access_requests

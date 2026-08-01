@@ -36,13 +36,17 @@ declare
   _hint_org_id uuid;
   _role text;
 begin
+  -- Email matches are case-insensitive: GoTrue lowercases auth emails while
+  -- access_requests / family_invites store them as typed, so an exact
+  -- comparison would raise TN001 for anyone whose request was entered with
+  -- capitals — locking them out of signup entirely.
   select coalesce(array_agg(distinct org_id), '{}') into _org_ids
   from (
     select org_id from public.access_requests
-    where email = new.email and status = 'approved'
+    where lower(email) = lower(new.email) and status = 'approved'
     union
     select org_id from public.family_invites
-    where invite_email = new.email and accepted_at is null
+    where lower(invite_email) = lower(new.email) and accepted_at is null
   ) matches;
 
   -- Server-set disambiguator only: narrow within the resolved set, never
@@ -69,7 +73,7 @@ begin
   -- promotes it).
   if exists (
     select 1 from public.access_requests
-    where email = new.email and status = 'approved' and org_id = _org_id
+    where lower(email) = lower(new.email) and status = 'approved' and org_id = _org_id
   ) then
     _role := 'member';
   else

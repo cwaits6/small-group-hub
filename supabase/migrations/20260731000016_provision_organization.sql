@@ -105,7 +105,9 @@ begin
   -- organization_members rows are created by handle_new_user() when they
   -- sign up AFTER provisioning, through the approved access request above.
   if exists (
-    select 1 from public.profiles where email = _owner_email
+    -- Case-insensitive to match handle_new_user(): profile emails come from
+    -- GoTrue lowercased, while _owner_email arrives as typed.
+    select 1 from public.profiles where lower(email) = lower(_owner_email)
   ) then
     raise exception 'owner email % already belongs to another organization', _owner_email
       using errcode = 'TN004';

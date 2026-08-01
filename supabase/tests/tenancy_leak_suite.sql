@@ -499,6 +499,7 @@ do $$
 declare
   match_err text := null;
   other_err text := null;
+  approved_err text := null;
   none_err text := null;
   landed_org text;
 begin
@@ -523,6 +524,17 @@ begin
     other_err := sqlstate;
   end;
 
+  -- …correctly tagged but pre-approved → rejected. status = 'approved' is
+  -- the signup trust anchor (handle_new_user() mints a member profile from
+  -- it), so a public insert must never be able to arrive already reviewed.
+  begin
+    insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('leak_suite.org_a')::uuid, 'anon self-approver',
+            'anon-self-approve@leak.example.test', 'approved');
+  exception when others then
+    approved_err := sqlstate;
+  end;
+
   -- …with no header at all → rejected (app_request_org_id() is NULL)
   perform set_config('request.headers', '{}', true);
   begin
@@ -539,6 +551,7 @@ begin
 
   perform set_config('leak_suite.anon_match', coalesce(match_err, 'ok'), true);
   perform set_config('leak_suite.anon_other', coalesce(other_err, 'ok'), true);
+  perform set_config('leak_suite.anon_approved', coalesce(approved_err, 'ok'), true);
   perform set_config('leak_suite.anon_none', coalesce(none_err, 'ok'), true);
   perform set_config('leak_suite.anon_landed', coalesce(landed_org, 'none'), true);
 end $$;
@@ -555,6 +568,9 @@ insert into tenancy_leak_results
 insert into tenancy_leak_results
   select is(current_setting('leak_suite.anon_none'), '42501',
     'anon INSERT with no x-two42-org header is rejected (RLS 42501)');
+insert into tenancy_leak_results
+  select is(current_setting('leak_suite.anon_approved'), '42501',
+    'anon INSERT arriving pre-approved is rejected — no self-approved signup trust anchor (RLS 42501)');
 
 -- Cross-layer coupling: JoinForm.tsx inserts org_id = DEFAULT_ORG_ID
 -- ("00000000-…-0001", lib/org.ts) while the policy above resolves the org

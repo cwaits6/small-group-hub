@@ -192,13 +192,17 @@ declare
   _hint_org_id uuid;
   _role text;
 begin
+  -- Email matches are case-insensitive: GoTrue lowercases auth emails while
+  -- access_requests / family_invites store them as typed, so an exact
+  -- comparison would raise TN001 for anyone whose request was entered with
+  -- capitals — locking them out of signup entirely.
   select coalesce(array_agg(distinct org_id), '{}') into _org_ids
   from (
     select org_id from public.access_requests
-    where email = new.email and status = 'approved'
+    where lower(email) = lower(new.email) and status = 'approved'
     union
     select org_id from public.family_invites
-    where invite_email = new.email and accepted_at is null
+    where lower(invite_email) = lower(new.email) and accepted_at is null
   ) matches;
 
   -- Server-set disambiguator only: narrow within the resolved set, never
@@ -225,7 +229,7 @@ begin
   -- promotes it).
   if exists (
     select 1 from public.access_requests
-    where email = new.email and status = 'approved' and org_id = _org_id
+    where lower(email) = lower(new.email) and status = 'approved' and org_id = _org_id
   ) then
     _role := 'member';
   else
@@ -459,7 +463,9 @@ begin
   -- organization_members rows are created by handle_new_user() when they
   -- sign up AFTER provisioning, through the approved access request above.
   if exists (
-    select 1 from public.profiles where email = _owner_email
+    -- Case-insensitive to match handle_new_user(): profile emails come from
+    -- GoTrue lowercased, while _owner_email arrives as typed.
+    select 1 from public.profiles where lower(email) = lower(_owner_email)
   ) then
     raise exception 'owner email % already belongs to another organization', _owner_email
       using errcode = 'TN004';
@@ -2393,7 +2399,7 @@ CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELE
 
 
 
-CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT TO "authenticated", "anon" WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT TO "authenticated", "anon" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("status" = 'pending'::"text") AND ("reviewed_by" IS NULL) AND ("reviewed_at" IS NULL) AND ("signup_token" IS NULL) AND ("token_expires_at" IS NULL)));
 
 
 
