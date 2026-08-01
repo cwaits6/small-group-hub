@@ -16,8 +16,7 @@ Thanks for your interest — contributions are welcome. two42 is open source und
 ## Database & migrations
 
 - Migrations are timestamped SQL in `supabase/migrations/` and must stay **additive**.
-- Never target the remote Supabase project directly; CI/CD owns remote schema state.
-- Coordinate schema changes — only one in-flight branch should introduce migrations at a time.
+- If your change needs a migration, say so in the issue first — only one open PR at a time can introduce migrations, so yours may need to wait its turn.
 
 ## Design & UI
 
