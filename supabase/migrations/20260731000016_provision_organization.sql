@@ -6,7 +6,8 @@
 -- Groups (maintainer decision, 2026-08-01, resolving plan §12 open item 1):
 -- provisioning seeds NO groups. Groups are org-defined: admins create them
 -- in /admin/groups and designate capabilities per group
--- (grants_prayer_access, is_serving_role) and per-membership leadership
+-- (is_serving_role — grants_prayer_access is dropped in 20260801000001) and
+-- per-membership leadership
 -- (profile_groups.is_leader). Nothing in the schema or app requires a group
 -- to exist — an org with zero groups simply has no prayer roster or serving
 -- teams yet. See 20260801000000_drop_functional_role.sql.

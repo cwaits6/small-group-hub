@@ -37,7 +37,8 @@ end $$;
 
 -- Groups are org-defined (maintainer decision, plan §12 open item 1):
 -- admins create them in /admin/groups and set per-group capability flags
--- (grants_prayer_access, is_serving_role) and per-membership leadership
+-- (is_serving_role; grants_prayer_access existed until 20260801000001) and
+-- per-membership leadership
 -- (profile_groups.is_leader). A platform-seeded group would be the
 -- hardwired-role model 20260716000002 already removed once, so its absence
 -- is asserted, not assumed.

@@ -2,8 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { MemberGroup } from "@/lib/types";
 
 /**
- * Add or remove a member from a group. Denormalized role flags on profiles
- * (is_prayer_warrior) are kept in sync by database triggers.
+ * Add or remove a member from a group.
  *
  * @returns an error message to show the user, or null on success
  */

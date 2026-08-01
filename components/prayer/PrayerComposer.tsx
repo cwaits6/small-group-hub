@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronDown, HandHeart, Lock, Shield, UserRound } from "lucide-react";
+import { HandHeart, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { displayName, initials } from "@/lib/names";
 import { PRAYER_CATEGORIES, PRAYER_CATEGORY_KEYS } from "@/lib/prayer";
-import type { PrayerCategory, PrayerWarrior } from "@/lib/types";
+import type { PrayerCategory } from "@/lib/types";
 import type { Me } from "@/components/prayer/PrayerBoard";
 
 function SwitchRow({
@@ -56,66 +55,20 @@ function SwitchRow({
   );
 }
 
-/**
- * Expandable roster of the Prayer Warriors group, so a poster can see exactly
- * who will get a request they restrict to warriors. Only lists members the
- * viewer is allowed to see (unlisted profiles are hidden by RLS).
- */
-function WarriorRoster({ warriors }: { warriors: PrayerWarrior[] }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-xl border border-border bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-        {warriors.length === 0
-          ? "No prayer warriors yet"
-          : `See who's in the group (${warriors.length})`}
-      </button>
-      {open && warriors.length > 0 && (
-        <ul className="flex flex-col gap-2 px-3 pb-3">
-          {warriors.map((w) => (
-            <li key={w.id} className="flex items-center gap-2.5">
-              <Avatar size="sm" className="shrink-0">
-                {w.avatar_url && <AvatarImage src={w.avatar_url} alt="" />}
-                <AvatarFallback className="bg-brand-warm text-xs font-semibold text-brand-primary">
-                  {initials(w)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-foreground">{displayName(w)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 export function PrayerComposer({
   me,
   onPost,
-  warriors,
 }: {
   me: Me;
   onPost: (draft: {
     body: string;
     category: PrayerCategory;
     is_anonymous: boolean;
-    visible_to_warriors: boolean;
   }) => Promise<boolean>;
-  warriors: PrayerWarrior[];
 }) {
   const [body, setBody] = useState("");
   const [category, setCategory] = useState<PrayerCategory>("health");
   const [anonymous, setAnonymous] = useState(false);
-  const [toWarriors, setToWarriors] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const canPost = body.trim().length > 0 && !submitting;
@@ -129,7 +82,6 @@ export function PrayerComposer({
         body: body.trim(),
         category,
         is_anonymous: anonymous,
-        visible_to_warriors: toWarriors,
       });
     } finally {
       setSubmitting(false);
@@ -137,7 +89,6 @@ export function PrayerComposer({
     if (ok) {
       setBody("");
       setAnonymous(false);
-      setToWarriors(false);
       setCategory("health");
     }
   };
@@ -205,44 +156,17 @@ export function PrayerComposer({
           sub="Your name is hidden — only the request is shown."
           icon={<UserRound className="h-4 w-4" aria-hidden="true" />}
         />
-
-        <div className="mt-2 mb-0.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-          Who can see this
-        </div>
-        <SwitchRow
-          id="prayer-warriors-only"
-          on={toWarriors}
-          onToggle={setToWarriors}
-          title="Prayer warriors only"
-          sub="Off — everyone in the class can see it."
-          icon={<Shield className="h-4 w-4" aria-hidden="true" />}
-        />
-        <WarriorRoster warriors={warriors} />
-        {toWarriors && warriors.length === 0 && (
-          <p className="px-1 text-[13px] text-brand-primary">
-            No one is in the Prayer Warriors group yet, so only you will see
-            this request.
-          </p>
-        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background px-5 py-3.5">
         <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-          {toWarriors && (
-            <Lock
-              className="h-3.5 w-3.5 shrink-0 text-brand-primary"
-              aria-hidden="true"
-            />
-          )}
           <span>
             Posting as{" "}
             <strong className="font-semibold text-foreground">
               {anonymous ? "Anonymous" : me.name}
             </strong>{" "}
             · visible to{" "}
-            <strong className="font-semibold text-foreground">
-              {toWarriors ? "prayer warriors" : "everyone"}
-            </strong>
+            <strong className="font-semibold text-foreground">everyone</strong>
           </span>
         </p>
         <button

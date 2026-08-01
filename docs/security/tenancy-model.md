@@ -117,7 +117,7 @@ slug raises `TN003`.
 
 Provisioning seeds **no groups**. Groups are org-defined: admins create
 them in `/admin/groups` and designate capabilities per group
-(`grants_prayer_access`, `is_serving_role`) and leadership per membership
+(`is_serving_role`) and leadership per membership
 (`profile_groups.is_leader`). Nothing in the schema or app requires a group
 to exist, so there is no platform-defined group name for a policy or
 surface to depend on (`member_groups.functional_role` is dropped in

@@ -60,9 +60,9 @@ ON CONFLICT (id) DO NOTHING;
 -- so we just update it to admin
 UPDATE public.profiles SET role = 'admin' WHERE id = 'a0000000-0000-0000-0000-000000000001';
 
--- Dev-only starter group so the prayer wall's restricted-visibility flow is
--- testable locally. Deployments create their own groups at /admin/groups and
--- designate capabilities per group — provisioning seeds none.
-INSERT INTO public.member_groups (id, org_id, name, description, color, icon, display_order, grants_prayer_access, is_serving_role)
-VALUES ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Prayer Warriors', 'Sees prayer requests shared with prayer warriors', '#8A6BB5', 'shield', 0, true, true)
+-- Dev-only starter group so the serving flow is testable locally.
+-- Deployments create their own groups at /admin/groups — provisioning
+-- seeds none.
+INSERT INTO public.member_groups (id, org_id, name, description, color, icon, display_order, is_serving_role)
+VALUES ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Serving Team', 'Signs up to serve on Sundays', '#7C9885', 'hands', 0, true)
 ON CONFLICT (id) DO NOTHING;

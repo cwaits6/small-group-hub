@@ -40,8 +40,6 @@ export interface Profile {
   hide_occupation: boolean;
   hide_birth_year: boolean;
   relationship: FamilyMemberRelationship;
-  /** Denormalized from prayer-access group membership; DB triggers own it */
-  is_prayer_warrior: boolean;
   email_announcements: boolean;
   setup_completed: boolean;
   approved_at: string | null;
@@ -228,8 +226,6 @@ export interface MemberGroup {
   color: string | null;
   icon: string | null;
   display_order: number;
-  /** Members can see prayer requests restricted to prayer warriors */
-  grants_prayer_access: boolean;
   show_in_directory_filter: boolean;
   /** Listed on the Serve page as a standing role/team (vs. a directory-only tag) */
   is_serving_role: boolean;
@@ -424,19 +420,6 @@ export interface PrayerWallRow {
   avatar_url: string | null;
   praying_count: number;
   i_am_praying: boolean;
-}
-
-/**
- * A member of the Prayer Warriors group, listed on the Prayer page so posters
- * can see who a warrior-restricted request will reach. Only listed profiles
- * come through (RLS hides unlisted members).
- */
-export interface PrayerWarrior {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  preferred_name: string | null;
-  avatar_url: string | null;
 }
 
 /** One weekly prayer call session shown on the Prayer Call card */

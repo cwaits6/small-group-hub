@@ -366,21 +366,6 @@ $$;
 ALTER FUNCTION "public"."is_platform_admin"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_prayer_warrior"() RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and is_prayer_warrior
-      and org_id = public.app_current_org_id()
-  );
-$$;
-
-
-ALTER FUNCTION "public"."is_prayer_warrior"() OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
@@ -466,73 +451,6 @@ $_$;
 
 
 ALTER FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."sync_prayer_access_for_group"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-begin
-  -- Same locking discipline as the per-profile sync, and in deterministic
-  -- (id) order so two concurrent group-wide recomputes can't deadlock.
-  perform 1
-  from public.profiles
-  where id in (
-    select profile_id from public.profile_groups where group_id = new.id
-  )
-  order by id
-  for update;
-
-  update public.profiles p
-  set is_prayer_warrior = exists (
-    select 1
-    from public.profile_groups pg
-    join public.member_groups g on g.id = pg.group_id
-      and g.org_id = pg.org_id
-    where pg.profile_id = p.id
-      and g.grants_prayer_access
-  )
-  where p.id in (
-    select profile_id from public.profile_groups where group_id = new.id
-  );
-  return null;
-end;
-$$;
-
-
-ALTER FUNCTION "public"."sync_prayer_access_for_group"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."sync_prayer_access_for_profile"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-declare
-  _profile_id uuid := coalesce(new.profile_id, old.profile_id);
-begin
-  -- Lock the profile row before recomputing so concurrent membership changes
-  -- for the same profile serialize here: under read committed, the statement
-  -- after the lock is granted runs with a fresh snapshot that includes the
-  -- other transaction's committed writes, so the last recompute can't clobber
-  -- the flag with a stale membership view.
-  perform 1 from public.profiles where id = _profile_id for update;
-
-  update public.profiles
-  set is_prayer_warrior = exists (
-    select 1
-    from public.profile_groups pg
-    join public.member_groups g on g.id = pg.group_id
-      and g.org_id = pg.org_id
-    where pg.profile_id = _profile_id
-      and g.grants_prayer_access
-  )
-  where id = _profile_id;
-  return null;
-end;
-$$;
-
-
-ALTER FUNCTION "public"."sync_prayer_access_for_profile"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."touch_updated_at"() RETURNS "trigger"
@@ -801,7 +719,6 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "relationship" "text" DEFAULT 'primary'::"text" NOT NULL,
     "hide_birth_year" boolean DEFAULT false NOT NULL,
     "setup_completed" boolean DEFAULT false NOT NULL,
-    "is_prayer_warrior" boolean DEFAULT false NOT NULL,
     "email_announcements" boolean DEFAULT true NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
@@ -989,7 +906,6 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "show_in_directory_filter" boolean DEFAULT true NOT NULL,
     "is_serving_role" boolean DEFAULT false NOT NULL,
-    "grants_prayer_access" boolean DEFAULT false NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
@@ -1780,10 +1696,6 @@ CREATE OR REPLACE TRIGGER "family_units_touch_updated_at" BEFORE UPDATE ON "publ
 
 
 
-CREATE OR REPLACE TRIGGER "member_groups_sync_prayer_access" AFTER UPDATE OF "grants_prayer_access" ON "public"."member_groups" FOR EACH ROW WHEN (("old"."grants_prayer_access" IS DISTINCT FROM "new"."grants_prayer_access")) EXECUTE FUNCTION "public"."sync_prayer_access_for_group"();
-
-
-
 CREATE OR REPLACE TRIGGER "member_groups_touch_updated_at" BEFORE UPDATE ON "public"."member_groups" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
 
 
@@ -1793,10 +1705,6 @@ CREATE OR REPLACE TRIGGER "prayer_call_sessions_touch_updated_at" BEFORE UPDATE 
 
 
 CREATE OR REPLACE TRIGGER "prayer_requests_touch_updated_at" BEFORE UPDATE ON "public"."prayer_requests" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
-
-
-
-CREATE OR REPLACE TRIGGER "profile_groups_sync_prayer_access" AFTER INSERT OR DELETE ON "public"."profile_groups" FOR EACH ROW EXECUTE FUNCTION "public"."sync_prayer_access_for_profile"();
 
 
 
@@ -2574,7 +2482,7 @@ CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" F
 
 
 
-CREATE POLICY "Members can view visible prayer requests" ON "public"."prayer_requests" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR (NOT "visible_to_warriors") OR ("visible_to_warriors" AND ( SELECT "public"."is_prayer_warrior"() AS "is_prayer_warrior")))));
+CREATE POLICY "Members can view visible prayer requests" ON "public"."prayer_requests" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR (NOT "visible_to_warriors"))));
 
 
 
@@ -2960,26 +2868,8 @@ GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "anon";
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "service_role";
-
-
-
 REVOKE ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "anon";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "anon";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "service_role";
 
 
 

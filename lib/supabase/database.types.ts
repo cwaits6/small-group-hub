@@ -945,7 +945,6 @@ export type Database = {
           created_by: string | null
           description: string | null
           display_order: number
-          grants_prayer_access: boolean
           icon: string | null
           id: string
           is_serving_role: boolean
@@ -960,7 +959,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          grants_prayer_access?: boolean
           icon?: string | null
           id?: string
           is_serving_role?: boolean
@@ -975,7 +973,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          grants_prayer_access?: boolean
           icon?: string | null
           id?: string
           is_serving_role?: boolean
@@ -1391,7 +1388,6 @@ export type Database = {
           hide_phone_mobile: boolean
           hide_phone_work: boolean
           id: string
-          is_prayer_warrior: boolean
           is_unlisted: boolean
           last_name: string | null
           occupation: string | null
@@ -1436,7 +1432,6 @@ export type Database = {
           hide_phone_mobile?: boolean
           hide_phone_work?: boolean
           id: string
-          is_prayer_warrior?: boolean
           is_unlisted?: boolean
           last_name?: string | null
           occupation?: string | null
@@ -1481,7 +1476,6 @@ export type Database = {
           hide_phone_mobile?: boolean
           hide_phone_work?: boolean
           id?: string
-          is_prayer_warrior?: boolean
           is_unlisted?: boolean
           last_name?: string | null
           occupation?: string | null
@@ -2084,7 +2078,6 @@ export type Database = {
       is_member: { Args: never; Returns: boolean }
       is_org_member: { Args: { _org_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
-      is_prayer_warrior: { Args: never; Returns: boolean }
       provision_organization: {
         Args: { _name: string; _owner_email: string; _slug: string }
         Returns: string
