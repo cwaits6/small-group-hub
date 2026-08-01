@@ -379,15 +379,17 @@ language plpgsql security definer set search_path = ''
 Single transaction; everything or nothing:
 
 1. `organizations` row — `name`, `slug` (unique, validated `^[a-z0-9][a-z0-9-]{1,62}$`), `branding` jsonb default (`display_name`, `logo_url`, `accent` only — the tenant-overridable contract from #221 / `docs/design/DESIGN.md`), `status`.
-2. **Three functional groups** in `member_groups`, keyed by the `functional_role` column Phase 1 introduces (partial unique on `(org_id, functional_role)`):
-   - `prayer_warriors` — `grants_prayer_access = true`
-   - `serving_team` — `is_serving_role = true`
-   - `leaders` — group leadership / serving administration
+2. ~~**Three functional groups** in `member_groups`, keyed by the `functional_role` column Phase 1 introduces~~
 
-   *Open item:* #210 says "3 functional groups" without naming them. These three
-   are the set the current schema's behaviour flags actually require. **Confirm
-   with the maintainer before implementing** — renaming a `functional_role` after
-   the fact is a migration.
+   *Resolved the other way (maintainer decision, 2026-08-01):* provisioning
+   seeds **no groups**. Groups are org-defined — admins create them in
+   `/admin/groups` and designate capabilities per group
+   (`grants_prayer_access`, `is_serving_role`) and leadership per membership
+   (`profile_groups.is_leader`). No schema or app surface requires a group to
+   exist, so nothing needs a platform-defined name — the same reasoning that
+   removed the original `functional_role` enum in `20260716000002`. The
+   re-added Phase 1 column is dropped again in
+   `20260801000000_drop_functional_role.sql`.
 3. **Prayer calendar** — an `event_calendars` row, with its id written to
    `site_settings ('prayer_calendar_id')`. This is why the calendar is part of
    provisioning rather than onboarding: `lib/prayerCalls.ts` and `app/prayer`
@@ -569,8 +571,9 @@ trustworthy; do not add a check without one.
 
 ## 12. Open items for the maintainer
 
-1. **Names of the three functional groups** (§6.2) — `prayer_warriors`,
-   `serving_team`, `leaders` proposed; confirm before implementing.
+1. **Names of the three functional groups** (§6.2) — resolved 2026-08-01:
+   provisioning seeds no groups at all; groups are org-defined with per-group
+   capability flags and per-membership leadership (see §6.2).
 2. **Group-scoping of member-facing surfaces** (§3.4) — recommend splitting into
    its own issue rather than folding into Phase 2. Needs a `group_id` on
    `prayer_requests` and a product decision on the directory default.

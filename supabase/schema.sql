@@ -404,18 +404,7 @@ begin
   )
   returning id into _org_id;
 
-  -- 2. The three functional groups, keyed by functional_role (partial
-  -- unique on (org_id, functional_role)). These are the groups the schema's
-  -- behaviour flags require; app surfaces look them up by functional_role,
-  -- never by display name.
-  insert into public.member_groups
-    (org_id, name, functional_role, grants_prayer_access, is_serving_role, display_order)
-  values
-    (_org_id, 'Prayer Warriors', 'prayer_warriors', true,  false, 0),
-    (_org_id, 'Serving Team',    'serving_team',    false, true,  1),
-    (_org_id, 'Leaders',         'leaders',         false, false, 2);
-
-  -- 3. Prayer calendar, wired into settings: lib/prayerCalls.ts and
+  -- 2. Prayer calendar, wired into settings: lib/prayerCalls.ts and
   -- app/prayer read prayer_calendar_id, and a missing value degrades the
   -- prayer surface — which is why the calendar is provisioning, not
   -- onboarding.
@@ -423,7 +412,7 @@ begin
   values (_org_id, 'Prayer Calls', '#7c9885')
   returning id into _cal_id;
 
-  -- 4. Settings defaults — the full key list in one auditable place.
+  -- 3. Settings defaults — the full key list in one auditable place.
   -- serving_link_mode's deploy default is applied at read time by
   -- getServingLinkMode() (SERVING_LINK_MODE env); the seed row here matches
   -- the migration-seeded default. Only site_name is anon-readable (#215).
@@ -440,16 +429,16 @@ begin
     (_org_id, 'giving_dashboard_tile',   'on',          false),
     (_org_id, 'prayer_calendar_id',      _cal_id::text, false);
 
-  -- 5. Empty about page (per-org singleton: PK is (org_id, id), id CHECKed
+  -- 4. Empty about page (per-org singleton: PK is (org_id, id), id CHECKed
   -- true).
   insert into public.about_page (org_id, id, body) values (_org_id, true, '');
 
-  -- 6. Approved access request for the owner, so their signup resolves
+  -- 5. Approved access request for the owner, so their signup resolves
   -- under handle_new_user()'s fail-closed rules.
   insert into public.access_requests (org_id, name, email, status, reviewed_at)
   values (_org_id, _name || ' owner', _owner_email, 'approved', now());
 
-  -- 7. The owner email must not already have a profile. The org created
+  -- 6. The owner email must not already have a profile. The org created
   -- above holds no profiles yet, so ANY existing profile with this email
   -- necessarily belongs to another org — and a profile is never moved
   -- between orgs. An unscoped `update profiles set org_id = _org_id where
@@ -1001,8 +990,7 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
     "show_in_directory_filter" boolean DEFAULT true NOT NULL,
     "is_serving_role" boolean DEFAULT false NOT NULL,
     "grants_prayer_access" boolean DEFAULT false NOT NULL,
-    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
-    "functional_role" "text"
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -1620,7 +1608,6 @@ CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("ser
 
 
 
-CREATE UNIQUE INDEX "member_groups_org_id_functional_role_key" ON "public"."member_groups" USING "btree" ("org_id", "functional_role") WHERE ("functional_role" IS NOT NULL);
 
 
 

@@ -40,12 +40,14 @@ declare
   _signup uuid;
   _request uuid;
 begin
-  -- provisioning already seeded: organizations, member_groups (3 functional
-  -- groups), event_calendars (prayer calendar), site_settings, about_page,
-  -- access_requests (owner), and the owner's profiles +
-  -- organization_members rows via signup. Everything else is seeded here.
-  select id into _serving_group from public.member_groups
-    where org_id = _org and functional_role = 'serving_team';
+  -- provisioning already seeded: organizations, event_calendars (prayer
+  -- calendar), site_settings, about_page, access_requests (owner), and the
+  -- owner's profiles + organization_members rows via signup. Groups are
+  -- org-defined (provisioning seeds none), so the fixture creates its own
+  -- serving group here — which is also the member_groups row the
+  -- fixture-completeness gate counts.
+  insert into public.member_groups (org_id, name, is_serving_role)
+    values (_org, _tag || ' serving team', true) returning id into _serving_group;
 
   insert into public.family_units (org_id, family_name)
     values (_org, _tag || ' family') returning id into _family;

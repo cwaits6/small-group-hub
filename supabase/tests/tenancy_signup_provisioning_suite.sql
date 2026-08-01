@@ -35,25 +35,16 @@ end $$;
 
 -- ── provision_organization() completeness (§6) ──────────────────────────────
 
+-- Groups are org-defined (maintainer decision, plan §12 open item 1):
+-- admins create them in /admin/groups and set per-group capability flags
+-- (grants_prayer_access, is_serving_role) and per-membership leadership
+-- (profile_groups.is_leader). A platform-seeded group would be the
+-- hardwired-role model 20260716000002 already removed once, so its absence
+-- is asserted, not assumed.
 select is(
   (select count(*)::int from public.member_groups
-    where org_id = current_setting('su.org_a')::uuid and functional_role is not null),
-  3, 'provisioning creates exactly 3 functional groups');
-
-select ok(
-  (select grants_prayer_access from public.member_groups
-    where org_id = current_setting('su.org_a')::uuid and functional_role = 'prayer_warriors'),
-  'prayer_warriors group grants prayer access');
-
-select ok(
-  (select is_serving_role from public.member_groups
-    where org_id = current_setting('su.org_a')::uuid and functional_role = 'serving_team'),
-  'serving_team group is a serving role');
-
-select ok(
-  exists (select 1 from public.member_groups
-    where org_id = current_setting('su.org_a')::uuid and functional_role = 'leaders'),
-  'leaders group exists');
+    where org_id = current_setting('su.org_a')::uuid),
+  0, 'provisioning seeds no groups — groups are org-defined');
 
 select is(
   (select value from public.site_settings
@@ -330,8 +321,12 @@ declare
   fund_b uuid;
   lead_own text; lead_other text; manage_other text;
 begin
-  select id into group_a from public.member_groups where org_id = org_a and functional_role = 'serving_team';
-  select id into group_b from public.member_groups where org_id = org_b and functional_role = 'serving_team';
+  -- Provisioning seeds no groups, so each org's serving group is created
+  -- here the way an org admin would.
+  insert into public.member_groups (org_id, name, is_serving_role)
+    values (org_a, 'A serving team', true) returning id into group_a;
+  insert into public.member_groups (org_id, name, is_serving_role)
+    values (org_b, 'B serving team', true) returning id into group_b;
   insert into public.profile_groups (org_id, profile_id, group_id, is_leader)
     values (org_a, owner_a, group_a, true);
   insert into public.giving_funds (org_id, name, steward_id)

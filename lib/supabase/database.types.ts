@@ -945,7 +945,6 @@ export type Database = {
           created_by: string | null
           description: string | null
           display_order: number
-          functional_role: string | null
           grants_prayer_access: boolean
           icon: string | null
           id: string
@@ -961,7 +960,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          functional_role?: string | null
           grants_prayer_access?: boolean
           icon?: string | null
           id?: string
@@ -977,7 +975,6 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           display_order?: number
-          functional_role?: string | null
           grants_prayer_access?: boolean
           icon?: string | null
           id?: string

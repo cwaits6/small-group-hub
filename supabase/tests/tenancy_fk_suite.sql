@@ -74,7 +74,8 @@ begin
   insert into public.prayer_requests (org_id, author_id, body, category)
     values (org_b, owner_b, 'B prayer', 'health') returning id into v;
   perform set_config('fk.request_b', v::text, true);
-  select id into v from public.member_groups where org_id = org_b and functional_role = 'serving_team';
+  insert into public.member_groups (org_id, name, is_serving_role)
+    values (org_b, 'B serving team', true) returning id into v;
   perform set_config('fk.group_b', v::text, true);
 end $$;
 
@@ -175,8 +176,8 @@ declare
   _cal uuid; _event uuid; _series uuid; _lecture uuid; _pcs uuid;
   _signup uuid; _fund uuid; _group uuid;
 begin
-  select id into _group from public.member_groups
-    where org_id = org_a and functional_role = 'serving_team';
+  insert into public.member_groups (org_id, name, is_serving_role)
+    values (org_a, 'A serving team', true) returning id into _group;
 
   -- 1. access_requests.invite_token ← family_invites.token
   insert into public.family_units (org_id, family_name) values (org_a, 'A family') returning id into _family;

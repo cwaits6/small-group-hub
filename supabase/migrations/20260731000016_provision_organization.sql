@@ -3,14 +3,19 @@
 -- that builds a complete, usable org in one transaction — everything or
 -- nothing.
 --
--- Functional group names (maintainer decision, 2026-07-31, resolving plan
--- §12 open item 1): prayer_warriors / serving_team / leaders.
+-- Groups (maintainer decision, 2026-08-01, resolving plan §12 open item 1):
+-- provisioning seeds NO groups. Groups are org-defined: admins create them
+-- in /admin/groups and designate capabilities per group
+-- (grants_prayer_access, is_serving_role) and per-membership leadership
+-- (profile_groups.is_leader). Nothing in the schema or app requires a group
+-- to exist — an org with zero groups simply has no prayer roster or serving
+-- teams yet. See 20260801000000_drop_functional_role.sql.
 --
 -- Owner flow (§5 contract): provisioning creates the org AND an approved
 -- access_requests row for the owner's email BEFORE any auth user exists, so
 -- the owner's subsequent signup resolves fail-closed through
 -- handle_new_user(). A profile with that email that already belongs to
--- another org is rejected (TN004), never moved — see step 7.
+-- another org is rejected (TN004), never moved — see step 6.
 --
 -- Authorization: SECURITY DEFINER + search_path = '' + REVOKE from
 -- public/anon/authenticated is the WHOLE story. In Phase 2 the only callers
@@ -46,18 +51,7 @@ begin
   )
   returning id into _org_id;
 
-  -- 2. The three functional groups, keyed by functional_role (partial
-  -- unique on (org_id, functional_role)). These are the groups the schema's
-  -- behaviour flags require; app surfaces look them up by functional_role,
-  -- never by display name.
-  insert into public.member_groups
-    (org_id, name, functional_role, grants_prayer_access, is_serving_role, display_order)
-  values
-    (_org_id, 'Prayer Warriors', 'prayer_warriors', true,  false, 0),
-    (_org_id, 'Serving Team',    'serving_team',    false, true,  1),
-    (_org_id, 'Leaders',         'leaders',         false, false, 2);
-
-  -- 3. Prayer calendar, wired into settings: lib/prayerCalls.ts and
+  -- 2. Prayer calendar, wired into settings: lib/prayerCalls.ts and
   -- app/prayer read prayer_calendar_id, and a missing value degrades the
   -- prayer surface — which is why the calendar is provisioning, not
   -- onboarding.
@@ -65,7 +59,7 @@ begin
   values (_org_id, 'Prayer Calls', '#7c9885')
   returning id into _cal_id;
 
-  -- 4. Settings defaults — the full key list in one auditable place.
+  -- 3. Settings defaults — the full key list in one auditable place.
   -- serving_link_mode's deploy default is applied at read time by
   -- getServingLinkMode() (SERVING_LINK_MODE env); the seed row here matches
   -- the migration-seeded default. Only site_name is anon-readable (#215).
@@ -82,16 +76,16 @@ begin
     (_org_id, 'giving_dashboard_tile',   'on',          false),
     (_org_id, 'prayer_calendar_id',      _cal_id::text, false);
 
-  -- 5. Empty about page (per-org singleton: PK is (org_id, id), id CHECKed
+  -- 4. Empty about page (per-org singleton: PK is (org_id, id), id CHECKed
   -- true).
   insert into public.about_page (org_id, id, body) values (_org_id, true, '');
 
-  -- 6. Approved access request for the owner, so their signup resolves
+  -- 5. Approved access request for the owner, so their signup resolves
   -- under handle_new_user()'s fail-closed rules.
   insert into public.access_requests (org_id, name, email, status, reviewed_at)
   values (_org_id, _name || ' owner', _owner_email, 'approved', now());
 
-  -- 7. The owner email must not already have a profile. The org created
+  -- 6. The owner email must not already have a profile. The org created
   -- above holds no profiles yet, so ANY existing profile with this email
   -- necessarily belongs to another org — and a profile is never moved
   -- between orgs. An unscoped `update profiles set org_id = _org_id where

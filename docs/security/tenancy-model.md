@@ -107,14 +107,21 @@ disambiguate within the matched set, never widen it; client-supplied
 `raw_user_meta_data` is never consulted for org selection.
 
 `provision_organization(name, slug, owner_email)` builds a complete org in
-one transaction: the org row, the three functional groups
-(`prayer_warriors` / `serving_team` / `leaders`), the prayer calendar plus
-its `prayer_calendar_id` setting, the settings defaults, an empty about
-page, and an **approved access request for the owner** — so self-serve
+one transaction: the org row, the prayer calendar plus its
+`prayer_calendar_id` setting, the settings defaults, an empty about page,
+and an **approved access request for the owner** — so self-serve
 onboarding is org-first: provision, then create the auth user, and the
 fail-closed trigger needs no special case. Phase 4 must NOT solve
 onboarding by adding a fallback branch to `handle_new_user()`. An invalid
 slug raises `TN003`.
+
+Provisioning seeds **no groups**. Groups are org-defined: admins create
+them in `/admin/groups` and designate capabilities per group
+(`grants_prayer_access`, `is_serving_role`) and leadership per membership
+(`profile_groups.is_leader`). Nothing in the schema or app requires a group
+to exist, so there is no platform-defined group name for a policy or
+surface to depend on (`member_groups.functional_role` is dropped in
+`20260801000000`).
 
 Provisioning **never moves an existing profile between orgs**. If a profile
 with the owner's email already belongs to a different org, the call raises
