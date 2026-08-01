@@ -179,7 +179,7 @@ export async function DELETE(request: Request) {
   }
 
   // Capture details before deleting so leaders can be told who freed the slot
-  const { data: signup } = await supabase
+  const { data: signup, error: signupError } = await supabase
     .from("serving_signups")
     .select(
       "id, group_id, service_date, family_id, created_by, member_groups(name), serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
@@ -187,6 +187,16 @@ export async function DELETE(request: Request) {
     .eq("id", signupId)
     .maybeSingle();
 
+  // A failed read must surface as a 500, not masquerade as "Signup not
+  // found" — the signup may still exist and the member would believe it
+  // was cancelled.
+  if (signupError) {
+    console.error("Serving signup lookup failed for %s:", signupId, signupError);
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
   if (!signup) {
     return NextResponse.json({ error: "Signup not found" }, { status: 404 });
   }

@@ -96,12 +96,26 @@ export async function POST(request: Request) {
   // Open Sundays are recomputed here — the email must reflect the truth at
   // send time, not what the leader's page showed when it loaded
   const sundays = upcomingSundays(settings.window_weeks);
-  const { data: signups } = await supabase
+  const { data: signups, error: signupsError } = await supabase
     .from("serving_signups")
     .select("service_date")
     .eq("group_id", groupId)
     .gte("service_date", sundays[0])
     .lte("service_date", sundays[sundays.length - 1]);
+
+  // A failed read here would render every Sunday as open and broadcast
+  // signup links for dates that are already covered — fail the send instead.
+  if (signupsError) {
+    console.error(
+      "Serving broadcast signups lookup failed for group %s:",
+      groupId,
+      signupsError
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   const covered = new Set((signups ?? []).map((s) => s.service_date));
   const openDates = sundays.filter((d) => !covered.has(d));
