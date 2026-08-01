@@ -384,7 +384,8 @@ Single transaction; everything or nothing:
    *Resolved the other way (maintainer decision, 2026-08-01):* provisioning
    seeds **no groups**. Groups are org-defined — admins create them in
    `/admin/groups` and designate capabilities per group
-   (`grants_prayer_access`, `is_serving_role`) and leadership per membership
+   (`is_serving_role` — `grants_prayer_access` was dropped with the prayer-access
+   tier in `20260801000001`) and leadership per membership
    (`profile_groups.is_leader`). No schema or app surface requires a group to
    exist, so nothing needs a platform-defined name — the same reasoning that
    removed the original `functional_role` enum in `20260716000002`. The
