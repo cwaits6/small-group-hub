@@ -379,12 +379,13 @@ begin
   end if;
 
   -- 1. The org itself. branding carries only the tenant-overridable keys
-  -- from #221 / docs/design/DESIGN.md: display_name, logo_url, accent.
+  -- from #221 / docs/design/DESIGN.md: display_name, logo_url, accent,
+  -- reply_to.
   insert into public.organizations (name, slug, branding, status)
   values (
     _name,
     _slug,
-    jsonb_build_object('display_name', _name, 'logo_url', null, 'accent', null),
+    jsonb_build_object('display_name', _name, 'logo_url', null, 'accent', null, 'reply_to', null),
     'active'
   )
   returning id into _org_id;
@@ -2536,6 +2537,10 @@ CREATE POLICY "Members can withdraw own prayer responses" ON "public"."prayer_re
 
 
 
+CREATE POLICY "Org readable within request org" ON "public"."organizations" FOR SELECT TO "authenticated", "anon" USING (("id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
 CREATE POLICY "Posters and admins can delete prayer requests" ON "public"."prayer_requests" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
@@ -3045,9 +3050,29 @@ GRANT ALL ON TABLE "public"."organization_members" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."organizations" TO "anon";
-GRANT ALL ON TABLE "public"."organizations" TO "authenticated";
+GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE "public"."organizations" TO "anon";
+GRANT INSERT,REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE "public"."organizations" TO "authenticated";
 GRANT ALL ON TABLE "public"."organizations" TO "service_role";
+
+
+
+GRANT SELECT("id") ON TABLE "public"."organizations" TO "anon";
+GRANT SELECT("id") ON TABLE "public"."organizations" TO "authenticated";
+
+
+
+GRANT SELECT("name") ON TABLE "public"."organizations" TO "anon";
+GRANT SELECT("name") ON TABLE "public"."organizations" TO "authenticated";
+
+
+
+GRANT SELECT("slug") ON TABLE "public"."organizations" TO "anon";
+GRANT SELECT("slug") ON TABLE "public"."organizations" TO "authenticated";
+
+
+
+GRANT SELECT("branding") ON TABLE "public"."organizations" TO "anon";
+GRANT SELECT("branding") ON TABLE "public"."organizations" TO "authenticated";
 
 
 
