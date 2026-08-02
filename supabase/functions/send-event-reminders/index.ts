@@ -231,12 +231,14 @@ Deno.serve(async () => {
       );
     }
     // Status contract: see summarize() in _shared/orgs.ts — 500 when any org
-    // failed (pg_net records it in net._http_response; nothing retries a 5xx,
-    // so no duplicate sends), 200 only for a clean run.
+    // or item failed (pg_net records it in net._http_response; nothing
+    // retries a 5xx, so no duplicate sends), 200 only for a clean run. This
+    // function has no inner loop, so failedItems is always empty today; the
+    // check keeps the contract uniform across both functions.
     return new Response(
       JSON.stringify({ message: `Sent ${summary.emailsSent} reminder emails`, ...summary }),
       {
-        status: summary.failed.length > 0 ? 500 : 200,
+        status: summary.failed.length > 0 || summary.failedItems.length > 0 ? 500 : 200,
         headers: { "Content-Type": "application/json" },
       },
     );

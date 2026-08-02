@@ -194,6 +194,7 @@ Deno.test("summarize totals sends and lists failures by slug", () => {
     emailsSent: 12,
     emailsFailed: 0,
     failed: [{ org: "b", error: "org b exploded" }],
+    failedItems: [],
   });
 });
 
@@ -210,6 +211,7 @@ Deno.test("summarize counts send failures separately from thrown org failures", 
     emailsSent: 0,
     emailsFailed: 17,
     failed: [],
+    failedItems: [],
   });
 });
 
@@ -226,9 +228,102 @@ Deno.test("summarize reports every org failing without throwing", () => {
       { org: "a", error: "a died" },
       { org: "b", error: "b died" },
     ],
+    failedItems: [],
   });
 });
 
 Deno.test("summarize returns zeroed totals for no orgs", () => {
-  assertEquals(summarize([]), { orgs: 0, emailsSent: 0, emailsFailed: 0, failed: [] });
+  assertEquals(summarize([]), {
+    orgs: 0,
+    emailsSent: 0,
+    emailsFailed: 0,
+    failed: [],
+    failedItems: [],
+  });
+});
+
+// ── CWA-50: the sub-org failure channel ──────────────────────────────────────
+
+Deno.test("forEachOrg propagates itemFailures from a successful return", async () => {
+  const failures = [{ item: "team-1", error: "team 1 exploded" }];
+  const results = await forEachOrg([orgA], () =>
+    Promise.resolve({ sent: 4, sendFailures: 1, itemFailures: failures }));
+  assertEquals(results, [
+    { orgId: "a-id", slug: "a", sent: 4, sendFailures: 1, itemFailures: failures },
+  ]);
+});
+
+Deno.test("forEachOrg omits itemFailures when a runner returns an empty list", async () => {
+  const results = await forEachOrg([orgA], () =>
+    Promise.resolve({ sent: 2, sendFailures: 0, itemFailures: [] }));
+  // Exact shape: no itemFailures key — runners without item failures keep
+  // today's result shape and response body.
+  assertEquals(results, [{ orgId: "a-id", slug: "a", sent: 2, sendFailures: 0 }]);
+});
+
+// CWA-49 ∩ CWA-50: an org that aborts mid-run must still report both its
+// partial counts AND the teams that had already failed before the abort.
+Deno.test("forEachOrg propagates itemFailures carried by an OrgRunError", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const results = await forEachOrg([orgA, orgB], (org) => {
+      if (org.slug === "a") {
+        return Promise.reject(
+          new OrgRunError("org a exploded mid-run", {
+            sent: 7,
+            sendFailures: 2,
+            itemFailures: [{ item: "team-1", error: "team 1 exploded" }],
+          }),
+        );
+      }
+      return Promise.resolve({ sent: 3, sendFailures: 0 });
+    });
+    assertEquals(results[0], {
+      orgId: "a-id",
+      slug: "a",
+      sent: 7,
+      sendFailures: 2,
+      itemFailures: [{ item: "team-1", error: "team 1 exploded" }],
+      error: "org a exploded mid-run",
+    });
+    assertEquals(results[1], { orgId: "b-id", slug: "b", sent: 3, sendFailures: 0 });
+  } finally {
+    console.error = originalError;
+  }
+});
+
+Deno.test("summarize flattens itemFailures into failedItems stamped with the org slug", () => {
+  const results: OrgRunResult[] = [
+    {
+      orgId: "a-id",
+      slug: "a",
+      sent: 5,
+      sendFailures: 1,
+      itemFailures: [
+        { item: "team-1", error: "team 1 exploded" },
+        { item: "team-2", error: "team 2 exploded" },
+      ],
+    },
+    { orgId: "b-id", slug: "b", sent: 4, sendFailures: 0 },
+    {
+      orgId: "c-id",
+      slug: "c",
+      sent: 2,
+      sendFailures: 0,
+      itemFailures: [{ item: "team-9", error: "team 9 exploded" }],
+      error: "org c exploded mid-run",
+    },
+  ];
+  assertEquals(summarize(results), {
+    orgs: 3,
+    emailsSent: 11,
+    emailsFailed: 1,
+    failed: [{ org: "c", error: "org c exploded mid-run" }],
+    failedItems: [
+      { org: "a", item: "team-1", error: "team 1 exploded" },
+      { org: "a", item: "team-2", error: "team 2 exploded" },
+      { org: "c", item: "team-9", error: "team 9 exploded" },
+    ],
+  });
 });

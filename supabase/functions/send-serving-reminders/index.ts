@@ -32,6 +32,7 @@ import {
   listActiveOrgs,
   OrgRunError,
   summarize,
+  type ItemFailure,
   type OrgListClient,
   type OrgRunCounts,
 } from "../_shared/orgs.ts";
@@ -194,6 +195,7 @@ async function runDaily(
 
   let sent = 0;
   let sendFailures = 0;
+  const itemFailures: ItemFailure[] = [];
 
   // Only process teams whose reminder_days include today
   const { data: teamSettings, error: teamSettingsError } = await supabase
@@ -204,75 +206,76 @@ async function runDaily(
     .contains("reminder_days", [todayDow]);
 
   if (teamSettingsError) {
-    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures });
+    // Genuinely org-level: no team loop has begun, so there is nothing to
+    // isolate per-team yet (itemFailures is necessarily empty here).
+    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures, itemFailures });
   }
-  if (!teamSettings?.length) return { sent, sendFailures };
+  if (!teamSettings?.length) return { sent, sendFailures, itemFailures };
 
+  // Per-team fault isolation (CWA-50): each team's body runs inside a try so
+  // one team's failure is recorded in itemFailures and the org's remaining
+  // teams still run. Query failures inside the loop throw plain Errors (not
+  // OrgRunError) so the catch records them per-team instead of aborting the
+  // org; `sent` / `sendFailures` are function-scoped, so partial counts
+  // survive a caught team.
   for (const { group_id } of teamSettings) {
-    const { data: group, error: groupError } = await supabase
-      .from("member_groups")
-      .select("name")
-      .eq("org_id", orgId)
-      .eq("id", group_id)
-      .maybeSingle();
-    if (groupError) {
-      // Per-team fault isolation (CWA-50): a member_groups lookup failure for
-      // one team must not abort reminders for the org's other teams. Log and
-      // skip, following the non-throwing logging policy the broadcast insert
-      // in runMonthly already uses.
-      console.error(
-        "[org %s] member_groups query failed for group %s, skipping team:",
-        orgId,
-        group_id,
-        groupError,
-      );
-      continue;
-    }
-    if (!group) continue;
-    const teamName = group.name as string;
+    try {
+      const { data: group, error: groupError } = await supabase
+        .from("member_groups")
+        .select("name")
+        .eq("org_id", orgId)
+        .eq("id", group_id)
+        .maybeSingle();
+      if (groupError) {
+        // Recorded via the catch below — this used to be a silent skip whose
+        // only record was a log line, invisible to the run summary.
+        throw new Error(`member_groups query failed: ${groupError.message}`);
+      }
+      if (!group) continue; // a genuinely absent group is not an error
+      const teamName = group.name as string;
 
-    const sunday = nextSunday();
+      const sunday = nextSunday();
 
-    // The embed carries no org_id filter and needs none: the parent row is
-    // org-filtered below and composite (col, org_id) FKs keep the traversal
-    // inside this tenant. See the note in _shared/orgs.ts.
-    const { data: signup, error: signupError } = await supabase
-      .from("serving_signups")
-      .select("id, serving_signup_attendees(profiles(id, first_name, preferred_name, email))")
-      .eq("org_id", orgId)
-      .eq("group_id", group_id)
-      .eq("service_date", sunday)
-      .maybeSingle();
-    if (signupError) {
-      throw new OrgRunError(`serving_signups query failed: ${signupError.message}`, { sent, sendFailures });
-    }
-
-    if (!signup) continue; // open Sunday — no reminder to send
-
-    const attendees = (signup.serving_signup_attendees ?? []) as unknown as Array<{
-      profiles: { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
-    }>;
-
-    for (const { profiles: p } of attendees) {
-      if (!p?.email) continue;
-      const name = escapeHtml(p.preferred_name || p.first_name || "Friend");
-      const safeTeam = escapeHtml(teamName);
-      const dateLabel = escapeHtml(formatDate(sunday));
-
-      let cancelUrl = `${SITE_URL}/serving/${group_id}`;
-      if (canSign) {
-        cancelUrl = `${SITE_URL}/serving/go?token=${await createToken(
-          { a: "cancel", g: group_id, d: sunday, p: p.id },
-          SERVING_LINK_SECRET!
-        )}`;
+      // The embed carries no org_id filter and needs none: the parent row is
+      // org-filtered below and composite (col, org_id) FKs keep the traversal
+      // inside this tenant. See the note in _shared/orgs.ts.
+      const { data: signup, error: signupError } = await supabase
+        .from("serving_signups")
+        .select("id, serving_signup_attendees(profiles(id, first_name, preferred_name, email))")
+        .eq("org_id", orgId)
+        .eq("group_id", group_id)
+        .eq("service_date", sunday)
+        .maybeSingle();
+      if (signupError) {
+        throw new Error(`serving_signups query failed: ${signupError.message}`);
       }
 
-      if (await sendEmail({
-        to: p.email,
-        refId: p.id,
-        branding,
-        subject: `Reminder: you're serving this Sunday with the ${teamName}`,
-        html: wrap(`
+      if (!signup) continue; // open Sunday — no reminder to send
+
+      const attendees = (signup.serving_signup_attendees ?? []) as unknown as Array<{
+        profiles: { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
+      }>;
+
+      for (const { profiles: p } of attendees) {
+        if (!p?.email) continue;
+        const name = escapeHtml(p.preferred_name || p.first_name || "Friend");
+        const safeTeam = escapeHtml(teamName);
+        const dateLabel = escapeHtml(formatDate(sunday));
+
+        let cancelUrl = `${SITE_URL}/serving/${group_id}`;
+        if (canSign) {
+          cancelUrl = `${SITE_URL}/serving/go?token=${await createToken(
+            { a: "cancel", g: group_id, d: sunday, p: p.id },
+            SERVING_LINK_SECRET!
+          )}`;
+        }
+
+        if (await sendEmail({
+          to: p.email,
+          refId: p.id,
+          branding,
+          subject: `Reminder: you're serving this Sunday with the ${teamName}`,
+          html: wrap(`
           <h1 style="color:${branding.accent};font-size:28px;">See you Sunday!</h1>
           <p style="font-size:18px;line-height:1.6;color:#44403c;">
             Hi ${name}, just a reminder that you&rsquo;re signed up to serve with the
@@ -289,12 +292,26 @@ async function runDaily(
             so someone else can cover.
           </p>
         `, branding.orgName),
-      })) sent++;
-      else sendFailures++;
+        })) sent++;
+        else sendFailures++;
+      }
+    } catch (err) {
+      // Keyed by group_id, never the team name — names are org-defined free
+      // text (tenant content) and fragile as diagnostic keys.
+      console.error(
+        "[org %s] team %s failed, continuing with remaining teams:",
+        orgId,
+        group_id,
+        err,
+      );
+      itemFailures.push({
+        item: group_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
-  return { sent, sendFailures };
+  return { sent, sendFailures, itemFailures };
 }
 
 // ── Monthly mode: broadcast open Sundays to the whole team ───────────────────
@@ -307,6 +324,7 @@ async function runMonthly(
 ): Promise<OrgRunCounts> {
   let sent = 0;
   let sendFailures = 0;
+  const itemFailures: ItemFailure[] = [];
 
   const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
@@ -315,85 +333,87 @@ async function runMonthly(
     .eq("enabled", true);
 
   if (teamSettingsError) {
-    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures });
+    // Genuinely org-level: no team loop has begun, so there is nothing to
+    // isolate per-team yet (itemFailures is necessarily empty here).
+    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures, itemFailures });
   }
-  if (!teamSettings?.length) return { sent, sendFailures };
+  if (!teamSettings?.length) return { sent, sendFailures, itemFailures };
 
+  // Per-team fault isolation (CWA-50): each team's body runs inside a try so
+  // one team's failure is recorded in itemFailures and the org's remaining
+  // teams still run. Query failures inside the loop throw plain Errors (not
+  // OrgRunError) so the catch records them per-team instead of aborting the
+  // org; `sent` / `sendFailures` are function-scoped, so partial counts
+  // survive a caught team.
   for (const { group_id, window_weeks } of teamSettings) {
-    let teamSent = 0;
-    const { data: group, error: groupError } = await supabase
-      .from("member_groups")
-      .select("name")
-      .eq("org_id", orgId)
-      .eq("id", group_id)
-      .maybeSingle();
-    if (groupError) {
-      // Per-team fault isolation (CWA-50): see the matching comment in
-      // runDaily — a member_groups lookup failure for one team must not
-      // abort the broadcast for the org's other teams.
-      console.error(
-        "[org %s] member_groups query failed for group %s, skipping team:",
-        orgId,
-        group_id,
-        groupError,
-      );
-      continue;
-    }
-    if (!group) continue;
-    const teamName = group.name as string;
+    try {
+      let teamSent = 0;
+      const { data: group, error: groupError } = await supabase
+        .from("member_groups")
+        .select("name")
+        .eq("org_id", orgId)
+        .eq("id", group_id)
+        .maybeSingle();
+      if (groupError) {
+        // Recorded via the catch below — this used to be a silent skip whose
+        // only record was a log line, invisible to the run summary.
+        throw new Error(`member_groups query failed: ${groupError.message}`);
+      }
+      if (!group) continue; // a genuinely absent group is not an error
+      const teamName = group.name as string;
 
-    const sundays = upcomingSundays(window_weeks ?? 8);
+      const sundays = upcomingSundays(window_weeks ?? 8);
 
-    // Find which Sundays are already covered
-    const { data: signups, error: signupsError } = await supabase
-      .from("serving_signups")
-      .select("service_date")
-      .eq("org_id", orgId)
-      .eq("group_id", group_id)
-      .in("service_date", sundays);
-    if (signupsError) {
-      throw new OrgRunError(`serving_signups query failed: ${signupsError.message}`, { sent, sendFailures });
-    }
+      // Find which Sundays are already covered
+      const { data: signups, error: signupsError } = await supabase
+        .from("serving_signups")
+        .select("service_date")
+        .eq("org_id", orgId)
+        .eq("group_id", group_id)
+        .in("service_date", sundays);
+      if (signupsError) {
+        throw new Error(`serving_signups query failed: ${signupsError.message}`);
+      }
 
-    const covered = new Set((signups ?? []).map((s) => s.service_date as string));
-    const openDates = sundays.filter((d) => !covered.has(d));
+      const covered = new Set((signups ?? []).map((s) => s.service_date as string));
+      const openDates = sundays.filter((d) => !covered.has(d));
 
-    if (!openDates.length) continue; // all covered — nothing to broadcast
+      if (!openDates.length) continue; // all covered — nothing to broadcast
 
-    // Get all team members. The profiles embed is org-safe by FK traversal
-    // from the org-filtered profile_groups parent — see _shared/orgs.ts.
-    const { data: members, error: membersError } = await supabase
-      .from("profile_groups")
-      .select("profiles(id, first_name, preferred_name, email, email_announcements)")
-      .eq("org_id", orgId)
-      .eq("group_id", group_id);
-    if (membersError) {
-      throw new OrgRunError(`profile_groups query failed: ${membersError.message}`, { sent, sendFailures });
-    }
+      // Get all team members. The profiles embed is org-safe by FK traversal
+      // from the org-filtered profile_groups parent — see _shared/orgs.ts.
+      const { data: members, error: membersError } = await supabase
+        .from("profile_groups")
+        .select("profiles(id, first_name, preferred_name, email, email_announcements)")
+        .eq("org_id", orgId)
+        .eq("group_id", group_id);
+      if (membersError) {
+        throw new Error(`profile_groups query failed: ${membersError.message}`);
+      }
 
-    for (const row of members ?? []) {
-      const m = row.profiles as unknown as {
-        id: string;
-        first_name: string | null;
-        preferred_name: string | null;
-        email: string | null;
-        email_announcements: boolean;
-      } | null;
-      if (!m?.email || m.email_announcements === false) continue;
+      for (const row of members ?? []) {
+        const m = row.profiles as unknown as {
+          id: string;
+          first_name: string | null;
+          preferred_name: string | null;
+          email: string | null;
+          email_announcements: boolean;
+        } | null;
+        if (!m?.email || m.email_announcements === false) continue;
 
-      const name = escapeHtml(m.preferred_name || m.first_name || "Friend");
-      const safeTeam = escapeHtml(teamName);
+        const name = escapeHtml(m.preferred_name || m.first_name || "Friend");
+        const safeTeam = escapeHtml(teamName);
 
-      const rows = await Promise.all(
-        openDates.map(async (date) => {
-          let signupUrl = `${SITE_URL}/serving/${group_id}`;
-          if (canSign) {
-            signupUrl = `${SITE_URL}/serving/go?token=${await createToken(
-              { a: "signup", g: group_id, d: date, p: m.id },
-              SERVING_LINK_SECRET!
-            )}`;
-          }
-          return `
+        const rows = await Promise.all(
+          openDates.map(async (date) => {
+            let signupUrl = `${SITE_URL}/serving/${group_id}`;
+            if (canSign) {
+              signupUrl = `${SITE_URL}/serving/go?token=${await createToken(
+                { a: "signup", g: group_id, d: date, p: m.id },
+                SERVING_LINK_SECRET!
+              )}`;
+            }
+            return `
             <table role="presentation" width="100%" style="border-bottom:1px solid #e7e5e4;">
               <tr>
                 <td style="padding:14px 0;font-size:18px;color:#44403c;">${escapeHtml(formatDate(date))}</td>
@@ -405,15 +425,15 @@ async function runMonthly(
                 </td>
               </tr>
             </table>`;
-        })
-      );
+          })
+        );
 
-      if (await sendEmail({
-        to: m.email,
-        refId: m.id,
-        branding,
-        subject: `${teamName}: open Sundays for the coming weeks`,
-        html: wrap(`
+        if (await sendEmail({
+          to: m.email,
+          refId: m.id,
+          branding,
+          subject: `${teamName}: open Sundays for the coming weeks`,
+          html: wrap(`
           <h1 style="color:${branding.accent};font-size:28px;">Can you take a Sunday?</h1>
           <p style="font-size:18px;line-height:1.6;color:#44403c;">
             Hi ${name}, here are the upcoming Sundays for the <strong>${safeTeam}</strong>
@@ -425,38 +445,56 @@ async function runMonthly(
             <a href="${SITE_URL}/serving/${group_id}" style="color:${branding.accent};">View the team page</a>
           </p>
         `, branding.orgName),
-      })) { sent++; teamSent++; }
-      else sendFailures++;
-    }
+        })) { sent++; teamSent++; }
+        else sendFailures++;
+      }
 
-    // Log broadcast (service key bypasses RLS; sent_by = null marks automated;
-    // org_id comes from the row context being processed, not a constant).
-    // Do not throw on failure — the emails have already gone out, and an
-    // audit-log problem must not abort the remaining teams. The cost is that
-    // this failure never reaches summary.failed: the run reports unqualified
-    // success and the log line below is the only record.
-    const { error: broadcastError } = await supabase.from("serving_broadcasts").insert({
-      group_id,
-      sent_by: null,
-      org_id: orgId,
-      subject: `${teamName}: monthly open-Sunday broadcast`,
-      open_dates: openDates,
-      recipient_count: teamSent,
-    });
-    if (broadcastError) {
-      // Full error object, not .message — serving_broadcasts has composite
-      // (group_id, org_id) FKs, whose violations put the offending key values
-      // in `details`/`hint` while `message` stays generic.
+      // Log broadcast (service key bypasses RLS; sent_by = null marks automated;
+      // org_id comes from the row context being processed, not a constant).
+      // Recorded, not thrown, on failure — the emails have already gone out,
+      // so this must not read as a failed team send; it reaches the summary's
+      // failedItems[] directly (CWA-50 retired the old "log line is the only
+      // record" caveat).
+      const { error: broadcastError } = await supabase.from("serving_broadcasts").insert({
+        group_id,
+        sent_by: null,
+        org_id: orgId,
+        subject: `${teamName}: monthly open-Sunday broadcast`,
+        open_dates: openDates,
+        recipient_count: teamSent,
+      });
+      if (broadcastError) {
+        // Full error object, not .message — serving_broadcasts has composite
+        // (group_id, org_id) FKs, whose violations put the offending key values
+        // in `details`/`hint` while `message` stays generic.
+        console.error(
+          "[org %s] serving_broadcasts insert failed for group %s:",
+          orgId,
+          group_id,
+          broadcastError,
+        );
+        itemFailures.push({
+          item: group_id,
+          error: `serving_broadcasts insert failed: ${broadcastError.message}`,
+        });
+      }
+    } catch (err) {
+      // Keyed by group_id, never the team name — names are org-defined free
+      // text (tenant content) and fragile as diagnostic keys.
       console.error(
-        "[org %s] serving_broadcasts insert failed for group %s:",
+        "[org %s] team %s failed, continuing with remaining teams:",
         orgId,
         group_id,
-        broadcastError,
+        err,
       );
+      itemFailures.push({
+        item: group_id,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
-  return { sent, sendFailures };
+  return { sent, sendFailures, itemFailures };
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -499,23 +537,24 @@ Deno.serve(async (req) => {
       }),
     );
 
-    if (summary.failed.length > 0 || summary.emailsFailed > 0) {
+    if (summary.failed.length > 0 || summary.failedItems.length > 0 || summary.emailsFailed > 0) {
       console.error(
-        "%s run completed with failures: %d/%d orgs failed, %d emails rejected",
+        "%s run completed with failures: %d/%d orgs failed, %d teams failed, %d emails rejected",
         mode,
         summary.failed.length,
         summary.orgs,
+        summary.failedItems.length,
         summary.emailsFailed,
       );
     }
 
     // Status contract: see summarize() in _shared/orgs.ts — 500 when any org
-    // failed (pg_net records it in net._http_response; nothing retries a 5xx,
-    // so no duplicate sends), 200 only for a clean run.
+    // OR any team failed (pg_net records it in net._http_response; nothing
+    // retries a 5xx, so no duplicate sends), 200 only for a clean run.
     return new Response(
       JSON.stringify({ mode, message: `Sent ${summary.emailsSent} emails`, ...summary }),
       {
-        status: summary.failed.length > 0 ? 500 : 200,
+        status: summary.failed.length > 0 || summary.failedItems.length > 0 ? 500 : 200,
         headers: { "Content-Type": "application/json" },
       }
     );

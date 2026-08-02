@@ -62,14 +62,27 @@ export async function listActiveOrgs(supabase: OrgListClient): Promise<Org[]> {
 }
 
 /**
+ * A failure isolated below the org level — one team, one event, one row
+ * (CWA-50). `item` is an id (e.g. a group_id), never an org-defined name:
+ * names are tenant content and fragile as diagnostic keys.
+ */
+export interface ItemFailure {
+  item: string;
+  error: string;
+}
+
+/**
  * What a per-org runner reports back. `sendFailures` counts emails Resend
  * refused or that never left the function — without it, a run in which every
  * send failed is byte-identical to a legitimately quiet day, because a failed
- * send throws nothing and so never reaches `failed[]`.
+ * send throws nothing and so never reaches `failed[]`. `itemFailures` is the
+ * sub-org failure channel (CWA-50): optional, so a runner with no inner loop
+ * (send-event-reminders) is unchanged.
  */
 export interface OrgRunCounts {
   sent: number;
   sendFailures: number;
+  itemFailures?: ItemFailure[];
 }
 
 export interface OrgRunResult extends OrgRunCounts {
@@ -85,17 +98,21 @@ export interface OrgRunResult extends OrgRunCounts {
  * `{ sent: 0, sendFailures: 0 }` — indistinguishable from an org that failed
  * before sending anything (CWA-49). Callers should accumulate `sent` /
  * `sendFailures` locally and throw this instead of a plain `Error` once any
- * email has gone out.
+ * email has gone out. Carries `itemFailures` for the same reason (CWA-49 ∩
+ * CWA-50): an org that aborts mid-run must still report the teams that had
+ * already failed before the abort.
  */
 export class OrgRunError extends Error {
   readonly sent: number;
   readonly sendFailures: number;
+  readonly itemFailures: ItemFailure[];
 
   constructor(message: string, counts: OrgRunCounts) {
     super(message);
     this.name = "OrgRunError";
     this.sent = counts.sent;
     this.sendFailures = counts.sendFailures;
+    this.itemFailures = counts.itemFailures ?? [];
   }
 }
 
@@ -112,19 +129,29 @@ export async function forEachOrg(
   const results: OrgRunResult[] = [];
   for (const org of orgs) {
     try {
-      const { sent, sendFailures } = await fn(org);
-      results.push({ orgId: org.id, slug: org.slug, sent, sendFailures });
+      const { sent, sendFailures, itemFailures } = await fn(org);
+      results.push({
+        orgId: org.id,
+        slug: org.slug,
+        sent,
+        sendFailures,
+        // Omitted when empty so runners without an inner loop keep today's
+        // exact result shape (and response body).
+        ...(itemFailures?.length ? { itemFailures } : {}),
+      });
     } catch (err) {
       console.error("[org %s %s] reminder run failed:", org.slug, org.id, err);
-      // OrgRunError carries whatever was sent before the mid-run abort;
-      // ordinary errors (nothing sent yet) fall back to zeroes.
+      // OrgRunError carries whatever was sent (and which items had already
+      // failed) before the mid-run abort; ordinary errors fall back to zeroes.
       const counts: OrgRunCounts = err instanceof OrgRunError
-        ? { sent: err.sent, sendFailures: err.sendFailures }
+        ? { sent: err.sent, sendFailures: err.sendFailures, itemFailures: err.itemFailures }
         : { sent: 0, sendFailures: 0 };
       results.push({
         orgId: org.id,
         slug: org.slug,
-        ...counts,
+        sent: counts.sent,
+        sendFailures: counts.sendFailures,
+        ...(counts.itemFailures?.length ? { itemFailures: counts.itemFailures } : {}),
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -135,19 +162,23 @@ export async function forEachOrg(
 /**
  * Roll per-org results into the HTTP response body.
  *
- * The invocation contract: **HTTP 500 when any org failed, 200 only for a
- * clean run.** The cron schedules invoke via pg_net's `net.http_post`, which
- * is fire-and-forget — the status lands in `net._http_response` and nothing
- * retries a 5xx (pg_cron reruns on schedule, not on failure), so a 5xx can
- * never cause duplicate sends. The body always carries `failed[]` and the
- * counts for diagnosis. Resend-level rejections (`emailsFailed`) alone stay
- * 200: the run itself completed and each rejection is logged per profile.
+ * The invocation contract: **HTTP 500 when any org failed OR any item
+ * (team) failed — `failed[]` or `failedItems[]` non-empty — 200 only for a
+ * clean run.** A team whose reminders silently never went out is exactly as
+ * operationally severe as an org that failed. The cron schedules invoke via
+ * pg_net's `net.http_post`, which is fire-and-forget — the status lands in
+ * `net._http_response` and nothing retries a 5xx (pg_cron reruns on
+ * schedule, not on failure), so a 5xx can never cause duplicate sends. The
+ * body always carries `failed[]`, `failedItems[]`, and the counts for
+ * diagnosis. Resend-level rejections (`emailsFailed`) alone stay 200: the
+ * run itself completed and each rejection is logged per profile.
  */
 export function summarize(results: OrgRunResult[]): {
   orgs: number;
   emailsSent: number;
   emailsFailed: number;
   failed: Array<{ org: string; error: string }>;
+  failedItems: Array<{ org: string; item: string; error: string }>;
 } {
   return {
     orgs: results.length,
@@ -156,5 +187,8 @@ export function summarize(results: OrgRunResult[]): {
     failed: results
       .filter((r) => r.error)
       .map((r) => ({ org: r.slug, error: r.error as string })),
+    failedItems: results.flatMap((r) =>
+      (r.itemFailures ?? []).map((f) => ({ org: r.slug, item: f.item, error: f.error }))
+    ),
   };
 }
