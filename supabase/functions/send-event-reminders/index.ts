@@ -9,6 +9,7 @@
 // org_id explicitly (CWA-10 Phase 3, #212).
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { escapeHtml } from "../_shared/html.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
   forEachOrg,
@@ -139,13 +140,13 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <h1 style="color: ${BRAND_COLOR}; font-size: 28px;">Event Reminder</h1>
               <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-                Hi ${profile.preferred_name || profile.first_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
+                Hi ${escapeHtml(profile.preferred_name || profile.first_name || "Friend")}, just a reminder that <strong>${escapeHtml(event.title)}</strong> is coming up!
               </p>
               <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p style="font-size: 18px; margin: 0; color: #44403c;">
                   <strong>When:</strong> ${eventDate}
                 </p>
-                ${event.location ? `<p style="font-size: 18px; margin: 8px 0 0; color: #44403c;"><strong>Where:</strong> ${event.location}</p>` : ""}
+                ${event.location ? `<p style="font-size: 18px; margin: 8px 0 0; color: #44403c;"><strong>Where:</strong> ${escapeHtml(event.location)}</p>` : ""}
               </div>
               <a href="${SITE_URL}/events"
                  style="display: inline-block; background-color: ${BRAND_COLOR}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">

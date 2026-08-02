@@ -13,6 +13,7 @@
 // org_id explicitly (CWA-10 Phase 3, #212).
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { escapeHtml } from "../_shared/html.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
   forEachOrg,
@@ -118,15 +119,6 @@ function formatDate(dateStr: string): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 // ── Email ─────────────────────────────────────────────────────────────────────
