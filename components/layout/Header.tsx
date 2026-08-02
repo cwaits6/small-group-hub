@@ -17,9 +17,10 @@ import type { Profile } from "@/lib/types";
 interface HeaderProps {
   profile: Profile | null;
   hasServingAccess: boolean;
+  isPlatformAdmin?: boolean;
 }
 
-export function Header({ profile, hasServingAccess }: HeaderProps) {
+export function Header({ profile, hasServingAccess, isPlatformAdmin = false }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
@@ -162,6 +163,17 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {isPlatformAdmin && (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="text-base text-slate-600 hover:text-brand-primary"
+              nativeButton={false}
+              render={<Link href="/platform" />}
+            >
+              Platform
+            </Button>
+          )}
           {profile ? (
             <Button
               variant="outline"

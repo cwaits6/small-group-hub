@@ -58,14 +58,19 @@ export default async function RootLayout({
 
   let profile = null;
   let hasServingAccess = false;
+  let isPlatformAdmin = false;
   if (hasAuthCookie) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const [{ data, error }, { data: groupData, error: groupError }] = await Promise.all([
+      const [{ data, error }, { data: groupData, error: groupError }, { data: platformAdmin }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("profile_groups").select("group_id").eq("profile_id", user.id),
+        // Nav affordance only — every /platform surface re-checks
+        // server-side; an RPC error just hides the link (fail closed).
+        supabase.rpc("is_platform_admin"),
       ]);
+      isPlatformAdmin = platformAdmin === true;
       // Neither failure can render an error page — the layout wraps every
       // route — but both degrade silently otherwise: a null profile renders
       // an authenticated member with the logged-out Header/AppShell, and a
@@ -127,7 +132,7 @@ export default async function RootLayout({
       </head>
       <body className={`${cormorant.variable} ${interTight.variable} ${jetbrainsMono.variable} antialiased min-h-screen flex flex-col`}>
         <SidebarProvider>
-          <Header profile={profile} hasServingAccess={hasServingAccess} />
+          <Header profile={profile} hasServingAccess={hasServingAccess} isPlatformAdmin={isPlatformAdmin} />
           <AppShell profile={profile} hasServingAccess={hasServingAccess}>{children}</AppShell>
         </SidebarProvider>
         <Footer />

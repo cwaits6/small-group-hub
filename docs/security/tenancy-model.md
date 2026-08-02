@@ -88,11 +88,19 @@ org-owned table; the former blanket-public reads (page content, lectures,
 series, calendars) are org-resolved anon reads now.
 
 **There is deliberately no platform-admin escape hatch** in the restrictive
-predicate. Platform admins get their cross-org path in Phase 4, with its
-own tests. Service-role and `postgres` bypass RLS entirely (`BYPASSRLS`);
-that surface is inventoried in
-[`service-role-inventory.md`](service-role-inventory.md) and owned by
-Phase 3.
+predicate. The Phase 4 cross-org path exists now (`/platform`, CWA-11
+stream 1), and it is **service-role in the app layer, not a widened
+policy**: every surface gates on `getPlatformAdmin()` /
+`requirePlatformAdmin()` (`lib/platform-access.ts`, resolved through the
+cookie-bound request client, fail-closed on RPC error) and then reads
+`organizations` — the tenant root — via `createServiceClient()`, filtering
+the one org-owned table it touches (`access_requests`) on the target
+`org_id` explicitly. `supabase/tests/platform_org_lifecycle_suite.sql`
+carries its tests. Adding `or is_platform_admin()` to the restrictive
+predicate would put a cross-tenant `OR` arm on every org-owned table
+forever; do not. Service-role and `postgres` bypass RLS entirely
+(`BYPASSRLS`); that surface is inventoried in
+[`service-role-inventory.md`](service-role-inventory.md).
 
 ## Composite foreign keys
 
@@ -132,6 +140,16 @@ onboarding is org-first: provision, then create the auth user, and the
 fail-closed trigger needs no special case. Phase 4 must NOT solve
 onboarding by adding a fallback branch to `handle_new_user()`. An invalid
 slug raises `TN003`.
+
+**`access_requests.approved_role`** (Phase 4a, `20260802000002`) names the
+role `handle_new_user()` grants when an approved request resolves a signup:
+NULL preserves the pre-Phase-4 behavior (`'member'`), and
+`provision_organization()` stamps `'admin'` on the owner's seeded request —
+that column is the entire founding-admin handoff; no new auth flow exists.
+The anon-reachable INSERT policy pins `approved_role` to NULL, so no
+visitor can self-request admin; only server-side (service-role) writes and
+org admins — who already manage `profiles.role` within their org — can set
+it.
 
 Provisioning seeds **no groups**. Groups are org-defined: admins create
 them in `/admin/groups` and designate capabilities per group
@@ -189,12 +207,15 @@ platform seam).
   Phase 3 (#212). Group-level scoping of member-facing surfaces: split out
   ahead of Phase 4.
 - The permissive `organizations` SELECT policy is written whole-row, but the
-  column privileges beneath it are not: `20260801000002` revokes the
-  table-level grant and re-grants `select (id, name, slug, branding)` to `anon`
-  and `authenticated`. Neither role can select `status`, `created_at`, or any
-  column a later phase adds — `ADD COLUMN` grants nothing, so a new column is
-  unreadable until someone lists it there on purpose. An anonymous caller who
-  resolves the org via `x-two42-org` reads exactly those four columns.
+  column privileges beneath it are not: `20260801000002` revoked the
+  table-level grant and re-granted a column list, and `20260802000001`
+  narrowed `anon` further to `select (id, slug, branding)` — `anon` can no
+  longer read `name`; `authenticated` keeps
+  `select (id, name, slug, branding)`. Neither role can select `status`,
+  `created_at`, or any column a later phase adds — `ADD COLUMN` grants
+  nothing, so a new column is unreadable until someone lists it there on
+  purpose. An anonymous caller who resolves the org via `x-two42-org` reads
+  exactly those three columns.
   Remaining gap: `branding` is a single jsonb value, so `reply_to` rides along
   with the three keys the app shell needs; column privileges cannot reach
   inside jsonb, and excluding it needs a SECURITY DEFINER projection.

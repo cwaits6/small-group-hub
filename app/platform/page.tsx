@@ -1,0 +1,51 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getPlatformAdmin } from "@/lib/platform-access";
+import { createServiceClient } from "@/lib/supabase/server";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
+
+export default async function PlatformOverviewPage() {
+  const user = await getPlatformAdmin();
+  if (!user) redirect("/dashboard");
+
+  // Cross-org read: organizations is the tenant root (no org_id), and
+  // platform-admin authority is cross-org by design. See
+  // docs/security/service-role-inventory.md.
+  const service = await createServiceClient();
+  const { data: orgs } = await service.from("organizations").select("id, status");
+
+  const active = (orgs ?? []).filter((o) => o.status === "active").length;
+  const suspended = (orgs ?? []).length - active;
+
+  return (
+    <PageContainer>
+      <PageHeader title="Platform" subtitle="Create and manage organizations." />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-4xl font-semibold">{active}</p>
+            <p className="mt-1 text-base text-muted-foreground">Active organizations</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-4xl font-semibold">{suspended}</p>
+            <p className="mt-1 text-base text-muted-foreground">Suspended organizations</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <p className="mt-8">
+        <Link
+          href="/platform/organizations"
+          className="inline-flex min-h-11 items-center text-base font-semibold text-brand-primary underline underline-offset-4 hover:text-brand-primary/80"
+        >
+          Manage organizations
+        </Link>
+      </p>
+    </PageContainer>
+  );
+}

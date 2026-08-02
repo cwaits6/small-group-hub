@@ -86,8 +86,9 @@ export async function updateSession(request: NextRequest) {
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
   const isAdmin = adminPaths.some((p) => pathname.startsWith(p));
+  const isPlatform = pathname.startsWith("/platform");
 
-  if ((isProtected || isAdmin) && !user) {
+  if ((isProtected || isAdmin || isPlatform) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
@@ -105,6 +106,19 @@ export async function updateSession(request: NextRequest) {
       profile?.role === "content_editor" && isContentEditorAllowed(pathname);
 
     if (profile?.role !== "admin" && !contentEditorAllowed) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+  }
+
+  // /platform is gated on platform_admins, never profiles.role — an org
+  // admin is not a platform operator. Defense in depth only: the layout,
+  // pages, and route handlers each repeat this check independently. An RPC
+  // error denies (fail closed).
+  if (isPlatform && user) {
+    const { data: isPlatformAdmin, error } = await supabase.rpc("is_platform_admin");
+    if (error || isPlatformAdmin !== true) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);

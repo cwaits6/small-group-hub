@@ -31,11 +31,12 @@ export function AppShell({ profile, hasServingAccess, children }: AppShellProps)
     isMember && SIDEBAR_ROUTES.some((r) => pathname.startsWith(r));
 
   if (!showSidebar) {
-    // /admin/* supplies its own nav via app/admin/layout.tsx; a flex main
-    // lets that layout's sidebar stretch to full height.
-    const isAdminArea = pathname.startsWith("/admin");
+    // /admin/* and /platform/* supply their own nav via their layouts; a
+    // flex main lets those layouts' sidebars stretch to full height.
+    const ownsItsNav =
+      pathname.startsWith("/admin") || pathname.startsWith("/platform");
     return (
-      <main className={isAdminArea ? "flex flex-1" : "flex-1"}>{children}</main>
+      <main className={ownsItsNav ? "flex flex-1" : "flex-1"}>{children}</main>
     );
   }
 
