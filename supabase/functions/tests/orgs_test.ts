@@ -5,6 +5,7 @@ import { assertEquals, assertRejects } from "jsr:@std/assert@1";
 import {
   forEachOrg,
   listActiveOrgs,
+  OrgRunError,
   summarize,
   type Org,
   type OrgListClient,
@@ -127,6 +128,32 @@ Deno.test("forEachOrg continues after one org throws", async () => {
       error: "org b exploded",
     });
     assertEquals(results[2], { orgId: "c-id", slug: "c", sent: 1, sendFailures: 0 });
+  } finally {
+    console.error = originalError;
+  }
+});
+
+// CWA-49: a mid-run throw after partial sends must not be reported as
+// "nothing sent" — OrgRunError carries the counts accumulated before the
+// abort, and forEachOrg must use them instead of zeroing.
+Deno.test("forEachOrg uses the accumulated counts from an OrgRunError instead of zeroing them", async () => {
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const results = await forEachOrg([orgA, orgB], (org) => {
+      if (org.slug === "a") {
+        return Promise.reject(new OrgRunError("org a exploded mid-run", { sent: 7, sendFailures: 2 }));
+      }
+      return Promise.resolve({ sent: 3, sendFailures: 0 });
+    });
+    assertEquals(results[0], {
+      orgId: "a-id",
+      slug: "a",
+      sent: 7,
+      sendFailures: 2,
+      error: "org a exploded mid-run",
+    });
+    assertEquals(results[1], { orgId: "b-id", slug: "b", sent: 3, sendFailures: 0 });
   } finally {
     console.error = originalError;
   }

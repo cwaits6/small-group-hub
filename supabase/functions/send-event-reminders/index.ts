@@ -14,6 +14,7 @@ import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
   forEachOrg,
   listActiveOrgs,
+  OrgRunError,
   summarize,
   type Org,
   type OrgListClient,
@@ -33,7 +34,9 @@ const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 
 // ── Email ─────────────────────────────────────────────────────────────────────
 
-async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<boolean> {
+async function sendEmail(
+  opts: { to: string; subject: string; html: string; refId: string },
+): Promise<boolean> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -44,12 +47,14 @@ async function sendEmail(opts: { to: string; subject: string; html: string }): P
       body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
     });
     if (!res.ok) {
-      console.error("Resend error for", opts.to, await res.text());
+      // Log the profile id, not the email address (PII) — the Resend error
+      // body is what's actionable here.
+      console.error("Resend error for profile", opts.refId, await res.text());
       return false;
     }
     return true;
   } catch (err) {
-    console.error("Resend request failed for", opts.to, err);
+    console.error("Resend request failed for profile", opts.refId, err);
     return false;
   }
 }
@@ -72,6 +77,9 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
+  let sent = 0;
+  let sendFailures = 0;
+
   // Find events starting in the next 24 hours
   const { data: events, error: eventsError } = await supabase
     .from("events")
@@ -80,11 +88,10 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
     .gte("start_time", now.toISOString())
     .lte("start_time", tomorrow.toISOString());
 
-  if (eventsError) throw new Error(`events query failed: ${eventsError.message}`);
-  if (!events?.length) return { sent: 0, sendFailures: 0 };
-
-  let sent = 0;
-  let sendFailures = 0;
+  if (eventsError) {
+    throw new OrgRunError(`events query failed: ${eventsError.message}`, { sent, sendFailures });
+  }
+  if (!events?.length) return { sent, sendFailures };
 
   for (const event of events) {
     // Get RSVPs with "yes" or "maybe"
@@ -95,7 +102,9 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
       .eq("event_id", event.id)
       .in("status", ["yes", "maybe"]);
 
-    if (rsvpsError) throw new Error(`rsvps query failed: ${rsvpsError.message}`);
+    if (rsvpsError) {
+      throw new OrgRunError(`rsvps query failed: ${rsvpsError.message}`, { sent, sendFailures });
+    }
     if (!rsvps?.length) continue;
 
     const userIds = rsvps.map((r) => r.user_id);
@@ -116,14 +125,24 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
         .select("id, first_name, preferred_name, email")
         .eq("org_id", org.id)
         .in("id", ids);
-      if (profilesError) throw new Error(`profiles query failed: ${profilesError.message}`);
+      if (profilesError) {
+        throw new OrgRunError(`profiles query failed: ${profilesError.message}`, { sent, sendFailures });
+      }
       profiles.push(...((batch ?? []) as typeof profiles));
     }
 
     for (const profile of profiles) {
       // Pending profiles (e.g. spouses who have never logged in) can have no
       // email — skip, don't throw.
-      if (!profile.email) continue;
+      if (!profile.email) {
+        console.error(
+          "[org %s] skipping reminder: profile %s has no email (event %s)",
+          org.slug,
+          profile.id,
+          event.id,
+        );
+        continue;
+      }
 
       const eventDate = new Date(event.start_time).toLocaleDateString("en-US", {
         weekday: "long",
@@ -135,6 +154,7 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
 
       if (await sendEmail({
         to: profile.email,
+        refId: profile.id,
         subject: `Reminder: ${event.title} is tomorrow!`,
         html: `
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">

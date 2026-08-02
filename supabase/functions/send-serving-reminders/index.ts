@@ -18,6 +18,7 @@ import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
   forEachOrg,
   listActiveOrgs,
+  OrgRunError,
   summarize,
   type OrgListClient,
   type OrgRunCounts,
@@ -123,7 +124,9 @@ function formatDate(dateStr: string): string {
 
 // ── Email ─────────────────────────────────────────────────────────────────────
 
-async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<boolean> {
+async function sendEmail(
+  opts: { to: string; subject: string; html: string; refId: string },
+): Promise<boolean> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -134,12 +137,14 @@ async function sendEmail(opts: { to: string; subject: string; html: string }): P
       body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
     });
     if (!res.ok) {
-      console.error("Resend error for", opts.to, await res.text());
+      // Log the profile id, not the email address (PII) — the Resend error
+      // body is what's actionable here.
+      console.error("Resend error for profile", opts.refId, await res.text());
       return false;
     }
     return true;
   } catch (err) {
-    console.error("Resend request failed for", opts.to, err);
+    console.error("Resend request failed for profile", opts.refId, err);
     return false;
   }
 }
@@ -179,6 +184,9 @@ async function runDaily(
 ): Promise<OrgRunCounts> {
   const todayDow = new Date().getDay();
 
+  let sent = 0;
+  let sendFailures = 0;
+
   // Only process teams whose reminder_days include today
   const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
@@ -188,12 +196,9 @@ async function runDaily(
     .contains("reminder_days", [todayDow]);
 
   if (teamSettingsError) {
-    throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
+    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures });
   }
-  if (!teamSettings?.length) return { sent: 0, sendFailures: 0 };
-
-  let sent = 0;
-  let sendFailures = 0;
+  if (!teamSettings?.length) return { sent, sendFailures };
 
   for (const { group_id } of teamSettings) {
     const { data: group, error: groupError } = await supabase
@@ -202,7 +207,19 @@ async function runDaily(
       .eq("org_id", orgId)
       .eq("id", group_id)
       .maybeSingle();
-    if (groupError) throw new Error(`member_groups query failed: ${groupError.message}`);
+    if (groupError) {
+      // Per-team fault isolation (CWA-50): a member_groups lookup failure for
+      // one team must not abort reminders for the org's other teams. Log and
+      // skip, following the non-throwing logging policy the broadcast insert
+      // in runMonthly already uses.
+      console.error(
+        "[org %s] member_groups query failed for group %s, skipping team:",
+        orgId,
+        group_id,
+        groupError,
+      );
+      continue;
+    }
     if (!group) continue;
     const teamName = group.name as string;
 
@@ -218,7 +235,9 @@ async function runDaily(
       .eq("group_id", group_id)
       .eq("service_date", sunday)
       .maybeSingle();
-    if (signupError) throw new Error(`serving_signups query failed: ${signupError.message}`);
+    if (signupError) {
+      throw new OrgRunError(`serving_signups query failed: ${signupError.message}`, { sent, sendFailures });
+    }
 
     if (!signup) continue; // open Sunday — no reminder to send
 
@@ -242,6 +261,7 @@ async function runDaily(
 
       if (await sendEmail({
         to: p.email,
+        refId: p.id,
         subject: `Reminder: you're serving this Sunday with the ${teamName}`,
         html: wrap(`
           <h1 style="color:${BRAND_COLOR};font-size:28px;">See you Sunday!</h1>
@@ -275,6 +295,9 @@ async function runMonthly(
   orgId: string,
   canSign: boolean
 ): Promise<OrgRunCounts> {
+  let sent = 0;
+  let sendFailures = 0;
+
   const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
     .select("group_id, window_weeks")
@@ -282,12 +305,9 @@ async function runMonthly(
     .eq("enabled", true);
 
   if (teamSettingsError) {
-    throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
+    throw new OrgRunError(`serving_team_settings query failed: ${teamSettingsError.message}`, { sent, sendFailures });
   }
-  if (!teamSettings?.length) return { sent: 0, sendFailures: 0 };
-
-  let sent = 0;
-  let sendFailures = 0;
+  if (!teamSettings?.length) return { sent, sendFailures };
 
   for (const { group_id, window_weeks } of teamSettings) {
     let teamSent = 0;
@@ -297,7 +317,18 @@ async function runMonthly(
       .eq("org_id", orgId)
       .eq("id", group_id)
       .maybeSingle();
-    if (groupError) throw new Error(`member_groups query failed: ${groupError.message}`);
+    if (groupError) {
+      // Per-team fault isolation (CWA-50): see the matching comment in
+      // runDaily — a member_groups lookup failure for one team must not
+      // abort the broadcast for the org's other teams.
+      console.error(
+        "[org %s] member_groups query failed for group %s, skipping team:",
+        orgId,
+        group_id,
+        groupError,
+      );
+      continue;
+    }
     if (!group) continue;
     const teamName = group.name as string;
 
@@ -310,7 +341,9 @@ async function runMonthly(
       .eq("org_id", orgId)
       .eq("group_id", group_id)
       .in("service_date", sundays);
-    if (signupsError) throw new Error(`serving_signups query failed: ${signupsError.message}`);
+    if (signupsError) {
+      throw new OrgRunError(`serving_signups query failed: ${signupsError.message}`, { sent, sendFailures });
+    }
 
     const covered = new Set((signups ?? []).map((s) => s.service_date as string));
     const openDates = sundays.filter((d) => !covered.has(d));
@@ -324,7 +357,9 @@ async function runMonthly(
       .select("profiles(id, first_name, preferred_name, email, email_announcements)")
       .eq("org_id", orgId)
       .eq("group_id", group_id);
-    if (membersError) throw new Error(`profile_groups query failed: ${membersError.message}`);
+    if (membersError) {
+      throw new OrgRunError(`profile_groups query failed: ${membersError.message}`, { sent, sendFailures });
+    }
 
     for (const row of members ?? []) {
       const m = row.profiles as unknown as {
@@ -365,6 +400,7 @@ async function runMonthly(
 
       if (await sendEmail({
         to: m.email,
+        refId: m.id,
         subject: `${teamName}: open Sundays for the coming weeks`,
         html: wrap(`
           <h1 style="color:${BRAND_COLOR};font-size:28px;">Can you take a Sunday?</h1>

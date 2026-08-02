@@ -72,6 +72,27 @@ export interface OrgRunResult extends OrgRunCounts {
 }
 
 /**
+ * Thrown by a per-org runner (runForOrg / runDaily / runMonthly) when it must
+ * abort mid-run but has already sent some emails. Without this, a mid-loop
+ * throw after N successful sends would still be recorded by forEachOrg as
+ * `{ sent: 0, sendFailures: 0 }` — indistinguishable from an org that failed
+ * before sending anything (CWA-49). Callers should accumulate `sent` /
+ * `sendFailures` locally and throw this instead of a plain `Error` once any
+ * email has gone out.
+ */
+export class OrgRunError extends Error {
+  readonly sent: number;
+  readonly sendFailures: number;
+
+  constructor(message: string, counts: OrgRunCounts) {
+    super(message);
+    this.name = "OrgRunError";
+    this.sent = counts.sent;
+    this.sendFailures = counts.sendFailures;
+  }
+}
+
+/**
  * Run `fn` once per org, sequentially, isolating failures: one org throwing is
  * logged with its slug and recorded, and the remaining orgs still run.
  * Sequential rather than parallel so outbound Resend concurrency stays at
@@ -88,11 +109,15 @@ export async function forEachOrg(
       results.push({ orgId: org.id, slug: org.slug, sent, sendFailures });
     } catch (err) {
       console.error("[org %s %s] reminder run failed:", org.slug, org.id, err);
+      // OrgRunError carries whatever was sent before the mid-run abort;
+      // ordinary errors (nothing sent yet) fall back to zeroes.
+      const counts: OrgRunCounts = err instanceof OrgRunError
+        ? { sent: err.sent, sendFailures: err.sendFailures }
+        : { sent: 0, sendFailures: 0 };
       results.push({
         orgId: org.id,
         slug: org.slug,
-        sent: 0,
-        sendFailures: 0,
+        ...counts,
         error: err instanceof Error ? err.message : String(err),
       });
     }
