@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { resolveOrgSlug } from "@/lib/org";
 
-export async function createClient() {
+export async function createClient(orgSlug?: string) {
   const cookieStore = await cookies();
   const headerStore = await headers();
 
@@ -13,8 +13,13 @@ export async function createClient() {
       // Org resolution for anonymous reads (Phase 2, CWA-9): the DB's
       // app_request_org_id() reads this header only when there is no
       // authenticated principal, and only to select among public content.
+      // `orgSlug` is the explicit override used by the public per-org routes
+      // (app/[orgSlug]/join): there the org is addressed by URL, not by host.
+      // Everything else keeps the host-derived (today: env-pinned) mapping.
       global: {
-        headers: { "x-two42-org": resolveOrgSlug(headerStore.get("host")) },
+        headers: {
+          "x-two42-org": orgSlug ?? resolveOrgSlug(headerStore.get("host")),
+        },
       },
       cookies: {
         getAll() {
