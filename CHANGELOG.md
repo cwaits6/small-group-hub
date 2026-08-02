@@ -1,3 +1,54 @@
+# [1.0.0](https://github.com/cwaits6/two42/compare/v0.24.0...v1.0.0) (2026-08-02)
+
+
+### Features
+
+* **tenancy:** Phase 2 — RLS rewrite, org-aware helpers, composite FKs, provision_organization() ([#302](https://github.com/cwaits6/two42/issues/302)) ([67a9ac0](https://github.com/cwaits6/two42/commit/67a9ac053c8a71586ca7864a5be327d12ce1ec21)), closes [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#211](https://github.com/cwaits6/two42/issues/211) [#213](https://github.com/cwaits6/two42/issues/213)
+
+
+### BREAKING CHANGES
+
+* **tenancy:** prayer requests previously restricted to prayer
+warriors are now visible only to their author until CWA-43 resolves
+them; the prayer-access group capability is gone.
+
+Local validation: leak 94/94, fk 19/19, signup 34/34, lint 33/33,
+site_settings smoke pass, tsc and next build green. schema.sql edited
+by hand (a fresh local dump would import other branches' shared-stack
+drift); types regenerated with only the dropped columns/function taken.
+
+Claude-Session: https://claude.ai/code/session_01CoqgxebFzS3JVQFc4HzStv
+
+* docs(tenancy): sync the plan doc capability list with the prayer-access drop
+
+Claude-Session: https://claude.ai/code/session_01CoqgxebFzS3JVQFc4HzStv
+
+* fix(tenancy): address provisioning review findings
+
+- provision_organization(): reject an owner email that already holds an
+  approved access request or unclaimed family invite in another org
+  (TN005) — a second approved request would make the owner's eventual
+  signup ambiguous (TN002). Regression tests cover both match sources,
+  atomicity, and case-insensitivity.
+- provision_organization(): explicit EXECUTE grant to service_role so
+  the Phase 4 server-side caller does not depend on default privileges.
+- drop_functional_role: preflight assertion under an exclusive lock —
+  refuse the column drop if any functional_role value is populated.
+- seed.sql: scope the access_requests idempotency check to the default
+  org and compare emails case-insensitively.
+- plan doc: rename the resolved open item to 'Group provisioning'.
+
+Claude-Session: https://claude.ai/code/session_01CoqgxebFzS3JVQFc4HzStv
+
+* fix(tenancy): refresh the seeded starter group's mutable fields on re-seed
+
+ON CONFLICT (id) DO NOTHING left stale local fixture values when the seed
+definition changed. A same-org conflict now updates name, description,
+color, icon, display_order, and is_serving_role; id and org_id are
+preserved, and a same-id row in another org is left untouched.
+
+Claude-Session: https://claude.ai/code/session_01CoqgxebFzS3JVQFc4HzStv
+
 # [0.24.0](https://github.com/cwaits6/two42/compare/v0.23.0...v0.24.0) (2026-07-31)
 
 
