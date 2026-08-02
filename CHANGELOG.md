@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/cwaits6/two42/compare/v1.1.1...v1.2.0) (2026-08-02)
+
+
+### Features
+
+* **branding:** org-branded theme and email (CWA-10 Phase 3, stream 3/3) ([#307](https://github.com/cwaits6/two42/issues/307)) ([acb7a58](https://github.com/cwaits6/two42/commit/acb7a588729b2ae5f5c724333a6d38dc82680e15)), closes [#1](https://github.com/cwaits6/two42/issues/1) [#212](https://github.com/cwaits6/two42/issues/212) [#1](https://github.com/cwaits6/two42/issues/1) [#39](https://github.com/cwaits6/two42/issues/39)
+
 ## [1.1.1](https://github.com/cwaits6/two42/compare/v1.1.0...v1.1.1) (2026-08-02)
 
 
