@@ -55,6 +55,13 @@ jobs:
       # 2. PR: poll Vercel API by commit SHA until READY.
       #    - If Vercel cancels (CI-only commit), fall back to the last READY deployment
       #      on this branch (valid — the app code hasn't changed).
+      #    - If Vercel never registers a deployment at all, fall back the same way after
+      #      a short grace period. A dropped GitHub -> Vercel webhook used to spin here
+      #      for the full 10 minutes and then hard-fail, leaving the PR permanently red
+      #      with no recovery except an unrelated push. The two waits are deliberately
+      #      different lengths: "no record yet" resolves within seconds of the push if it
+      #      is going to resolve at all, while "record exists, still building" legitimately
+      #      takes minutes, so only the former gets the short fuse.
       #    - If no branch deployment has ever existed, fail. Don't scan main (misleading).
       - name: Resolve deployment URL
         id: deployment
@@ -77,6 +84,20 @@ jobs:
             exit 0
           }
 
+          # Most recent READY deployment on this branch, if any. Used whenever the
+          # head commit itself has no scannable deployment.
+          branch_fallback() {
+            FB=$(curl -sf \
+              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
+              -H "Authorization: Bearer $VERCEL_TOKEN")
+            echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""'
+          }
+
+          # Attempts before giving up on a commit Vercel has not registered at all.
+          # Short on purpose: if no deployment record exists ~2 min after the push,
+          # the webhook was dropped and one will never appear.
+          MISSING_ATTEMPTS=5
+
           # Give Vercel a moment to register the deployment before first poll.
           echo "Waiting 20s for Vercel to register deployment..."
           sleep 20
@@ -96,10 +117,7 @@ jobs:
               # Vercel skipped this commit (only non-app files changed).
               # Use the last READY deployment on this branch if one exists.
               echo "Vercel skipped this commit — checking for prior branch deployment..."
-              FB=$(curl -sf \
-                "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
-                -H "Authorization: Bearer $VERCEL_TOKEN")
-              FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
+              FB_URL=$(branch_fallback)
               if [ -n "$FB_URL" ]; then
                 echo "Using most recent READY deployment for branch '$HEAD_REF'"
                 resolve_url "$FB_URL"
@@ -108,6 +126,18 @@ jobs:
               exit 1
             elif [ "$STATE" = "ERROR" ]; then
               echo "::error::Vercel deployment errored out."
+              exit 1
+            elif [ "$STATE" = "NONE" ] && [ "$i" -ge "$MISSING_ATTEMPTS" ]; then
+              # No deployment record at all after the grace period — a dropped
+              # GitHub -> Vercel webhook. Waiting out the remaining attempts cannot
+              # help: nothing is building. Scan the branch's last good build instead.
+              echo "Vercel never registered a deployment for $COMMIT_SHA after $i attempts — checking for prior branch deployment..."
+              FB_URL=$(branch_fallback)
+              if [ -n "$FB_URL" ]; then
+                echo "::warning::No Vercel deployment exists for the head commit; scanning the most recent READY deployment for branch '$HEAD_REF' instead. The scan may not reflect the very latest commit."
+                resolve_url "$FB_URL"
+              fi
+              echo "::error::Vercel never created a deployment for $COMMIT_SHA and this branch has no prior READY deployment. Push again to trigger one, or use workflow_dispatch with a target_url."
               exit 1
             fi
             sleep 20
