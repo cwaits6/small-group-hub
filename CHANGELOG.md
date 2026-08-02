@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/cwaits6/two42/compare/v1.0.0...v1.0.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **functions:** resolve service key from platform-injected env vars ([#300](https://github.com/cwaits6/two42/issues/300)) ([834d76b](https://github.com/cwaits6/two42/commit/834d76b4052c7493e320dd25b922387341856ccb))
+
 # [1.0.0](https://github.com/cwaits6/two42/compare/v0.24.0...v1.0.0) (2026-08-02)
 
 
