@@ -1,3 +1,10 @@
+## [1.3.1](https://github.com/cwaits6/two42/compare/v1.3.0...v1.3.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **functions:** pin supabase-js, brand cron mail per org, and isolate per-team failures ([#324](https://github.com/cwaits6/two42/issues/324)) ([4449efb](https://github.com/cwaits6/two42/commit/4449efbe6eb705afb67304caff968d2c99821723)), closes [#309](https://github.com/cwaits6/two42/issues/309) [#311](https://github.com/cwaits6/two42/issues/311) [#322](https://github.com/cwaits6/two42/issues/322) [#315](https://github.com/cwaits6/two42/issues/315) [#316](https://github.com/cwaits6/two42/issues/316)
+
 # [1.3.0](https://github.com/cwaits6/two42/compare/v1.2.0...v1.3.0) (2026-08-02)
 
 
