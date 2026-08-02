@@ -8,7 +8,12 @@
 // query text: iterates every active organization and filters each query on
 // org_id explicitly (CWA-10 Phase 3, #212).
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Pinned exactly (CWA-45): deno.lock's integrity entry only governs CI, while
+// `supabase functions deploy` re-resolves this URL through its own bundler —
+// so the version must live in the specifier itself. Matches what the app's
+// package-lock.json resolves for ^2.103.3; bump both together (no Renovate
+// rule covers this URL).
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.9";
 import { chunk } from "../_shared/chunk.ts";
 import { escapeHtml } from "../_shared/html.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
@@ -24,6 +29,10 @@ import {
 
 // What createClient(url, key) actually returns; ReturnType<typeof createClient>
 // resolves the unbound generics to a different, incompatible instantiation.
+// Re-verified against the pinned 2.110.9 (CWA-45): still incompatible
+// (SupabaseClient<unknown, {PostgrestVersion}, never, never, …> vs the real
+// SupabaseClient<any, "public", "public", any, any>), so the pin does not
+// make this alias removable.
 type ServiceClient = SupabaseClient<any, "public", any>;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
@@ -180,6 +189,8 @@ Deno.serve(async () => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
     // Cast: structurally checking the full SupabaseClient against OrgListClient
     // trips TS2589 (excessively deep instantiation) on current supabase-js.
+    // Re-verified at the pinned 2.110.9 (CWA-45): a direct structural
+    // assignment still trips TS2589, so the pin does not remove this cast.
     const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
     const summary = summarize(await forEachOrg(orgs, (org) => runForOrg(supabase, org)));
     if (summary.failed.length > 0 || summary.emailsFailed > 0) {
