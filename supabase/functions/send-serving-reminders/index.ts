@@ -18,6 +18,12 @@
 // package-lock.json resolves for ^2.103.3; bump both together (no Renovate
 // rule covers this URL).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.9";
+import {
+  formatFromHeader,
+  parseAddress,
+  resolveEmailBranding,
+  type EmailBranding,
+} from "../_shared/branding.ts";
 import { escapeHtml } from "../_shared/html.ts";
 import { nextSunday, upcomingSundays } from "../_shared/sundays.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
@@ -47,6 +53,12 @@ const APP_NAME = Deno.env.get("APP_NAME") || "two42";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 const SERVING_LINK_SECRET = Deno.env.get("SERVING_LINK_SECRET");
 const SERVING_LINK_MODE = Deno.env.get("SERVING_LINK_MODE") || "signed";
+
+// The From: address keeps the platform domain (deliverability: SPF/DKIM are
+// configured for it); only the display name and Reply-To vary per org
+// (CWA-56). Mirrors lib/email/identity.ts.
+const PLATFORM_ADDRESS = parseAddress(EMAIL_FROM);
+const BRANDING_DEFAULTS = { displayName: APP_NAME, accent: BRAND_COLOR };
 
 // ── HMAC token (same format as lib/serving/links.ts) ─────────────────────────
 
@@ -112,7 +124,7 @@ function formatDate(dateStr: string): string {
 // ── Email ─────────────────────────────────────────────────────────────────────
 
 async function sendEmail(
-  opts: { to: string; subject: string; html: string; refId: string },
+  opts: { to: string; subject: string; html: string; refId: string; branding: EmailBranding },
 ): Promise<boolean> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -121,7 +133,15 @@ async function sendEmail(
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
+      // Raw REST call, so the Reply-To field is snake_case `reply_to` — not
+      // the camelCase `replyTo` the SDK uses in lib/email/resend.ts.
+      body: JSON.stringify({
+        from: formatFromHeader(opts.branding.orgName, PLATFORM_ADDRESS),
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        ...(opts.branding.replyTo ? { reply_to: opts.branding.replyTo } : {}),
+      }),
     });
     if (!res.ok) {
       // Log the profile id, not the email address (PII) — the Resend error
@@ -136,10 +156,10 @@ async function sendEmail(
   }
 }
 
-function wrap(inner: string): string {
+function wrap(inner: string, orgName: string): string {
   return `<div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;padding:40px 20px;">
     ${inner}
-    <p style="font-size:14px;color:#78716c;margin-top:40px;">&mdash; The ${escapeHtml(APP_NAME)} Team</p>
+    <p style="font-size:14px;color:#78716c;margin-top:40px;">&mdash; The ${escapeHtml(orgName)} Team</p>
   </div>`;
 }
 
@@ -167,7 +187,8 @@ async function resolveCanSign(supabase: ServiceClient, orgId: string): Promise<b
 async function runDaily(
   supabase: ServiceClient,
   orgId: string,
-  canSign: boolean
+  canSign: boolean,
+  branding: EmailBranding
 ): Promise<OrgRunCounts> {
   const todayDow = new Date().getDay();
 
@@ -249,9 +270,10 @@ async function runDaily(
       if (await sendEmail({
         to: p.email,
         refId: p.id,
+        branding,
         subject: `Reminder: you're serving this Sunday with the ${teamName}`,
         html: wrap(`
-          <h1 style="color:${BRAND_COLOR};font-size:28px;">See you Sunday!</h1>
+          <h1 style="color:${branding.accent};font-size:28px;">See you Sunday!</h1>
           <p style="font-size:18px;line-height:1.6;color:#44403c;">
             Hi ${name}, just a reminder that you&rsquo;re signed up to serve with the
             <strong>${safeTeam}</strong> this Sunday.
@@ -263,10 +285,10 @@ async function runDaily(
           </div>
           <p style="font-size:14px;color:#78716c;">
             Can&rsquo;t make it?
-            <a href="${cancelUrl}" style="color:${BRAND_COLOR};">Click here to cancel</a>
+            <a href="${cancelUrl}" style="color:${branding.accent};">Click here to cancel</a>
             so someone else can cover.
           </p>
-        `),
+        `, branding.orgName),
       })) sent++;
       else sendFailures++;
     }
@@ -280,7 +302,8 @@ async function runDaily(
 async function runMonthly(
   supabase: ServiceClient,
   orgId: string,
-  canSign: boolean
+  canSign: boolean,
+  branding: EmailBranding
 ): Promise<OrgRunCounts> {
   let sent = 0;
   let sendFailures = 0;
@@ -376,7 +399,7 @@ async function runMonthly(
                 <td style="padding:14px 0;font-size:18px;color:#44403c;">${escapeHtml(formatDate(date))}</td>
                 <td align="right" style="padding:14px 0;">
                   <a href="${signupUrl}"
-                     style="display:inline-block;background-color:${BRAND_COLOR};color:white;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:16px;white-space:nowrap;">
+                     style="display:inline-block;background-color:${branding.accent};color:white;padding:10px 20px;text-decoration:none;border-radius:8px;font-size:16px;white-space:nowrap;">
                     I&rsquo;ll do it
                   </a>
                 </td>
@@ -388,9 +411,10 @@ async function runMonthly(
       if (await sendEmail({
         to: m.email,
         refId: m.id,
+        branding,
         subject: `${teamName}: open Sundays for the coming weeks`,
         html: wrap(`
-          <h1 style="color:${BRAND_COLOR};font-size:28px;">Can you take a Sunday?</h1>
+          <h1 style="color:${branding.accent};font-size:28px;">Can you take a Sunday?</h1>
           <p style="font-size:18px;line-height:1.6;color:#44403c;">
             Hi ${name}, here are the upcoming Sundays for the <strong>${safeTeam}</strong>
             that still need a volunteer. Tap a button and you&rsquo;re signed up.
@@ -398,9 +422,9 @@ async function runMonthly(
           ${rows.join("")}
           <p style="font-size:14px;color:#78716c;margin-top:24px;">
             Want to see the full schedule?
-            <a href="${SITE_URL}/serving/${group_id}" style="color:${BRAND_COLOR};">View the team page</a>
+            <a href="${SITE_URL}/serving/${group_id}" style="color:${branding.accent};">View the team page</a>
           </p>
-        `),
+        `, branding.orgName),
       })) { sent++; teamSent++; }
       else sendFailures++;
     }
@@ -466,9 +490,12 @@ Deno.serve(async (req) => {
         // Resolved inside the per-org callback so a failure here is caught by
         // this org's boundary instead of aborting the whole run.
         const canSign = await resolveCanSign(supabase, org.id);
+        // resolveEmailBranding is total (never throws): a malformed branding
+        // row degrades to the env defaults, not an org-level failure.
+        const branding = resolveEmailBranding(org.branding, BRANDING_DEFAULTS, org.slug);
         return mode === "monthly"
-          ? await runMonthly(supabase, org.id, canSign)
-          : await runDaily(supabase, org.id, canSign);
+          ? await runMonthly(supabase, org.id, canSign, branding)
+          : await runDaily(supabase, org.id, canSign, branding);
       }),
     );
 

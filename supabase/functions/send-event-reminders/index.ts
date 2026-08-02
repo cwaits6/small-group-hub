@@ -14,6 +14,12 @@
 // package-lock.json resolves for ^2.103.3; bump both together (no Renovate
 // rule covers this URL).
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.110.9";
+import {
+  formatFromHeader,
+  parseAddress,
+  resolveEmailBranding,
+  type EmailBranding,
+} from "../_shared/branding.ts";
 import { chunk } from "../_shared/chunk.ts";
 import { escapeHtml } from "../_shared/html.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
@@ -40,12 +46,19 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
+const APP_NAME = Deno.env.get("APP_NAME") || "two42";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
+
+// The From: address keeps the platform domain (deliverability: SPF/DKIM are
+// configured for it); only the display name and Reply-To vary per org
+// (CWA-56). Mirrors lib/email/identity.ts.
+const PLATFORM_ADDRESS = parseAddress(EMAIL_FROM);
+const BRANDING_DEFAULTS = { displayName: APP_NAME, accent: BRAND_COLOR };
 
 // ── Email ─────────────────────────────────────────────────────────────────────
 
 async function sendEmail(
-  opts: { to: string; subject: string; html: string; refId: string },
+  opts: { to: string; subject: string; html: string; refId: string; branding: EmailBranding },
 ): Promise<boolean> {
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -54,7 +67,15 @@ async function sendEmail(
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
+      // Raw REST call, so the Reply-To field is snake_case `reply_to` — not
+      // the camelCase `replyTo` the SDK uses in lib/email/resend.ts.
+      body: JSON.stringify({
+        from: formatFromHeader(opts.branding.orgName, PLATFORM_ADDRESS),
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+        ...(opts.branding.replyTo ? { reply_to: opts.branding.replyTo } : {}),
+      }),
     });
     if (!res.ok) {
       // Log the profile id, not the email address (PII) — the Resend error
@@ -73,7 +94,11 @@ async function sendEmail(
 
 const IN_CHUNK_SIZE = 200;
 
-async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCounts> {
+async function runForOrg(
+  supabase: ServiceClient,
+  org: Org,
+  branding: EmailBranding,
+): Promise<OrgRunCounts> {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -155,10 +180,11 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
       if (await sendEmail({
         to: profile.email,
         refId: profile.id,
+        branding,
         subject: `Reminder: ${event.title} is tomorrow!`,
         html: `
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-              <h1 style="color: ${BRAND_COLOR}; font-size: 28px;">Event Reminder</h1>
+              <h1 style="color: ${branding.accent}; font-size: 28px;">Event Reminder</h1>
               <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
                 Hi ${escapeHtml(profile.preferred_name || profile.first_name || "Friend")}, just a reminder that <strong>${escapeHtml(event.title)}</strong> is coming up!
               </p>
@@ -169,7 +195,7 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCount
                 ${event.location ? `<p style="font-size: 18px; margin: 8px 0 0; color: #44403c;"><strong>Where:</strong> ${escapeHtml(event.location)}</p>` : ""}
               </div>
               <a href="${SITE_URL}/events"
-                 style="display: inline-block; background-color: ${BRAND_COLOR}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+                 style="display: inline-block; background-color: ${branding.accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
                 View Event
               </a>
             </div>
@@ -192,7 +218,10 @@ Deno.serve(async () => {
     // Re-verified at the pinned 2.110.9 (CWA-45): a direct structural
     // assignment still trips TS2589, so the pin does not remove this cast.
     const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
-    const summary = summarize(await forEachOrg(orgs, (org) => runForOrg(supabase, org)));
+    const summary = summarize(await forEachOrg(orgs, (org) =>
+      // resolveEmailBranding is total (never throws): a malformed branding
+      // row degrades to the env defaults, not an org-level failure.
+      runForOrg(supabase, org, resolveEmailBranding(org.branding, BRANDING_DEFAULTS, org.slug))));
     if (summary.failed.length > 0 || summary.emailsFailed > 0) {
       console.error(
         "run completed with failures: %d/%d orgs failed, %d emails rejected",

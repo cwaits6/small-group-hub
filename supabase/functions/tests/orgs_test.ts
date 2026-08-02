@@ -48,15 +48,22 @@ function makeFakeClient(result: {
   return { client, recorded };
 }
 
-const orgA: Org = { id: "a-id", name: "Org A", slug: "a" };
-const orgB: Org = { id: "b-id", name: "Org B", slug: "b" };
-const orgC: Org = { id: "c-id", name: "Org C", slug: "c" };
+// branding is carried opaquely (unknown): one populated row, one empty
+// object, one null — listActiveOrgs and forEachOrg must not care which.
+const orgA: Org = {
+  id: "a-id",
+  name: "Org A",
+  slug: "a",
+  branding: { display_name: "Org A Fellowship", accent: "#2E6F5E" },
+};
+const orgB: Org = { id: "b-id", name: "Org B", slug: "b", branding: {} };
+const orgC: Org = { id: "c-id", name: "Org C", slug: "c", branding: null };
 
 Deno.test("listActiveOrgs filters on status = active and orders by slug", async () => {
   const { client, recorded } = makeFakeClient({ data: [orgA, orgB], error: null });
   const orgs = await listActiveOrgs(client);
   assertEquals(recorded.from, "organizations");
-  assertEquals(recorded.select, "id, name, slug");
+  assertEquals(recorded.select, "id, name, slug, branding");
   assertEquals(recorded.eq, ["status", "active"]);
   assertEquals(recorded.order, "slug");
   assertEquals(orgs, [orgA, orgB]);

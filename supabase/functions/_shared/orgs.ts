@@ -19,6 +19,10 @@ export interface Org {
   id: string;
   name: string;
   slug: string;
+  // The raw organizations.branding jsonb. Deliberately `unknown`, not a typed
+  // shape: _shared/branding.ts is the sole validator of this column, and this
+  // module must not grow a second, weaker opinion about it.
+  branding: unknown;
 }
 
 interface QueryResult<T> {
@@ -43,11 +47,14 @@ export interface OrgListClient {
  * Throws on query failure: enumerating zero orgs because of an error is
  * indistinguishable from "no orgs" at the call site, and would silently make
  * the whole run a no-op.
+ *
+ * branding rides along on this one query (CWA-56) so per-org email branding
+ * costs no extra round trip and no new service-role call site.
  */
 export async function listActiveOrgs(supabase: OrgListClient): Promise<Org[]> {
   const { data, error } = await supabase
     .from("organizations")
-    .select("id, name, slug")
+    .select("id, name, slug, branding")
     .eq("status", "active")
     .order("slug");
   if (error) throw new Error(`Failed to list organizations: ${error.message}`);
