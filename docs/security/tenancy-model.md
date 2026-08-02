@@ -182,10 +182,16 @@ platform seam).
 - Storage-bucket policies, signed tokens, and the service-role call sites:
   Phase 3 (#212). Group-level scoping of member-facing surfaces: split out
   ahead of Phase 4.
-- The permissive `organizations` SELECT policy exposes the **whole**
-  tenant-root row — `name`, `slug`, `status`, `created_at`, `branding` — to an
-  anonymous caller who resolves that org via `x-two42-org`, not just the
-  branding keys the read path needs. Accepted: the slug is already public by
-  construction (it *is* the header value), and column-level narrowing
-  (`grant select (id, slug, branding)`) is deferred to its own migration, per
-  the one-in-flight-migration rule.
+- The permissive `organizations` SELECT policy is written whole-row, but the
+  column privileges beneath it are not: `20260801000002` revokes the
+  table-level grant and re-grants `select (id, name, slug, branding)` to `anon`
+  and `authenticated`. Neither role can select `status`, `created_at`, or any
+  column a later phase adds — `ADD COLUMN` grants nothing, so a new column is
+  unreadable until someone lists it there on purpose. An anonymous caller who
+  resolves the org via `x-two42-org` reads exactly those four columns.
+  Remaining gap: `branding` is a single jsonb value, so `reply_to` rides along
+  with the three keys the app shell needs; column privileges cannot reach
+  inside jsonb, and excluding it needs a SECURITY DEFINER projection.
+  Accepted: the slug is already public by construction (it *is* the header
+  value), and `reply_to` is an address the org publishes on every outbound
+  email.
