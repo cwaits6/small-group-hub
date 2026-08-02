@@ -82,6 +82,25 @@ select is(
   'the permissive SELECT policy exists and predicates on app_request_org_id()'
 );
 
+-- Column privileges are the column-level half of the read boundary: the
+-- policy above decides which ROWS come back, these decide which COLUMNS of
+-- them. Asserted here rather than left to review because the failure mode is
+-- silent — a plain `grant select on public.organizations to anon` anywhere
+-- later re-exposes status and every column a future phase adds, with no row
+-- count changing and none of the assertions below noticing.
+select ok(
+  has_column_privilege('anon', 'public.organizations', 'branding', 'select'),
+  'anon may read organizations.branding (the app shell reads it unauthenticated)'
+);
+select ok(
+  not has_column_privilege('anon', 'public.organizations', 'status', 'select'),
+  'anon may not read organizations.status'
+);
+select ok(
+  not has_column_privilege('authenticated', 'public.organizations', 'status', 'select'),
+  'authenticated may not read organizations.status'
+);
+
 -- anon resolving the org via the x-two42-org header reads exactly 1 row.
 set local role anon;
 reset request.jwt.claims;

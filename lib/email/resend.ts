@@ -19,6 +19,7 @@ export async function sendInviteEmail(
 ) {
   const b = branding ?? (await resolveEmailBranding());
   const orgName = escapeHtml(b.fromName);
+  const safeName = escapeHtml(name);
   const { error } = await getResend().emails.send({
     from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
@@ -26,7 +27,7 @@ export async function sendInviteEmail(
     subject: `You're invited to ${b.fromName}!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="color: ${b.accent}; font-size: 28px;">Welcome, ${name}!</h1>
+        <h1 style="color: ${b.accent}; font-size: 28px;">Welcome, ${safeName}!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Your request to join <strong>${orgName}</strong> has been approved!
         </p>
@@ -63,6 +64,16 @@ export function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Free text destined for a Subject: header. Subject is an RFC 5322 header,
+ * not markup — escapeHtml() there renders literally ("O&#39;Brien"), so the
+ * only sanitization it needs (and must have) is the CR/LF strip that stops a
+ * name from injecting a second header. Never use this for HTML bodies.
+ */
+function headerText(str: string): string {
+  return str.replace(/[\r\n]/g, "");
+}
+
 function sanitizeLink(link: string): string {
   try {
     const url = new URL(link);
@@ -92,7 +103,7 @@ export async function sendFamilyInviteEmail(
     from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
-    subject: `${safeInviterName} added you to their household on ${b.fromName}`,
+    subject: `${headerText(inviterName)} added you to their household on ${b.fromName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">You've been invited!</h1>
@@ -144,7 +155,7 @@ export async function sendFeedbackEmail(
     from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to,
     ...(replyTo ? { replyTo } : {}),
-    subject: `${b.fromName} feedback from ${senderName}: ${kind}`,
+    subject: `${b.fromName} feedback from ${headerText(senderName)}: ${kind}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">Member feedback</h1>
@@ -188,7 +199,7 @@ export async function sendEventReminderEmail(
     from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
-    subject: `Reminder: ${eventTitle} is coming up!`,
+    subject: `Reminder: ${headerText(eventTitle)} is coming up!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">Event Reminder</h1>

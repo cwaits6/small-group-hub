@@ -44,6 +44,27 @@ create policy "Org readable within request org"
   to anon, authenticated
   using (id = (select public.app_request_org_id()));
 
+-- RLS picks rows; it cannot pick columns. The policy above is the first thing
+-- to return an organizations row to a caller at all, so it is also the first
+-- thing to hand anon the whole row — including `status` (an org's
+-- active/suspended lifecycle state) and any column a later phase adds, which
+-- Supabase's default table-level grant would expose the moment it exists.
+-- Column privileges are the column-level half of the same boundary, and they
+-- are fail-closed by construction: ADD COLUMN grants nothing, so a new column
+-- is unreadable until someone lists it here on purpose.
+--
+-- KNOWN GAP: branding is a single jsonb column, so `reply_to` rides along with
+-- the three keys the app shell needs. Column privileges cannot reach inside a
+-- jsonb value; excluding it needs a SECURITY DEFINER projection and a
+-- privileged re-read for the email senders (lib/email/identity.ts resolves
+-- Reply-To through this same request-scoped path). Deliberately deferred: the
+-- value is an address the org already publishes on every outbound email, and
+-- it is only reachable by a caller who has already named this org via
+-- x-two42-org.
+revoke select on public.organizations from anon, authenticated;
+grant select (id, name, slug, branding)
+  on public.organizations to anon, authenticated;
+
 -- provision_organization(): add reply_to so newly provisioned orgs share one
 -- branding shape with org #1. Body copied verbatim from 20260731000016;
 -- ONLY the jsonb_build_object line changes.
