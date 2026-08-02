@@ -12,7 +12,36 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY")!;
+// Service key resolution. The platform reserves the SUPABASE_ prefix for
+// its own injected vars, so SUPABASE_SECRET_KEY can never be set manually
+// via `supabase secrets set`: on hosted projects with new-style API keys it
+// arrives as the JSON map SUPABASE_SECRET_KEYS (keyed by key name, "default"
+// unless renamed); legacy projects and the local CLI stack inject
+// SUPABASE_SERVICE_ROLE_KEY instead.
+function resolveServiceKey(): string {
+  const direct = Deno.env.get("SUPABASE_SECRET_KEY");
+  if (direct) return direct;
+  const map = Deno.env.get("SUPABASE_SECRET_KEYS");
+  if (map) {
+    try {
+      const parsed: unknown = JSON.parse(map);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const keys = parsed as Record<string, unknown>;
+        const key = keys["default"] ?? Object.values(keys)[0];
+        if (typeof key === "string" && key) return key;
+      }
+      console.error("SUPABASE_SECRET_KEYS has no usable key; falling back");
+    } catch {
+      console.error("SUPABASE_SECRET_KEYS is not valid JSON; falling back");
+    }
+  }
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (typeof legacy === "string" && legacy) return legacy;
+  throw new Error(
+    "No service key found: expected SUPABASE_SECRET_KEY, SUPABASE_SECRET_KEYS, or SUPABASE_SERVICE_ROLE_KEY"
+  );
+}
+const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
 const APP_NAME = Deno.env.get("APP_NAME") || "two42";
