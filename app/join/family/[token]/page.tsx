@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { siteConfig } from "@/lib/config";
+import { resolveOrgSlug } from "@/lib/org";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
 
 interface PageProps {
@@ -16,15 +17,26 @@ export const metadata = { title: `Join Your Household | ${siteConfig.name}` };
 export default async function FamilyJoinPage({ params }: PageProps) {
   const { token } = await params;
 
-  // Resolve the request's org through the anon server client — it sends the
-  // x-two42-org header that app_request_org_id() reads, so this is the same
-  // value the downstream access_requests RLS WITH CHECK compares against.
-  const anon = await createClient();
-  const { data: resolvedOrg, error: orgError } = await anon.rpc("app_request_org_id");
+  // Resolve the request's org through the request-scoped server client. It is
+  // cookie-bound, not anonymous: for a signed-in visitor app_request_org_id()
+  // returns their own org and ignores x-two42-org; for the anonymous
+  // invite-link case (the common one) it resolves the header's slug. Either
+  // way it is the same value the downstream access_requests RLS WITH CHECK
+  // compares against, and NULL fails closed below.
+  const requestClient = await createClient();
+  const { data: resolvedOrg, error: orgError } = await requestClient.rpc("app_request_org_id");
+  const requestOrgId = typeof resolvedOrg === "string" ? resolvedOrg : null;
   if (orgError) {
     console.error("Family join page: org resolution failed:", orgError);
+  } else if (!requestOrgId) {
+    // The RPC succeeded but returned NULL — the resolved slug matches no
+    // organization row. orgError stays null in this path, so without this
+    // log this redirect is indistinguishable from an ordinary invalid token.
+    console.error(
+      "Family join page: org resolution returned NULL for slug %s",
+      resolveOrgSlug()
+    );
   }
-  const requestOrgId = typeof resolvedOrg === "string" ? resolvedOrg : null;
 
   // Fail closed — same destination the invalid-token branch uses.
   if (!requestOrgId) {

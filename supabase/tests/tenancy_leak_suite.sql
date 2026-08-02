@@ -575,18 +575,25 @@ insert into tenancy_leak_results
     'anon INSERT arriving pre-approved is rejected — no self-approved signup trust anchor (RLS 42501)');
 
 -- The join flow (Phase 3, CWA-10) resolves its org through the same
--- app_request_org_id() the policy above evaluates, so there is no UUID↔slug
--- coupling left to drift — but the slug resolveOrgSlug() defaults to
--- ('default', lib/org.ts) must still be reachable. If a migration renames the
--- seeded org's slug, app_request_org_id() returns NULL for anon and every
--- join submission fails closed; pin it here so that shows up as a test
--- failure instead of a production 42501 with no log line.
+-- app_request_org_id() the policy above evaluates — but the slug
+-- resolveOrgSlug() defaults to ('default', lib/org.ts) must still be
+-- reachable. If a migration renames the seeded org's slug,
+-- app_request_org_id() returns NULL for anon and the join page fails closed
+-- to "Join requests unavailable" (with an operator log line as of CWA-10's
+-- review pass) rather than ever reaching a 42501 — pin it here so that
+-- drift shows up as a test failure instead of only at that page.
+--
+-- This assertion is a seed-integrity check, not proof that no UUID↔slug
+-- coupling exists: it keys on the hardcoded seed UUID below, which still has
+-- to agree with whatever resolveOrgSlug() resolves to. A differently-idded
+-- org seeded with slug 'default' would pass this assertion while breaking
+-- the join flow it is meant to guard.
 insert into tenancy_leak_results
   select is(
     (select slug from public.organizations
       where id = '00000000-0000-0000-0000-000000000001'::uuid),
     'default',
-    'the seeded org resolveOrgSlug() defaults to still carries slug ''default'' (lib/org.ts)');
+    'the seeded org (00000000-0000-0000-0000-000000000001) still carries the slug resolveOrgSlug() defaults to (''default'')');
 
 -- ── platform_admins (org-orthogonal, unchanged by the org floor) ────────────
 do $$

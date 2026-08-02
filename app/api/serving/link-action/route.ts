@@ -38,7 +38,10 @@ export async function POST(request: Request) {
 
   // The group is fetched first: its org_id is the org anchor for every read
   // and write below (Phase 3, CWA-10 — the surface stays on the service-role
-  // key, so the org filter is what confines it to one tenant).
+  // key, so the org filter is what confines it to one tenant). The profiles
+  // read below is a deliberate exception — it stays unscoped so a cross-org
+  // pairing is detected and rejected by the explicit check further down,
+  // instead of silently matching zero rows.
   // supabase-js does not throw on a failed read — it returns { data: null,
   // error }. Every check below is a truthiness test, so without capturing
   // `error` a 42501, a PostgREST 5xx and a genuinely absent row all render as
@@ -111,6 +114,13 @@ export async function POST(request: Request) {
   // rows. A cross-org pairing gets the same response as any invalid link — a
   // distinguishing message would be an org-existence oracle.
   if (profile.org_id !== group.org_id) {
+    console.error(
+      "Signed-link cross-org denial: profile org %s does not match group org %s (g=%s, p=%s)",
+      profile.org_id,
+      group.org_id,
+      payload.g,
+      payload.p
+    );
     return NextResponse.json(
       { error: "This link is no longer valid — please use the site instead" },
       { status: 400 }
@@ -203,11 +213,16 @@ export async function POST(request: Request) {
       );
     if (attendeeError) {
       console.error("Signed-link attendee insert failed:", attendeeError);
-      await service
-        .from("serving_signups")
-        .delete()
-        .eq("id", signup.id)
-        .eq("org_id", group.org_id);
+      const { data: rolledBack, error: rollbackError } = await service
+        .from("serving_signups").delete()
+        .eq("id", signup.id).eq("org_id", group.org_id)
+        .select("id");
+      if (rollbackError || !rolledBack || rolledBack.length === 0) {
+        console.error(
+          "Signed-link rollback failed — orphan signup %s occupies group %s on %s (org=%s):",
+          signup.id, payload.g, payload.d, group.org_id, rollbackError,
+        );
+      }
       return NextResponse.json({ error: "Failed to sign up" }, { status: 500 });
     }
 

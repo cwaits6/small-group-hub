@@ -27,6 +27,7 @@ Next.js + Supabase app for a church small group, deployed on Vercel. Open source
 - **No bare `using (true)` / `with check (true)`** on an org-owned table.
 - **Every FK into an org-owned parent is composite** — `(col, org_id) references parent(col, org_id)`. `on delete set null` must name the FK column explicitly, e.g. `on delete set null (calendar_id)`, or it will try to null `org_id` too.
 - **Wrap helper calls in RLS policy expressions as `(select public.helper())`** so the planner evaluates them once per statement (InitPlan). This repo has regressed on it twice. The rule is about policy expressions — inside SECURITY DEFINER function bodies the bare call is fine.
+- **Every `createServiceClient()` query filters on an `org_id` derived from an already-validated row** — the token row, the HMAC-validated group row, or the caller's own RLS-scoped profile. Never a constant, never a value taken from the request body. Service-role clients carry `BYPASSRLS`, so the explicit filter *is* the tenant boundary on these surfaces, and `schema_tenancy_lint.sql` cannot see it — this rule is checked by review, not by CI. Call sites and their org anchors: [`docs/security/service-role-inventory.md`](docs/security/service-role-inventory.md).
 
 Full rationale, the helper inventory, and the deviations register: [`docs/security/tenancy-model.md`](docs/security/tenancy-model.md).
 

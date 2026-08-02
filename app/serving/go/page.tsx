@@ -57,7 +57,10 @@ export default async function ServingLinkPage({
 
   // The group is fetched first: its org_id is the org anchor for every read
   // below (Phase 3, CWA-10 — the surface stays on the service-role key, so
-  // the org filter is what confines it to one tenant).
+  // the org filter is what confines it to one tenant). The profiles read
+  // below is a deliberate exception — it stays unscoped so a cross-org
+  // pairing is detected and rejected by the explicit check further down,
+  // instead of silently matching zero rows.
   // supabase-js returns { data: null, error } rather than throwing, so an
   // uncaptured error is indistinguishable from an absent row and renders as
   // "expired" with nothing in the logs.
@@ -162,6 +165,13 @@ export default async function ServingLinkPage({
   // rows. A cross-org pairing renders the same copy as any invalid link — a
   // distinguishing message would be an org-existence oracle.
   if (profile.org_id !== group.org_id) {
+    console.error(
+      "Serving link page: cross-org denial — profile org %s does not match group org %s (g=%s, p=%s)",
+      profile.org_id,
+      group.org_id,
+      payload.g,
+      payload.p
+    );
     return (
       <Message
         title="This link has expired"

@@ -48,8 +48,12 @@ export async function GET(request: Request) {
     .eq("org_id", sub.org_id)
     .single();
 
+  // A real (non-PGRST116) failure here is a transient DB error, not an
+  // absent or non-member owner — 401 is terminal to a calendar client while
+  // 500 is retryable, so the two must not collapse into the same response.
   if (ownerError && ownerError.code !== "PGRST116") {
     console.error("Failed to look up token owner's profile:", ownerError);
+    return new Response("Something went wrong", { status: 500 });
   }
 
   if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
@@ -91,22 +95,31 @@ export async function GET(request: Request) {
     query = query.eq("calendar_id", calendarId);
   }
 
-  const [{ data: events, error: eventsError }, { data: myServings }] =
-    await Promise.all([
-      query,
-      // Serving signups where this user is an attendee (inner join filters results)
-      supabase
-        .from("serving_signups")
-        .select("id, service_date, member_groups(name), serving_signup_attendees!inner(profile_id)")
-        .eq("org_id", sub.org_id)
-        .eq("serving_signup_attendees.profile_id", sub.user_id)
-        .gte("service_date", thirtyDaysAgo.slice(0, 10))
-        .order("service_date", { ascending: true }),
-    ]);
+  const [
+    { data: events, error: eventsError },
+    { data: myServings, error: servingsError },
+  ] = await Promise.all([
+    query,
+    // Serving signups where this user is an attendee (inner join filters results)
+    supabase
+      .from("serving_signups")
+      .select("id, service_date, member_groups(name), serving_signup_attendees!inner(profile_id)")
+      .eq("org_id", sub.org_id)
+      .eq("serving_signup_attendees.profile_id", sub.user_id)
+      .gte("service_date", thirtyDaysAgo.slice(0, 10))
+      .order("service_date", { ascending: true }),
+  ]);
 
   if (eventsError) {
     console.error("Failed to fetch events for calendar feed:", eventsError);
     return new Response("Failed to fetch events", { status: 500 });
+  }
+
+  // Non-fatal: a failed serving-signups read shouldn't take down the events
+  // half of the feed, but a silent discard means a member's serving Sundays
+  // vanish behind a 200 + max-age=3600, so the client caches the gap.
+  if (servingsError) {
+    console.error("Failed to fetch serving signups for calendar feed:", servingsError);
   }
 
   const typedEvents = (events ?? []) as Event[];

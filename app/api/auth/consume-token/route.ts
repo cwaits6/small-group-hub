@@ -10,10 +10,13 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceClient();
 
-  // Resolve the row first so the write below can be scoped to (id, org_id).
-  // signup_token is currently globally UNIQUE, so the unscoped update touched
-  // at most one row — the org scoping is correctness-under-change (if that
-  // constraint ever becomes per-org), not a live bug.
+  // This lookup genuinely cannot be org-scoped: org_id isn't known until this
+  // row resolves it. signup_token is currently globally UNIQUE, so
+  // .maybeSingle() is safe today; if that constraint ever became per-org,
+  // this lookup would need to change, since it would then match multiple
+  // rows and .maybeSingle() would error. The write below is scoped to
+  // (id, org_id) once the row is known — that scoping is what stays correct
+  // if the constraint changes.
   const { data: row, error: lookupError } = await supabase
     .from("access_requests")
     .select("id, org_id")

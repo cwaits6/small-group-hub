@@ -132,13 +132,28 @@ export async function POST(request: Request) {
 
   // org_id filter is required: the recipient list is the email fan-out
   // surface, so an unscoped service-role read here mails another org's members.
-  const { data: memberRows } = await service
+  const { data: memberRows, error: memberRowsError } = await service
     .from("profile_groups")
     .select(
       "profiles(id, first_name, last_name, preferred_name, email, role, email_announcements)"
     )
     .eq("group_id", groupId)
     .eq("org_id", group.org_id);
+
+  // A failed read here would silently report the team as having no emails on
+  // file — fail the send instead of blaming the team's data.
+  if (memberRowsError) {
+    console.error(
+      "Serving broadcast recipient lookup failed for group %s (org=%s):",
+      groupId,
+      group.org_id,
+      memberRowsError
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   const members = (memberRows ?? [])
     .map(

@@ -53,8 +53,12 @@ export async function GET(
     .eq("org_id", sub.org_id)
     .single();
 
-  if (ownerError) {
+  // A real (non-PGRST116) failure here is a transient DB error, not an
+  // absent or non-member owner — 401 is terminal to a calendar client while
+  // 500 is retryable, so the two must not collapse into the same response.
+  if (ownerError && ownerError.code !== "PGRST116") {
     console.error("Failed to look up token owner's profile:", ownerError);
+    return new Response("Something went wrong", { status: 500 });
   }
 
   if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {

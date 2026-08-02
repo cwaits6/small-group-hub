@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
+import { resolveOrgSlug } from "@/lib/org";
 import { getOptionalUser } from "@/lib/supabase/current-user";
 import { createClient } from "@/lib/supabase/server";
 import { JoinForm } from "./JoinForm";
@@ -18,7 +19,17 @@ export default async function JoinPage() {
   const supabase = await createClient();
   const { data: resolvedOrg, error: orgError } = await supabase.rpc("app_request_org_id");
   const orgId = typeof resolvedOrg === "string" ? resolvedOrg : null;
-  if (orgError) console.error("Join page: org resolution failed:", orgError);
+  if (orgError) {
+    console.error("Join page: org resolution failed:", orgError);
+  } else if (!orgId) {
+    // The RPC succeeded but returned NULL — the resolved slug matches no
+    // organization row. orgError stays null in this path, so without this
+    // log the entire public join funnel goes down with zero operator signal.
+    console.error(
+      "Join page: org resolution returned NULL for slug %s",
+      resolveOrgSlug()
+    );
+  }
 
   // Without a resolvable org every submission would fail closed with a bare
   // 42501 — show a real message instead of a form that can only error.

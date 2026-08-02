@@ -136,12 +136,24 @@ export async function notifyLeadersOfCancel(
 ) {
   // org_id filter is required: this is an email fan-out surface on a
   // service-role client — an unscoped read would mail another org's leaders.
-  const { data: leaders } = await service
+  const { data: leaders, error } = await service
     .from("profile_groups")
     .select("profiles(id, first_name, last_name, preferred_name, email)")
     .eq("group_id", opts.groupId)
     .eq("org_id", opts.orgId)
     .eq("is_leader", true);
+
+  // Non-throwing by contract (see file header), but a failed read here is not
+  // a graceful degradation — it means the team's leaders are never told the
+  // slot opened, with no other signal that it happened. Log it.
+  if (error) {
+    console.error(
+      "Serving leaders lookup failed for group %s (org=%s):",
+      opts.groupId,
+      opts.orgId,
+      error
+    );
+  }
 
   for (const row of leaders ?? []) {
     const leader = row.profiles as unknown as

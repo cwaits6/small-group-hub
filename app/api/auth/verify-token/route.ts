@@ -11,8 +11,11 @@ export async function POST(request: Request) {
   const supabase = await createServiceClient();
 
   // The service client bypasses RLS, so the token row is the org anchor for
-  // this pre-login flow: handle_new_user() later reads the same row's org_id
-  // to place the new profile (see supabase/schema.sql).
+  // this pre-login flow. handle_new_user() does not simply re-read this row:
+  // it matches lower(email) across access_requests ∪ family_invites and
+  // raises TN002 if that union spans more than one org (see
+  // supabase/schema.sql) — a stronger, and more surprising, guarantee than
+  // "reads the same row".
   const { data, error } = await supabase
     .from("access_requests")
     .select("name, email, status, token_expires_at, invite_token, org_id")
