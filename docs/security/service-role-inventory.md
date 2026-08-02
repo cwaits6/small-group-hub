@@ -30,8 +30,10 @@ PR, with the justification and the tenancy risk.**
 
 ## Edge Functions (2 sites)
 
-Both are cron-triggered with no session context and use the `SUPABASE_SECRET_KEY`
-env var directly (Deno pattern), not `createServiceClient()`.
+Both are cron-triggered with no session context and resolve the service key
+from platform-injected env vars (`SUPABASE_SECRET_KEY` override →
+`SUPABASE_SECRET_KEYS` map → legacy `SUPABASE_SERVICE_ROLE_KEY`; see
+`resolveServiceKey()` in each function), not `createServiceClient()`.
 
 | File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
 |------|--------------------------|--------------------------------|------------|
