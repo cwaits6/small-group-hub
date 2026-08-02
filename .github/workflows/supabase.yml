@@ -117,10 +117,13 @@ jobs:
 
       # Blocking since CWA-45: the import is pinned, so a failure here is our
       # code (or an esm.sh outage) — see the note above the job.
+      # --frozen makes the pin load-bearing: without it Deno silently rewrites
+      # an outdated deno.lock in CI, so the committed integrity entry would
+      # never actually be enforced.
       - name: Type-check edge function entry points
         run: |
-          deno check supabase/functions/send-event-reminders/index.ts \
-                     supabase/functions/send-serving-reminders/index.ts
+          deno check --frozen supabase/functions/send-event-reminders/index.ts \
+                              supabase/functions/send-serving-reminders/index.ts
 
   migrate:
     name: Push migrations & dump schema
