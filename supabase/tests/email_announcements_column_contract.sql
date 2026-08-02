@@ -11,7 +11,7 @@
 -- Run locally through the shared stack's container (never `supabase test db`):
 --
 --   docker exec -i supabase_db_small-group-hub \
---     psql -U postgres -d postgres -f - < supabase/tests/email_announcements_optout.sql
+--     psql -U postgres -d postgres -f - < supabase/tests/email_announcements_column_contract.sql
 
 begin;
 create extension if not exists pgtap with schema extensions;

@@ -24,11 +24,13 @@ function bigButton(accent: string): string {
   return `display: inline-block; background-color: ${accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;`;
 }
 
-function wrap(inner: string, fromName: string): string {
+// orgName, not fromName — every caller passes b.orgName, and this file's
+// sendServingBroadcastEmail also has an opts.fromName holding a MEMBER's name.
+function wrap(inner: string, orgName: string): string {
   return `
     <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
       ${inner}
-      <p style="${footer}">&mdash; The ${escapeHtml(fromName)} Team</p>
+      <p style="${footer}">&mdash; The ${escapeHtml(orgName)} Team</p>
     </div>
   `;
 }
@@ -46,7 +48,7 @@ export async function sendServingConfirmationEmail(opts: {
   const b = opts.branding ?? (await resolveEmailBranding());
   const dateLabel = formatServiceDateWithYear(opts.serviceDate);
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: opts.to,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `You're signed up: ${opts.teamName}, ${dateLabel}`,
@@ -72,7 +74,7 @@ export async function sendServingConfirmationEmail(opts: {
         <a href="${opts.cancelUrl}" style="color: ${b.accentLight};">click here to cancel</a>
         and the Sunday will open back up for someone else.
       </p>
-    `, b.fromName),
+    `, b.orgName),
     attachments: [
       {
         filename: `serving-${opts.serviceDate}.ics`,
@@ -100,7 +102,7 @@ export async function sendServingCancelNoticeEmail(opts: {
   const b = opts.branding ?? (await resolveEmailBranding());
   const dateLabel = formatServiceDateWithYear(opts.serviceDate);
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: opts.to,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `${opts.teamName}: ${dateLabel} is open again`,
@@ -113,7 +115,7 @@ export async function sendServingCancelNoticeEmail(opts: {
         so that Sunday is open again.
       </p>
       <a href="${opts.servingUrl}" style="${bigButton(b.accent)}">View the Schedule</a>
-    `, b.fromName),
+    `, b.orgName),
   });
 
   if (error) {
@@ -153,7 +155,7 @@ export async function sendServingBroadcastEmail(opts: {
     .join("");
 
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: opts.to,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `${opts.teamName}: Sundays that still need someone`,
@@ -170,7 +172,7 @@ export async function sendServingBroadcastEmail(opts: {
         Already spoken for? You can always see who&rsquo;s covering each week at
         <a href="${siteConfig.url}/serving" style="color: ${b.accentLight};">${siteConfig.url}/serving</a>.
       </p>
-    `, b.fromName),
+    `, b.orgName),
   });
 
   if (error) {

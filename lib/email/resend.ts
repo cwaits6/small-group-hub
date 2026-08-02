@@ -18,18 +18,18 @@ export async function sendInviteEmail(
   branding?: EmailBranding
 ) {
   const b = branding ?? (await resolveEmailBranding());
-  const orgName = escapeHtml(b.fromName);
+  const safeOrgName = escapeHtml(b.orgName);
   const safeName = escapeHtml(name);
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: email,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
-    subject: `You're invited to ${b.fromName}!`,
+    subject: `You're invited to ${b.orgName}!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">Welcome, ${safeName}!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-          Your request to join <strong>${orgName}</strong> has been approved!
+          Your request to join <strong>${safeOrgName}</strong> has been approved!
         </p>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Click the button below to set up your password and get started.
@@ -43,7 +43,7 @@ export async function sendInviteEmail(
           <a href="${magicLink}" style="color: ${b.accentLight};">${magicLink}</a>
         </p>
         <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
-          &mdash; The ${orgName} Team
+          &mdash; The ${safeOrgName} Team
         </p>
       </div>
     `,
@@ -94,22 +94,22 @@ export async function sendFamilyInviteEmail(
   branding?: EmailBranding
 ) {
   const b = branding ?? (await resolveEmailBranding());
-  const orgName = escapeHtml(b.fromName);
+  const safeOrgName = escapeHtml(b.orgName);
   const safeInviterName = escapeHtml(inviterName);
   const safeFamilyMemberName = escapeHtml(familyMemberName);
   const safeJoinLink = sanitizeLink(joinLink);
 
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: email,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
-    subject: `${headerText(inviterName)} added you to their household on ${b.fromName}`,
+    subject: `${headerText(inviterName)} added you to their household on ${b.orgName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">You've been invited!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           <strong>${safeInviterName}</strong> has added <strong>${safeFamilyMemberName}</strong> to their household
-          on <strong>${orgName}</strong> and would like to invite you to create your own account.
+          on <strong>${safeOrgName}</strong> and would like to invite you to create your own account.
         </p>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Click the button below to sign up and join your household.
@@ -123,7 +123,7 @@ export async function sendFamilyInviteEmail(
           <a href="${safeJoinLink}" style="color: ${b.accentLight};">${safeJoinLink}</a>
         </p>
         <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
-          &mdash; The ${orgName} Team
+          &mdash; The ${safeOrgName} Team
         </p>
       </div>
     `,
@@ -152,10 +152,10 @@ export async function sendFeedbackEmail(
   const replyTo = senderEmail ?? b.replyTo;
 
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to,
     ...(replyTo ? { replyTo } : {}),
-    subject: `${b.fromName} feedback from ${headerText(senderName)}: ${kind}`,
+    subject: `${b.orgName} feedback from ${headerText(senderName)}: ${kind}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
         <h1 style="color: ${b.accent}; font-size: 28px;">Member feedback</h1>
@@ -196,7 +196,7 @@ export async function sendEventReminderEmail(
 ) {
   const b = branding ?? (await resolveEmailBranding());
   const { error } = await getResend().emails.send({
-    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
+    from: formatFromHeader(b.orgName, PLATFORM_ADDRESS),
     to: email,
     ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `Reminder: ${headerText(eventTitle)} is coming up!`,
@@ -217,7 +217,7 @@ export async function sendEventReminderEmail(
           View Event
         </a>
         <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
-          &mdash; The ${escapeHtml(b.fromName)} Team
+          &mdash; The ${escapeHtml(b.orgName)} Team
         </p>
       </div>
     `,

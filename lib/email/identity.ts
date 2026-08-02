@@ -9,7 +9,13 @@ import { BRANDING_DEFAULTS, getOrgBranding, resolveBranding } from "@/lib/brandi
 import type { OrgBranding } from "@/lib/branding";
 
 export type EmailBranding = {
-  fromName: string;
+  // Named orgName, not fromName: sendServingBroadcastEmail's own opts carry a
+  // `fromName` that is a MEMBER's personal name ("Jane is looking for..."), and
+  // both live in that one function body. Two same-named values, one of which
+  // belongs in From: and one of which must never go there, is a swap waiting to
+  // happen — and the swap would put a member's name on org mail with nothing to
+  // catch it.
+  orgName: string;
   replyTo: string | null;
   accent: string;
   accentLight: string;
@@ -46,7 +52,7 @@ export const PLATFORM_ADDRESS = parseAddress(siteConfig.email.from);
 
 function toEmailBranding(b: OrgBranding): EmailBranding {
   return {
-    fromName: b.display_name,
+    orgName: b.display_name,
     replyTo: b.reply_to,
     accent: b.accent,
     // The branding contract has one color; the light variant stays the
