@@ -23,6 +23,15 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
+CREATE TYPE "public"."org_status" AS ENUM (
+    'active',
+    'suspended'
+);
+
+
+ALTER TYPE "public"."org_status" OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."app_current_org_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -224,17 +233,20 @@ begin
 
   _org_id := _org_ids[1];
 
-  -- Today's approval logic: an approved access request makes the signup a
-  -- member; an invite-only match starts as pending (the family claim flow
-  -- promotes it).
-  if exists (
-    select 1 from public.access_requests
-    where lower(email) = lower(new.email) and status = 'approved' and org_id = _org_id
-  ) then
-    _role := 'member';
-  else
-    _role := 'pending';
-  end if;
+  -- Approval logic (CWA-11): an approved access request grants its
+  -- approved_role, with NULL preserving the pre-Phase-4 behavior ('member').
+  -- The order by makes a non-NULL approved_role win deterministically if an
+  -- org somehow holds two approved requests for the same email. _role stays
+  -- NULL — hence 'pending' — when the match came only from family_invites
+  -- (the family claim flow promotes it), preserving today's semantics.
+  select coalesce(ar.approved_role, 'member') into _role
+  from public.access_requests ar
+  where lower(ar.email) = lower(new.email)
+    and ar.status = 'approved'
+    and ar.org_id = _org_id
+  order by ar.approved_role is null, ar.created_at desc
+  limit 1;
+  _role := coalesce(_role, 'pending');
 
   if _full_name is not null and btrim(_full_name) <> '' then
     if position(' ' in btrim(_full_name)) = 0 then
@@ -420,9 +432,11 @@ begin
   insert into public.about_page (org_id, id, body) values (_org_id, true, '');
 
   -- 5. Approved access request for the owner, so their signup resolves
-  -- under handle_new_user()'s fail-closed rules.
-  insert into public.access_requests (org_id, name, email, status, reviewed_at)
-  values (_org_id, _name || ' owner', _owner_email, 'approved', now());
+  -- under handle_new_user()'s fail-closed rules. approved_role = 'admin'
+  -- is what makes the owner the founding admin (CWA-11): handle_new_user()
+  -- reads it at signup time, so the org never exists without an admin path.
+  insert into public.access_requests (org_id, name, email, status, reviewed_at, approved_role)
+  values (_org_id, _name || ' owner', _owner_email, 'approved', now(), 'admin');
 
   -- 6. The owner email must not already have a profile. The org created
   -- above holds no profiles yet, so ANY existing profile with this email
@@ -552,11 +566,17 @@ CREATE TABLE IF NOT EXISTS "public"."access_requests" (
     "token_expires_at" timestamp with time zone,
     "invite_token" "uuid",
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
+    "approved_role" "text",
+    CONSTRAINT "access_requests_approved_role_check" CHECK ((("approved_role" IS NULL) OR ("approved_role" = ANY (ARRAY['member'::"text", 'admin'::"text"])))),
     CONSTRAINT "access_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'denied'::"text"])))
 );
 
 
 ALTER TABLE "public"."access_requests" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "public"."access_requests"."approved_role" IS 'Role handle_new_user() grants when this approved request resolves a signup. NULL means the pre-Phase-4 behavior (member). Set to admin only by provision_organization() for the founding owner, or by an org admin within their own org.';
+
 
 
 CREATE TABLE IF NOT EXISTS "public"."announcements" (
@@ -985,8 +1005,7 @@ CREATE TABLE IF NOT EXISTS "public"."organizations" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "slug" "text" NOT NULL,
     "branding" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "status" "text" DEFAULT 'active'::"text" NOT NULL,
-    CONSTRAINT "organizations_status_check" CHECK (("status" = ANY (ARRAY['active'::"text", 'suspended'::"text"])))
+    "status" "public"."org_status" DEFAULT 'active'::"public"."org_status" NOT NULL
 );
 
 
@@ -2343,7 +2362,7 @@ CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELE
 
 
 
-CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT TO "authenticated", "anon" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("status" = 'pending'::"text") AND ("reviewed_by" IS NULL) AND ("reviewed_at" IS NULL) AND ("signup_token" IS NULL) AND ("token_expires_at" IS NULL)));
+CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT TO "authenticated", "anon" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("status" = 'pending'::"text") AND ("reviewed_by" IS NULL) AND ("reviewed_at" IS NULL) AND ("signup_token" IS NULL) AND ("token_expires_at" IS NULL) AND ("approved_role" IS NULL)));
 
 
 
@@ -3056,23 +3075,22 @@ GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 
 
 
-GRANT SELECT("id") ON TABLE "public"."organizations" TO "anon";
 GRANT SELECT("id") ON TABLE "public"."organizations" TO "authenticated";
+GRANT SELECT("id") ON TABLE "public"."organizations" TO "anon";
 
 
 
-GRANT SELECT("name") ON TABLE "public"."organizations" TO "anon";
 GRANT SELECT("name") ON TABLE "public"."organizations" TO "authenticated";
 
 
 
-GRANT SELECT("slug") ON TABLE "public"."organizations" TO "anon";
 GRANT SELECT("slug") ON TABLE "public"."organizations" TO "authenticated";
+GRANT SELECT("slug") ON TABLE "public"."organizations" TO "anon";
 
 
 
-GRANT SELECT("branding") ON TABLE "public"."organizations" TO "anon";
 GRANT SELECT("branding") ON TABLE "public"."organizations" TO "authenticated";
+GRANT SELECT("branding") ON TABLE "public"."organizations" TO "anon";
 
 
 
