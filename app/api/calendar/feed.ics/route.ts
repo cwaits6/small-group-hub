@@ -19,6 +19,8 @@ export async function GET(request: Request) {
 
   const supabase = await createServiceClient();
 
+  // org-anchor: the subscription-token row is the org anchor for this
+  // bearer-token flow.
   // The token row is the org anchor for this unauthenticated flow: org_id is
   // stamped at issuance by the authenticated client's DEFAULT, so every query
   // below filters on it. On a service-role client a key-only read spans all

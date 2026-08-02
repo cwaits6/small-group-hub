@@ -42,6 +42,7 @@ export async function POST(request: Request) {
   // Use service client so we can bypass RLS (new user may not yet have member role)
   const service = await createServiceClient();
 
+  // org-anchor: the invite row resolves the org for every write below.
   // Load the invite — its row is the org anchor for every write below
   const { data: invite, error: inviteError } = await service
     .from("family_invites")
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
     );
   }
 
+  // org-anchor: reads the caller's own org to compare against the invite's
+  // (the 403 assertion just below).
   // The caller is authenticated but their role may still be `pending`, so RLS
   // is not doing this check for us — and handle_new_user() should already
   // have placed them in the invite's org, so a mismatch is a real anomaly.

@@ -30,7 +30,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(35);
 
 -- Structural, permanent exemptions — named once, joined by every check.
 create temporary table tenancy_root_tables on commit drop as
@@ -102,6 +102,18 @@ create function public.tenancy_probe_secdef_leak() returns int
 as $$
   select count(*)::int from public.profiles;
 $$;
+
+-- CWA-54 probe: a settings-style table keyed by something other than
+-- org_id, carrying a bare-true policy. The pre-CWA-54 sweep gated on
+-- "table has an org_id column", so this table fell out of it entirely —
+-- which is exactly how organizations needed a hand-written bolt-on.
+create table public.tenancy_probe_keyed_settings (
+  key text primary key,
+  value text
+);
+alter table public.tenancy_probe_keyed_settings enable row level security;
+create policy "probe keyed bare true" on public.tenancy_probe_keyed_settings
+  for select using (true);
 
 -- ── Phase 0/1: RLS + org_id presence/shape ──────────────────────────────────
 
@@ -275,14 +287,15 @@ select is(
 
 -- ── Phase 2 check 2 (§9.4): no bare-true predicate on an org-owned table ───
 
+-- CWA-54: swept over EVERY public base table, not just those carrying an
+-- org_id column. The old org_id-column gate silently excused any table
+-- keyed differently — organizations needed a hand-written assertion
+-- below as a result, and the next such table would not have gotten one.
 create temporary table bare_true_policies on commit drop as
   select p.tablename || '.' || p.policyname as violation
   from pg_catalog.pg_policies p
   where p.schemaname = 'public'
-    and exists (
-      select 1 from information_schema.columns c
-      where c.table_schema = 'public' and c.table_name = p.tablename
-        and c.column_name = 'org_id')
+    and p.tablename not in (select table_name from tenancy_local_strays)
     and (p.qual = 'true' or p.with_check = 'true');
 
 select is(
@@ -297,11 +310,20 @@ select isnt(
   'lint DOES flag the injected bare-true probe policy when not excluded'
 );
 
--- Same org_id-column gate as above excludes organizations, so its permissive
--- policies (since 20260801000002) sit outside the sweep. A behavioral test
--- cannot cover the gap either: the restrictive floor enforces the same
--- predicate, so a bare-true permissive policy here is behaviorally identical
--- to the correct one. Assert the predicate structurally instead.
+-- The isnt() above would pass on the old org_id-gated sweep too (its probe
+-- table carries org_id), so it does not prove the CWA-54 generalization.
+-- This one does: the keyed-settings probe has NO org_id column and can only
+-- be flagged by a sweep that dropped the gate.
+select is(
+  (select count(*)::int from bare_true_policies
+    where violation like 'tenancy\_probe\_keyed\_settings.%'),
+  1,
+  'bare-true sweep reaches key-column tables that carry no org_id column'
+);
+
+-- Kept although the CWA-54 sweep above now also covers organizations: this
+-- assertion is pinned by table name and was mutation-verified in #307 —
+-- defence in depth costs one assertion.
 select is(
   (select count(*)::int from pg_catalog.pg_policies p
     where p.schemaname = 'public' and p.tablename = 'organizations'

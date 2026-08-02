@@ -55,6 +55,8 @@ export default async function ServingLinkPage({
 
   const service = await createServiceClient();
 
+  // org-anchor: the HMAC-validated group row is the org anchor for this
+  // signed link.
   // The group is fetched first: its org_id is the org anchor for every read
   // below (Phase 3, CWA-10 — the surface stays on the service-role key, so
   // the org filter is what confines it to one tenant). The profiles read
@@ -105,6 +107,8 @@ export default async function ServingLinkPage({
     { data: membership, error: membershipError },
     { data: signup, error: signupError },
   ] = await Promise.all([
+    // org-anchor: profile org is read unscoped so the cross-org pairing can
+    // be asserted by the explicit profile/group org check below.
     service
       .from("profiles")
       .select("id, org_id, first_name, preferred_name, family_id, role")

@@ -10,6 +10,34 @@ tables it touches.
 **Adding a new `createServiceClient()` call site? Add a row here in the same
 PR, with the justification and the tenancy risk.**
 
+## Automated enforcement (CWA-44)
+
+The blocking `Service-role org_id guard` CI job runs
+[`scripts/check-service-role-org-scope.mjs`](../../scripts/README.md), which
+turns this document's rules into assertions:
+
+- Every service-role query chain in `app/` and `lib/` must carry an `org_id`
+  predicate (Tier B), unless it is a documented org anchor — marked in code
+  with a reasoned `// org-anchor: <why>` comment. The anchor chains in the
+  tables below carry that marker; chains in files owned by an in-flight
+  parallel PR sit in the script's `KNOWN_ANCHORS` allowlist until the marker
+  can be added in-file (stale entries fail the guard).
+- The email fan-out chains (feedback admins, serving broadcast, leader cancel
+  notices) are Tier A: they must be scoped and may **not** use the marker —
+  an `// org-anchor:` on a fan-out is itself a failure. These surfaces push
+  one org's data to third parties and email cannot be recalled.
+- Exported `lib/` helpers taking a `SupabaseClient` parameter must scope the
+  chains rooted at it (Tier C — a helper that *can* receive a service client
+  must scope unconditionally).
+- **This file itself is kept in sync**: every `app/`/`lib/` file calling
+  `createServiceClient()` must have a row in the tables below, every row must
+  name a real call site, and the site counts in the two section headings must
+  match reality. The bold rule above is now machine-enforced.
+
+The guard is static and syntax-only; it proves a predicate is *present*, not
+that its value is correctly derived. The "Org derived from" column below —
+the validated-anchor provenance — remains a review responsibility.
+
 ## Phase 3 status (CWA-10 / #212)
 
 `org_id` is now the database-enforced boundary for anon/authenticated roles
