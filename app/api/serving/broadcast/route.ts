@@ -31,26 +31,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
   }
 
-  const [{ data: profile }, { data: membership }, { data: group }, { data: settings }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, first_name, last_name, preferred_name, role")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("profile_groups")
-        .select("is_leader")
-        .eq("profile_id", user.id)
-        .eq("group_id", groupId)
-        .maybeSingle(),
-      supabase.from("member_groups").select("id, name").eq("id", groupId).single(),
-      supabase
-        .from("serving_team_settings")
-        .select("enabled, window_weeks")
-        .eq("group_id", groupId)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile, error: profileError },
+    { data: membership, error: membershipError },
+    { data: group, error: groupError },
+    { data: settings, error: settingsError },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, first_name, last_name, preferred_name, role")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("profile_groups")
+      .select("is_leader")
+      .eq("profile_id", user.id)
+      .eq("group_id", groupId)
+      .maybeSingle(),
+    supabase.from("member_groups").select("id, name, org_id").eq("id", groupId).single(),
+    supabase
+      .from("serving_team_settings")
+      .select("enabled, window_weeks")
+      .eq("group_id", groupId)
+      .maybeSingle(),
+  ]);
+
+  // A failed read (including an RLS denial) must surface as a 500, not
+  // masquerade as "not a leader" (403) or "not enabled" (404) below.
+  // PGRST116 is .single() finding zero rows — genuinely missing data, which
+  // the existing checks below already handle.
+  const lookupError = (
+    [
+      ["profile", profileError],
+      ["membership", membershipError],
+      ["group", groupError],
+      ["settings", settingsError],
+    ] as const
+  ).find(([, e]) => e && e.code !== "PGRST116");
+  if (lookupError) {
+    console.error(
+      "Serving broadcast %s lookup failed for group %s:",
+      lookupError[0],
+      groupId,
+      lookupError[1]
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   const isLeader = membership?.is_leader === true;
   const isAdmin = profile?.role === "admin";
@@ -67,12 +96,26 @@ export async function POST(request: Request) {
   // Open Sundays are recomputed here — the email must reflect the truth at
   // send time, not what the leader's page showed when it loaded
   const sundays = upcomingSundays(settings.window_weeks);
-  const { data: signups } = await supabase
+  const { data: signups, error: signupsError } = await supabase
     .from("serving_signups")
     .select("service_date")
     .eq("group_id", groupId)
     .gte("service_date", sundays[0])
     .lte("service_date", sundays[sundays.length - 1]);
+
+  // A failed read here would render every Sunday as open and broadcast
+  // signup links for dates that are already covered — fail the send instead.
+  if (signupsError) {
+    console.error(
+      "Serving broadcast signups lookup failed for group %s:",
+      groupId,
+      signupsError
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   const covered = new Set((signups ?? []).map((s) => s.service_date));
   const openDates = sundays.filter((d) => !covered.has(d));
@@ -85,7 +128,7 @@ export async function POST(request: Request) {
   }
 
   const service = await createServiceClient();
-  const linkMode = await getServingLinkMode(supabase);
+  const linkMode = await getServingLinkMode(supabase, group.org_id);
 
   const { data: memberRows } = await service
     .from("profile_groups")

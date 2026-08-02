@@ -26,7 +26,6 @@ import {
   Users,
   Filter,
   HandHeart,
-  Shield,
 } from "lucide-react";
 import type { MemberGroup } from "@/lib/types";
 import { siteConfig } from "@/lib/config";
@@ -42,7 +41,6 @@ interface GroupFormState {
   icon: string;
   show_in_directory_filter: boolean;
   is_serving_role: boolean;
-  grants_prayer_access: boolean;
 }
 
 const EMPTY_FORM: GroupFormState = {
@@ -52,7 +50,6 @@ const EMPTY_FORM: GroupFormState = {
   icon: "users",
   show_in_directory_filter: true,
   is_serving_role: false,
-  grants_prayer_access: false,
 };
 
 function fromGroup(g: MemberGroup): GroupFormState {
@@ -63,7 +60,6 @@ function fromGroup(g: MemberGroup): GroupFormState {
     icon: g.icon || "users",
     show_in_directory_filter: g.show_in_directory_filter ?? true,
     is_serving_role: g.is_serving_role ?? false,
-    grants_prayer_access: g.grants_prayer_access ?? false,
   };
 }
 
@@ -138,7 +134,6 @@ export default function GroupsPage() {
       icon: form.icon || null,
       show_in_directory_filter: form.show_in_directory_filter,
       is_serving_role: form.is_serving_role,
-      grants_prayer_access: form.grants_prayer_access,
     };
 
     setSaving(true);
@@ -285,12 +280,6 @@ export default function GroupsPage() {
                         <Badge variant="secondary" className="text-xs gap-1">
                           <HandHeart className="h-3 w-3" />
                           Serving role
-                        </Badge>
-                      )}
-                      {group.grants_prayer_access && (
-                        <Badge variant="secondary" className="text-xs gap-1">
-                          <Shield className="h-3 w-3" />
-                          Prayer access
                         </Badge>
                       )}
                     </div>
@@ -453,23 +442,6 @@ export default function GroupsPage() {
                 checked={form.is_serving_role}
                 onCheckedChange={(v) =>
                   setForm({ ...form, is_serving_role: v })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <div className="space-y-0.5">
-                <Label htmlFor="g_prayer">Prayer wall access</Label>
-                <p className="text-xs text-muted-foreground">
-                  Members of this group can see prayer requests marked for
-                  prayer warriors.
-                </p>
-              </div>
-              <Switch
-                id="g_prayer"
-                checked={form.grants_prayer_access}
-                onCheckedChange={(v) =>
-                  setForm({ ...form, grants_prayer_access: v })
                 }
               />
             </div>

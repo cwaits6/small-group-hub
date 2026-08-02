@@ -1,8 +1,25 @@
--- CI schema lint (CWA-7 / #209, Phase 0; extended for CWA-8 / #210, Phase 1):
--- every public base table must have RLS enabled AND an org_id column that is
--- NOT NULL with a DEFAULT, unless explicitly allowlisted below.
--- Remove entries as each table gains org_id in later CWA-7 phases — an empty
--- allowlist is the end goal.
+-- CI schema lint (CWA-7 / #209 Phase 0; CWA-8 / #210 Phase 1; CWA-9 / #211
+-- Phase 2): structural tenancy invariants over the whole public schema.
+--
+-- Phase 0/1 checks: every public base table has RLS enabled and an org_id
+-- column that is NOT NULL with DEFAULT app_current_org_id().
+-- Phase 2 checks (§9.4): every org-owned table has exactly one AS RESTRICTIVE
+-- isolation policy referencing org_id; no policy on an org-owned table has a
+-- bare `true` predicate; every FK into an org-owned parent is composite on
+-- org_id; every SECURITY DEFINER function reading an org-owned table
+-- references org_id.
+--
+-- Every check ships with a negative probe (an injected violation the lint
+-- must flag) so no check can silently become a no-op that always passes.
+--
+-- Allowlist policy (Phase 2): the Phase 0/1 table allowlist is gone. The two
+-- permanent by-design exemptions — organizations (the tenant root: its own
+-- row IS the org, so no org_id column) and platform_admins (Two42-operator
+-- superusers, org-orthogonal by design) — are now structural exclusions
+-- named inline in each check, not data anyone can append to. The only
+-- remaining list is tenancy_local_strays: tables that exist on the shared
+-- local dev stack but in NO migration on this branch, so CI's ephemeral
+-- database (the actual gate) never contains them and never exempts them.
 --
 -- Run locally (rollback-safe, never mutates the shared local stack):
 --
@@ -13,83 +30,116 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(33);
 
-create temporary table tenancy_allowlist (table_name text primary key) on commit drop;
-insert into tenancy_allowlist (table_name) values
-  -- Phase 0 scaffold: organizations is the tenant root table, so it has no
-  -- org_id column by design (RLS is already enabled, so only the org_id
-  -- check needs this exemption). organization_members already carries both
-  -- org_id and RLS, so it's deliberately NOT allowlisted — it's the working
-  -- example of the target end state and should stay under lint coverage.
-  -- platform_admins is likewise org-orthogonal by design (Phase 1): it holds
-  -- Two42-operator superusers who aren't pinned to any org:
-  ('organizations'),
-  ('platform_admins'),
-  -- In-flight on another branch, present on the shared local stack only;
-  -- does not exist in CI's ephemeral database built from this branch:
+-- Structural, permanent exemptions — named once, joined by every check.
+create temporary table tenancy_root_tables on commit drop as
+  select unnest(array['organizations', 'platform_admins']) as table_name;
+
+-- Local-stack strays: on the shared local stack only; absent from CI's
+-- migrations-built database, where these entries exempt nothing.
+create temporary table tenancy_local_strays (table_name text primary key) on commit drop;
+insert into tenancy_local_strays (table_name) values
+  -- In-flight on another branch (payment handles feature):
   ('payment_handles');
 
--- Negative-test probe: proves both checks below actually fail on a
--- violation, rather than silently becoming a no-op that always passes.
--- Deliberately: no RLS enabled, no org_id column, not allowlisted. A
--- regular (not temporary) table, since temp tables live in a pg_temp_*
--- schema and would be invisible to the public-schema checks below; the
--- enclosing rollback still guarantees it never persists.
+-- ── Negative-test probes ────────────────────────────────────────────────────
+-- Regular (not temporary) tables/functions: temp objects live in pg_temp_*
+-- schemas and would be invisible to the public-schema scans below. The
+-- enclosing rollback guarantees none of them persists. Probes are excluded
+-- from the "clean" assertions by their tenancy_probe_ prefix and asserted
+-- present in the paired "lint DOES flag it" assertions.
+
+-- No RLS, no org_id.
 create table public.tenancy_probe_violation (
   id uuid primary key default gen_random_uuid()
 );
 
--- Second negative-test probe (Phase 1): HAS an org_id column, so it passes
--- the presence check above, but the column is deliberately nullable with no
--- default — proving the NOT NULL and DEFAULT checks below aren't vacuous.
+-- org_id present but nullable with no default.
 create table public.tenancy_probe_no_default (
   id uuid primary key default gen_random_uuid(),
   org_id uuid  -- deliberately nullable, no default
 );
--- RLS enabled so this probe only trips the NOT NULL/DEFAULT checks it
--- exists to exercise, not the unrelated RLS check above.
 alter table public.tenancy_probe_no_default enable row level security;
 
--- Third negative-test probe (Phase 1): org_id is NOT NULL and HAS a
--- default, so it passes the two checks above, but the default isn't
--- app_current_org_id() — proving the wrong-default check below isn't
--- vacuous.
+-- org_id NOT NULL with a default — but the wrong one.
 create table public.tenancy_probe_wrong_default (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null default gen_random_uuid()  -- deliberately wrong default
 );
 alter table public.tenancy_probe_wrong_default enable row level security;
 
--- Each catalog scan is computed once here and reused by both the "clean"
--- assertion (excludes the probe table) and the "lint actually flags
--- violations" assertion (includes it) below.
-create temporary table rls_missing on commit drop as
+-- Phase 2 probe: passes every Phase 0/1 check, but has no restrictive
+-- isolation policy AND carries a bare-true permissive policy.
+create table public.tenancy_probe_rls_shape (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null default public.app_current_org_id(),
+  -- Referenced by the bare-SET NULL probe FK below.
+  unique (id, org_id)
+);
+alter table public.tenancy_probe_rls_shape enable row level security;
+create policy "probe bare true" on public.tenancy_probe_rls_shape
+  for select using (true);
+
+-- Phase 2 probes: a non-composite FK into an org-owned parent, and a
+-- composite FK whose ON DELETE SET NULL is the bare form (no column list —
+-- a parent delete would try to null org_id too).
+create table public.tenancy_probe_fk_child (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null default public.app_current_org_id(),
+  parent_id uuid references public.tenancy_probe_rls_shape (id),
+  setnull_parent_id uuid,
+  foreign key (setnull_parent_id, org_id)
+    references public.tenancy_probe_rls_shape (id, org_id)
+    on delete set null
+);
+alter table public.tenancy_probe_fk_child enable row level security;
+
+-- Phase 2 probe: a SECURITY DEFINER function reading an org-owned table
+-- without referencing org_id.
+create function public.tenancy_probe_secdef_leak() returns int
+  language sql stable security definer set search_path = ''
+as $$
+  select count(*)::int from public.profiles;
+$$;
+
+-- ── Phase 0/1: RLS + org_id presence/shape ──────────────────────────────────
+
+create temporary table lint_scope_tables on commit drop as
   select t.table_name
   from information_schema.tables t
   where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in (select table_name from tenancy_allowlist)
-    and not exists (
-      select 1 from pg_catalog.pg_class c
-      join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'public' and c.relname = t.table_name and c.relrowsecurity
-    );
+    and t.table_name not in (select table_name from tenancy_root_tables)
+    and t.table_name not in (select table_name from tenancy_local_strays);
+
+create temporary table rls_missing on commit drop as
+  select t.table_name from lint_scope_tables t
+  where not exists (
+    select 1 from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = t.table_name and c.relrowsecurity
+  )
+  -- organizations/platform_admins DO have RLS and are covered here too:
+  union all
+  select r.table_name from tenancy_root_tables r
+  where not exists (
+    select 1 from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relname = r.table_name and c.relrowsecurity
+  );
 
 create temporary table org_id_missing on commit drop as
-  select t.table_name
-  from information_schema.tables t
-  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in (select table_name from tenancy_allowlist)
-    and not exists (
-      select 1 from information_schema.columns c
-      where c.table_schema = 'public' and c.table_name = t.table_name
-        and c.column_name = 'org_id'
-    );
+  select t.table_name from lint_scope_tables t
+  where not exists (
+    select 1 from information_schema.columns c
+    where c.table_schema = 'public' and c.table_name = t.table_name
+      and c.column_name = 'org_id'
+  );
 
 select is(
-  (select count(*)::int from rls_missing where table_name <> 'tenancy_probe_violation'),
+  (select count(*)::int from rls_missing where table_name not like 'tenancy\_probe\_%'),
   0,
-  'every non-allowlisted public table has RLS enabled'
+  'every public table (incl. the tenant root tables) has RLS enabled'
 );
 
 select isnt(
@@ -99,9 +149,9 @@ select isnt(
 );
 
 select is(
-  (select count(*)::int from org_id_missing where table_name <> 'tenancy_probe_violation'),
+  (select count(*)::int from org_id_missing where table_name not like 'tenancy\_probe\_%'),
   0,
-  'every non-allowlisted public table has an org_id column'
+  'every org-scoped public table has an org_id column'
 );
 
 select isnt(
@@ -110,29 +160,21 @@ select isnt(
   'lint DOES flag the injected no-org_id probe table when not excluded'
 );
 
--- Phase 1 gate: org_id must be NOT NULL and carry a DEFAULT (fail-closed
--- app_current_org_id()) on every non-allowlisted table that has the column.
 create temporary table org_id_nullable on commit drop as
-  select t.table_name
-  from information_schema.tables t
-  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in (select table_name from tenancy_allowlist)
-    and exists (
-      select 1 from information_schema.columns c
-      where c.table_schema = 'public' and c.table_name = t.table_name
-        and c.column_name = 'org_id' and c.is_nullable = 'YES'
-    );
+  select t.table_name from lint_scope_tables t
+  where exists (
+    select 1 from information_schema.columns c
+    where c.table_schema = 'public' and c.table_name = t.table_name
+      and c.column_name = 'org_id' and c.is_nullable = 'YES'
+  );
 
 create temporary table org_id_no_default on commit drop as
-  select t.table_name
-  from information_schema.tables t
-  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in (select table_name from tenancy_allowlist)
-    -- organization_members is a membership join table: org_id is half its
-    -- natural key and must always be named explicitly by the caller
-    -- (provision_organization, handle_new_user) — a fail-closed DEFAULT
-    -- makes no sense there. It stays covered by every other check.
-    and t.table_name <> 'organization_members'
+  select t.table_name from lint_scope_tables t
+  -- organization_members is a membership join table: org_id is half its
+  -- natural key and must always be named explicitly by the caller
+  -- (provision_organization, handle_new_user) — a fail-closed DEFAULT
+  -- makes no sense there. It stays covered by every other check.
+  where t.table_name <> 'organization_members'
     and exists (
       select 1 from information_schema.columns c
       where c.table_schema = 'public' and c.table_name = t.table_name
@@ -140,9 +182,9 @@ create temporary table org_id_no_default on commit drop as
     );
 
 select is(
-  (select count(*)::int from org_id_nullable where table_name <> 'tenancy_probe_no_default'),
+  (select count(*)::int from org_id_nullable where table_name not like 'tenancy\_probe\_%'),
   0,
-  'every non-allowlisted table''s org_id column is NOT NULL'
+  'every org-scoped table''s org_id column is NOT NULL'
 );
 
 select isnt(
@@ -152,9 +194,9 @@ select isnt(
 );
 
 select is(
-  (select count(*)::int from org_id_no_default where table_name <> 'tenancy_probe_no_default'),
+  (select count(*)::int from org_id_no_default where table_name not like 'tenancy\_probe\_%'),
   0,
-  'every non-allowlisted table''s org_id column has a DEFAULT'
+  'every org-scoped table''s org_id column has a DEFAULT'
 );
 
 select isnt(
@@ -163,16 +205,9 @@ select isnt(
   'lint DOES flag the injected no-default probe table when not excluded'
 );
 
--- Phase 1 gate (tighter): org_id's DEFAULT must be app_current_org_id()
--- specifically, not just "any non-null default" — org_id_no_default above
--- would pass for a hardcoded UUID, gen_random_uuid(), or a copy-pasted
--- wrong function just as easily.
 create temporary table org_id_wrong_default on commit drop as
-  select t.table_name
-  from information_schema.tables t
-  where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in (select table_name from tenancy_allowlist)
-    and t.table_name <> 'organization_members'
+  select t.table_name from lint_scope_tables t
+  where t.table_name <> 'organization_members'
     and exists (
       select 1
       from pg_catalog.pg_attrdef d
@@ -189,9 +224,9 @@ create temporary table org_id_wrong_default on commit drop as
     );
 
 select is(
-  (select count(*)::int from org_id_wrong_default where table_name <> 'tenancy_probe_wrong_default'),
+  (select count(*)::int from org_id_wrong_default where table_name not like 'tenancy\_probe\_%'),
   0,
-  'every non-allowlisted table''s org_id DEFAULT is app_current_org_id() specifically'
+  'every org-scoped table''s org_id DEFAULT is app_current_org_id() specifically'
 );
 
 select isnt(
@@ -200,10 +235,194 @@ select isnt(
   'lint DOES flag the injected wrong-default probe table when not excluded'
 );
 
--- Fail-closed runtime check: as the postgres/service-role role (no
--- auth.uid(), matching this file's own execution context), an org_id-less
--- insert on a representative plain-rollout table and a representative
--- PK-rescoped table must both be rejected, not silently misrouted.
+-- ── Phase 2 check 1 (§9.4): exactly one restrictive isolation policy ───────
+
+create temporary table restrictive_missing on commit drop as
+  select t.table_name from lint_scope_tables t
+  where exists (  -- org-owned tables only
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = t.table_name
+        and c.column_name = 'org_id')
+    and 1 <> (
+      select count(*) from pg_catalog.pg_policies p
+      where p.schemaname = 'public' and p.tablename = t.table_name
+        and p.permissive = 'RESTRICTIVE'
+        and p.qual like '%org\_id%'
+    );
+
+select is(
+  (select count(*)::int from restrictive_missing where table_name not like 'tenancy\_probe\_%'),
+  0,
+  'every org-owned table has exactly one AS RESTRICTIVE isolation policy referencing org_id'
+);
+
+select isnt(
+  (select count(*)::int from restrictive_missing),
+  0,
+  'lint DOES flag the injected no-restrictive-policy probe table when not excluded'
+);
+
+-- organizations has no org_id, so the loop above can never cover it; assert
+-- its isolation floor (pinned by primary key) directly.
+select is(
+  (select count(*)::int from pg_catalog.pg_policies p
+    where p.schemaname = 'public' and p.tablename = 'organizations'
+      and p.permissive = 'RESTRICTIVE'
+      and p.qual like '%app\_request\_org\_id%'),
+  1,
+  'organizations carries its own restrictive floor pinned by primary key'
+);
+
+-- ── Phase 2 check 2 (§9.4): no bare-true predicate on an org-owned table ───
+
+create temporary table bare_true_policies on commit drop as
+  select p.tablename || '.' || p.policyname as violation
+  from pg_catalog.pg_policies p
+  where p.schemaname = 'public'
+    and exists (
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = p.tablename
+        and c.column_name = 'org_id')
+    and (p.qual = 'true' or p.with_check = 'true');
+
+select is(
+  (select count(*)::int from bare_true_policies where violation not like 'tenancy\_probe\_%'),
+  0,
+  'no policy on an org-owned table has a bare true USING / WITH CHECK'
+);
+
+select isnt(
+  (select count(*)::int from bare_true_policies),
+  0,
+  'lint DOES flag the injected bare-true probe policy when not excluded'
+);
+
+-- ── Phase 2 check 3 (§9.4): FKs into org-owned parents are composite ───────
+
+create temporary table noncomposite_fks on commit drop as
+  select con.conname::text as violation
+  from pg_catalog.pg_constraint con
+  join pg_catalog.pg_class parent on parent.oid = con.confrelid
+  join pg_catalog.pg_namespace pn on pn.oid = parent.relnamespace
+  join pg_catalog.pg_class child on child.oid = con.conrelid
+  where con.contype = 'f'
+    and con.connamespace = 'public'::regnamespace
+    and pn.nspname = 'public'
+    -- parent carries org_id → the FK must carry it too
+    and exists (
+      select 1 from pg_catalog.pg_attribute a
+      where a.attrelid = parent.oid and a.attname = 'org_id' and not a.attisdropped)
+    and not (
+      exists (
+        select 1 from pg_catalog.pg_attribute a
+        where a.attrelid = child.oid and a.attname = 'org_id'
+          and a.attnum = any (con.conkey))
+      and exists (
+        select 1 from pg_catalog.pg_attribute a
+        where a.attrelid = parent.oid and a.attname = 'org_id'
+          and a.attnum = any (con.confkey))
+    )
+    -- Named exceptions, each with a reason:
+    and con.conname not in (
+      -- organization_members.profile_id → profiles: the membership org is
+      -- deliberately independent of the profile's pinned org — that
+      -- independence is the platform-admin / multi-org seam Phase 4 builds
+      -- on.
+      'organization_members_profile_id_fkey',
+      -- payment_handles is a local-stack stray (see tenancy_local_strays);
+      -- its FK does not exist in CI's migrations-built database.
+      'payment_handles_profile_id_fkey'
+    );
+
+select is(
+  (select count(*)::int from noncomposite_fks where violation not like 'tenancy\_probe\_%'),
+  0,
+  'every FK whose parent carries org_id is composite on org_id'
+);
+
+select isnt(
+  (select count(*)::int from noncomposite_fks),
+  0,
+  'lint DOES flag the injected non-composite probe FK when not excluded'
+);
+
+-- ── Phase 2 check 3b (§9.4): SET NULL actions must spare org_id ────────────
+-- A composite FK's bare `on delete set null` nulls EVERY referencing column,
+-- org_id included — which NOT NULL turns into a runtime error on the first
+-- parent delete. The PG15 column-list form `set null (<col>)` is required
+-- (see 20260731000013_composite_fks.sql). The FK suite proves the runtime
+-- behavior for representative relations; this check covers all 15 SET NULL
+-- relations structurally, plus any added later: every FK whose referencing
+-- columns include org_id and whose delete action is SET NULL must carry a
+-- column list, and that list must not name org_id.
+create temporary table setnull_hits_org_id on commit drop as
+  select con.conname::text as violation
+  from pg_catalog.pg_constraint con
+  where con.contype = 'f'
+    and con.connamespace = 'public'::regnamespace
+    and con.confdeltype = 'n'
+    and exists (
+      select 1 from pg_catalog.pg_attribute a
+      where a.attrelid = con.conrelid and a.attname = 'org_id'
+        and a.attnum = any (con.conkey))
+    and (
+      coalesce(cardinality(con.confdelsetcols), 0) = 0
+      or exists (
+        select 1 from pg_catalog.pg_attribute a
+        where a.attrelid = con.conrelid and a.attname = 'org_id'
+          and a.attnum = any (con.confdelsetcols))
+    );
+
+select is(
+  (select count(*)::int from setnull_hits_org_id where violation not like 'tenancy\_probe\_%'),
+  0,
+  'every ON DELETE SET NULL on an org_id-carrying FK names a column list excluding org_id'
+);
+
+select isnt(
+  (select count(*)::int from setnull_hits_org_id),
+  0,
+  'lint DOES flag the injected bare-SET NULL probe FK when not excluded'
+);
+
+-- ── Phase 2 check 4 (§9.4): SECURITY DEFINER functions reference org_id ────
+
+create temporary table secdef_org_blind on commit drop as
+  select p.proname::text as violation
+  from pg_catalog.pg_proc p
+  where p.pronamespace = 'public'::regnamespace
+    and p.prosecdef
+    and p.prosrc !~ 'org_id'
+    and exists (
+      -- reads (word-boundary match) some org-owned table
+      select 1
+      from information_schema.columns c
+      join information_schema.tables t
+        on t.table_schema = c.table_schema and t.table_name = c.table_name
+      where c.table_schema = 'public' and c.column_name = 'org_id'
+        and t.table_type = 'BASE TABLE'
+        and p.prosrc ~ ('\m' || c.table_name || '\M'))
+    -- Named exceptions, each with a reason:
+    and p.proname not in (
+      -- keyed on auth.users' PK: user ids are globally unique and each is
+      -- already pinned to exactly one org through profiles.id.
+      'handle_auth_user_email_change'
+    );
+
+select is(
+  (select count(*)::int from secdef_org_blind where violation not like 'tenancy\_probe\_%'),
+  0,
+  'every SECURITY DEFINER function reading an org-owned table references org_id'
+);
+
+select isnt(
+  (select count(*)::int from secdef_org_blind),
+  0,
+  'lint DOES flag the injected org-blind SECURITY DEFINER probe function when not excluded'
+);
+
+-- ── Fail-closed runtime checks (Phase 1, unchanged) ────────────────────────
+
 select throws_ok(
   $$ insert into public.event_calendars (name) values ('tenancy-lint-probe') $$,
   '23502',
@@ -218,39 +437,40 @@ select throws_ok(
   'service-role insert into a PK-rescoped table is rejected without explicit org_id'
 );
 
--- PK/unique re-scoping (Review Focus Area #2): confirm the new composite
--- PK and the retained legacy single-column unique both actually exist for
--- each of the 4 re-scoped tables, so a later migration can't silently drop
--- the legacy unique (which current app onConflict targets still depend on)
--- or lose the composite PK without a test catching it.
+-- ── PK re-scoping (Phase 1) + legacy-unique DROPS (Phase 2, §3.5) ──────────
+-- Phase 1 asserted the legacy single-column uniques were retained; Phase 2
+-- drops them (Task 9), so the assertions flip: the composite PKs must
+-- remain and the legacy uniques must be GONE — a revert that resurrects a
+-- global unique would break second-org provisioning.
+
 select col_is_pk('public', 'page_content', array['org_id', 'slug'], 'page_content PK is (org_id, slug)');
 select ok(
-  exists (
+  not exists (
     select 1 from pg_constraint
     where conrelid = 'public.page_content'::regclass
-      and conname = 'page_content_slug_legacy_key' and contype = 'u'
+      and conname = 'page_content_slug_legacy_key'
   ),
-  'page_content retains the slug-only legacy unique for legacy onConflict targets'
+  'page_content''s slug-only legacy unique is dropped (slugs are per-org now)'
 );
 
 select col_is_pk('public', 'site_settings', array['org_id', 'key'], 'site_settings PK is (org_id, key)');
 select ok(
-  exists (
+  not exists (
     select 1 from pg_constraint
     where conrelid = 'public.site_settings'::regclass
-      and conname = 'site_settings_key_legacy_key' and contype = 'u'
+      and conname = 'site_settings_key_legacy_key'
   ),
-  'site_settings retains the key-only legacy unique for legacy onConflict targets'
+  'site_settings'' key-only legacy unique is dropped (keys are per-org now)'
 );
 
 select col_is_pk('public', 'about_page', array['org_id', 'id'], 'about_page PK is (org_id, id)');
 select ok(
-  exists (
+  not exists (
     select 1 from pg_constraint
     where conrelid = 'public.about_page'::regclass
-      and conname = 'about_page_id_legacy_key' and contype = 'u'
+      and conname = 'about_page_id_legacy_key'
   ),
-  'about_page retains the id-only legacy unique (singleton guard)'
+  'about_page''s global singleton unique is dropped (one about page per org now)'
 );
 
 select col_is_pk('public', 'class_teachers', array['id'], 'class_teachers PK stays plain id');
@@ -263,19 +483,21 @@ select ok(
   'class_teachers has (org_id, profile_id) unique'
 );
 select ok(
-  exists (
+  not exists (
     select 1 from pg_constraint
     where conrelid = 'public.class_teachers'::regclass
-      and conname = 'class_teachers_profile_id_legacy_key' and contype = 'u'
+      and conname = 'class_teachers_profile_id_legacy_key'
   ),
-  'class_teachers retains the renamed legacy profile_id-only unique'
+  'class_teachers'' profile_id-only legacy unique is dropped'
 );
 
--- Backfill correctness (Review Focus Area #3), data level: every existing
--- row on every org_id-bearing, non-allowlisted table must have landed on
--- the constant default-org UUID, not just "non-null" (which the earlier
--- checks already cover). Requires dynamic SQL since this inspects row
--- data, not catalog metadata, per table.
+-- ── Backfill correctness (Phase 1, data level) ─────────────────────────────
+-- Every row on every org_id-bearing table must belong to a real org. (The
+-- Phase 1 form asserted the single default-org constant; with Phase 2
+-- provisioning able to create further orgs, membership in organizations is
+-- the invariant, enforced structurally by the org_id FKs — this check
+-- guards against rows whose org vanished mid-migration, dynamic because it
+-- inspects row data per table.)
 create temporary table org_id_bad_backfill (table_name text) on commit drop;
 do $$
 declare
@@ -283,17 +505,15 @@ declare
   bad_count bigint;
 begin
   for t in
-    select ts.table_name from information_schema.tables ts
-    where ts.table_schema = 'public' and ts.table_type = 'BASE TABLE'
-      and ts.table_name not in (select table_name from tenancy_allowlist)
-      and exists (
-        select 1 from information_schema.columns c
-        where c.table_schema = 'public' and c.table_name = ts.table_name
-          and c.column_name = 'org_id'
-      )
+    select ts.table_name from lint_scope_tables ts
+    where exists (
+      select 1 from information_schema.columns c
+      where c.table_schema = 'public' and c.table_name = ts.table_name
+        and c.column_name = 'org_id'
+    ) and ts.table_name not like 'tenancy_probe_%'
   loop
     execute format(
-      'select count(*) from public.%I where org_id <> %L::uuid', t, '00000000-0000-0000-0000-000000000001'
+      'select count(*) from public.%I x where not exists (select 1 from public.organizations o where o.id = x.org_id)', t
     ) into bad_count;
     if bad_count > 0 then
       insert into org_id_bad_backfill values (t);
@@ -304,7 +524,7 @@ end $$;
 select is(
   (select count(*)::int from org_id_bad_backfill),
   0,
-  'every org_id-bearing, non-allowlisted table has all existing rows backfilled to the default org'
+  'every org_id-bearing table''s rows belong to an existing organization'
 );
 
 select * from finish();

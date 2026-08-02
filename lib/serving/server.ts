@@ -29,20 +29,50 @@ export async function resolveSignupLabel(
 ): Promise<string> {
   let familyName: string | null = null;
   if (attendees.length > 1 && familyId) {
-    const { data: family } = await supabase
+    const { data: family, error } = await supabase
       .from("family_units")
       .select("family_name")
       .eq("id", familyId)
       .single();
+    // Non-fatal: the household name only enriches the label, so a failed
+    // read degrades to the attendee names.
+    if (error) {
+      console.error("Serving family lookup failed for %s:", familyId, error);
+    }
     familyName = family?.family_name ?? null;
   }
   return signupDisplayName(attendees, familyName);
+}
+
+/**
+ * The member's spouse (their household's other primary/spouse profile), if
+ * any. Non-fatal by contract: everywhere the spouse appears it is an opt-in
+ * extra, so a failed read logs and degrades to null rather than throwing.
+ */
+export async function findSpouse(
+  supabase: SupabaseClient,
+  familyId: string,
+  excludeProfileId: string
+): Promise<NamedProfile | null> {
+  const { data: spouse, error } = await supabase
+    .from("profiles")
+    .select("id, first_name, last_name, preferred_name")
+    .eq("family_id", familyId)
+    .in("relationship", ["primary", "spouse"])
+    .neq("id", excludeProfileId)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("Serving spouse lookup failed for family %s:", familyId, error);
+  }
+  return spouse ?? null;
 }
 
 export async function sendSignupConfirmation(
   supabase: SupabaseClient,
   opts: {
     signupId: string;
+    orgId: string;
     groupId: string;
     groupName: string;
     serviceDate: string;
@@ -57,7 +87,7 @@ export async function sendSignupConfirmation(
     opts.familyId
   );
 
-  const linkMode = await getServingLinkMode(supabase);
+  const linkMode = await getServingLinkMode(supabase, opts.orgId);
   const cancelUrl =
     linkMode === "signed"
       ? `${siteConfig.url}/serving/go?token=${createServingToken({

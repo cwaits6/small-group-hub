@@ -21,7 +21,6 @@ import type {
   PrayerCallSession,
   PrayerCategory,
   PrayerWallRow,
-  PrayerWarrior,
 } from "@/lib/types";
 
 export interface Me {
@@ -54,7 +53,6 @@ export function PrayerBoard({
   me,
   isAdmin,
   members,
-  warriors,
   prayerCalendarId,
 }: {
   initialRequests: PrayerWallRow[];
@@ -62,7 +60,6 @@ export function PrayerBoard({
   me: Me;
   isAdmin: boolean;
   members: MemberOption[];
-  warriors: PrayerWarrior[];
   prayerCalendarId: string | null;
 }) {
   const [requests, setRequests] = useState(initialRequests);
@@ -75,7 +72,6 @@ export function PrayerBoard({
     body: string;
     category: PrayerCategory;
     is_anonymous: boolean;
-    visible_to_warriors: boolean;
   }) => {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -93,7 +89,7 @@ export function PrayerBoard({
         body: draft.body,
         category: draft.category,
         is_anonymous: draft.is_anonymous,
-        visible_to_warriors: draft.visible_to_warriors,
+        visible_to_warriors: false,
         is_answered: false,
         created_at: data.created_at,
         mine: true,
@@ -313,7 +309,7 @@ export function PrayerBoard({
     <div className="grid gap-8 lg:grid-cols-[1.55fr_1fr] lg:items-start">
       <div className="order-2 lg:order-1">{wall}</div>
       <div className="order-1 space-y-6 lg:sticky lg:top-6 lg:order-2">
-        <PrayerComposer me={me} onPost={handlePost} warriors={warriors} />
+        <PrayerComposer me={me} onPost={handlePost} />
         <PrayerCallCard
           initialSessions={sessions}
           isAdmin={isAdmin}

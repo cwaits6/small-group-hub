@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { displayName } from "@/lib/names";
-import { DEFAULT_ORG_ID } from "@/lib/org";
 import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { isValidServiceDate } from "@/lib/serving/sundays";
 import {
+  findSpouse,
   notifyLeadersOfCancel,
   resolveSignupLabel,
   sendSignupConfirmation,
@@ -36,31 +36,69 @@ export async function POST(request: Request) {
 
   const service = await createServiceClient();
 
-  const linkMode = await getServingLinkMode(service);
+  // The group is fetched first: its org_id scopes the link-mode read
+  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  // supabase-js does not throw on a failed read — it returns { data: null,
+  // error }. Every check below is a truthiness test, so without capturing
+  // `error` a 42501, a PostgREST 5xx and a genuinely absent row all render as
+  // "this link expired", with nothing in the logs. Phase 3 moves this surface
+  // off the service-role key, at which point 42501 becomes reachable here.
+  const { data: group, error: groupError } = await service
+    .from("member_groups")
+    .select("id, name, org_id")
+    .eq("id", payload.g)
+    .maybeSingle();
+
+  if (groupError) {
+    console.error("Signed-link group lookup failed for group %s:", payload.g, groupError);
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
+
+  if (!group) {
+    return NextResponse.json(
+      { error: "This link is no longer valid — please use the site instead" },
+      { status: 400 }
+    );
+  }
+
+  const linkMode = await getServingLinkMode(service, group.org_id);
   if (linkMode === "login") {
     return NextResponse.json({ error: "login_required" }, { status: 403 });
   }
 
-  const [{ data: profile }, { data: group }, { data: settings }] =
-    await Promise.all([
-      service
-        .from("profiles")
-        .select("id, first_name, last_name, preferred_name, family_id, email, role")
-        .eq("id", payload.p)
-        .maybeSingle(),
-      service
-        .from("member_groups")
-        .select("id, name")
-        .eq("id", payload.g)
-        .maybeSingle(),
-      service
-        .from("serving_team_settings")
-        .select("enabled")
-        .eq("group_id", payload.g)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile, error: profileError },
+    { data: settings, error: settingsError },
+  ] = await Promise.all([
+    service
+      .from("profiles")
+      .select("id, first_name, last_name, preferred_name, family_id, email, role")
+      .eq("id", payload.p)
+      .maybeSingle(),
+    service
+      .from("serving_team_settings")
+      .select("enabled")
+      .eq("group_id", payload.g)
+      .maybeSingle(),
+  ]);
 
-  if (!profile || profile.role === "pending" || !group || !settings?.enabled) {
+  if (profileError || settingsError) {
+    console.error(
+      "Signed-link profile/settings lookup failed for profile %s, group %s:",
+      payload.p,
+      payload.g,
+      profileError ?? settingsError
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
+
+  if (!profile || profile.role === "pending" || !settings?.enabled) {
     return NextResponse.json(
       { error: "This link is no longer valid — please use the site instead" },
       { status: 400 }
@@ -76,12 +114,24 @@ export async function POST(request: Request) {
     }
 
     // The link acts for a specific member — they must be on the team
-    const { data: membership } = await service
+    const { data: membership, error: membershipError } = await service
       .from("profile_groups")
       .select("profile_id")
       .eq("profile_id", profile.id)
       .eq("group_id", payload.g)
       .maybeSingle();
+    if (membershipError) {
+      console.error(
+        "Signed-link membership lookup failed for profile %s, group %s:",
+        profile.id,
+        payload.g,
+        membershipError
+      );
+      return NextResponse.json(
+        { error: "Something went wrong — please try again" },
+        { status: 500 }
+      );
+    }
     if (!membership) {
       return NextResponse.json(
         { error: "You're no longer on this team — please use the site instead" },
@@ -91,14 +141,9 @@ export async function POST(request: Request) {
 
     const attendees: NamedProfile[] = [profile];
     if (includeSpouse && profile.family_id) {
-      const { data: spouse } = await service
-        .from("profiles")
-        .select("id, first_name, last_name, preferred_name")
-        .eq("family_id", profile.family_id)
-        .in("relationship", ["primary", "spouse"])
-        .neq("id", profile.id)
-        .limit(1)
-        .maybeSingle();
+      // findSpouse is non-fatal: a failed read degrades to signing up the
+      // member alone rather than failing the whole action.
+      const spouse = await findSpouse(service, profile.family_id, profile.id);
       if (spouse) attendees.push(spouse);
     }
 
@@ -110,9 +155,10 @@ export async function POST(request: Request) {
         family_id: profile.family_id,
         created_by: profile.id,
         // Service-role insert: the fail-closed org_id DEFAULT resolves to
-        // NULL without a session, so the org is passed explicitly (Phase 1
-        // interim — see lib/org.ts).
-        org_id: DEFAULT_ORG_ID,
+        // NULL without a session, so the org is passed explicitly — derived
+        // from the HMAC-validated group row, which the composite FK
+        // (group_id, org_id) also enforces.
+        org_id: group.org_id,
       })
       .select()
       .single();
@@ -134,7 +180,7 @@ export async function POST(request: Request) {
         attendees.map((a) => ({
           signup_id: signup.id,
           profile_id: a.id,
-          org_id: DEFAULT_ORG_ID,
+          org_id: group.org_id,
         }))
       );
     if (attendeeError) {
@@ -147,6 +193,7 @@ export async function POST(request: Request) {
       try {
         await sendSignupConfirmation(service, {
           signupId: signup.id,
+          orgId: group.org_id,
           groupId: payload.g,
           groupName: group.name,
           serviceDate: payload.d,
@@ -167,7 +214,7 @@ export async function POST(request: Request) {
   }
 
   // Cancel: the member must be the signup's creator or one of its attendees
-  const { data: signup } = await service
+  const { data: signup, error: cancelLookupError } = await service
     .from("serving_signups")
     .select(
       "id, family_id, created_by, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
@@ -175,6 +222,22 @@ export async function POST(request: Request) {
     .eq("group_id", payload.g)
     .eq("service_date", payload.d)
     .maybeSingle();
+
+  // Distinguishing this from the absent-row case matters most here: telling a
+  // member their cancellation already happened when the read merely failed
+  // makes them stop trying, and the roster is wrong on Sunday.
+  if (cancelLookupError) {
+    console.error(
+      "Signed-link cancel lookup failed for group %s, date %s:",
+      payload.g,
+      payload.d,
+      cancelLookupError
+    );
+    return NextResponse.json(
+      { error: "Something went wrong — please try again" },
+      { status: 500 }
+    );
+  }
 
   if (!signup) {
     return NextResponse.json(

@@ -34,11 +34,42 @@ $$;
 ALTER FUNCTION "public"."app_current_org_id"() OWNER TO "postgres";
 
 
+COMMENT ON FUNCTION "public"."app_current_org_id"() IS 'Org of the calling principal, resolved from their own profiles row only. NULL for anon/service callers — fail-closed by construction. Wrap call sites as (select public.app_current_org_id()) so the planner evaluates it once per statement (InitPlan).';
+
+
+
+CREATE OR REPLACE FUNCTION "public"."app_request_org_id"() RETURNS "uuid"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  select case
+    when (select auth.uid()) is not null then (select public.app_current_org_id())
+    else (select o.id from public.organizations o
+      where o.slug = nullif(
+        -- request.headers is only set (to a JSON object) by PostgREST; in
+        -- any other execution context it is unset or empty, and the nullif
+        -- below turns that into NULL rather than a JSON cast error, keeping
+        -- the fail-closed contract.
+        nullif(current_setting('request.headers', true), '')::json
+          ->> 'x-two42-org', ''))
+  end;
+$$;
+
+
+ALTER FUNCTION "public"."app_request_org_id"() OWNER TO "postgres";
+
+
+COMMENT ON FUNCTION "public"."app_request_org_id"() IS 'Org a request is about: the authenticated principal''s org, else the org whose slug matches the x-two42-org request header (anon public surface only). NULL when neither resolves — fail-closed. Wrap call sites as (select public.app_request_org_id()).';
+
+
+
 CREATE OR REPLACE FUNCTION "public"."current_family_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
-  select family_id from public.profiles where id = auth.uid();
+  select family_id from public.profiles
+  where id = auth.uid()
+    and org_id = public.app_current_org_id();
 $$;
 
 
@@ -49,7 +80,9 @@ CREATE OR REPLACE FUNCTION "public"."get_own_email"() RETURNS "text"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
-  select email from public.profiles where id = auth.uid();
+  select email from public.profiles
+  where id = auth.uid()
+    and org_id = public.app_current_org_id();
 $$;
 
 
@@ -60,7 +93,9 @@ CREATE OR REPLACE FUNCTION "public"."get_own_role"() RETURNS "text"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
-  select role from public.profiles where id = auth.uid();
+  select role from public.profiles
+  where id = auth.uid()
+    and org_id = public.app_current_org_id();
 $$;
 
 
@@ -74,7 +109,8 @@ CREATE OR REPLACE FUNCTION "public"."get_profile_email"("profile_id" "uuid") RET
   select email
   from public.profiles
   where id = profile_id
-    and family_id = public.current_family_id();
+    and family_id = public.current_family_id()
+    and org_id = public.app_current_org_id();
 $$;
 
 
@@ -88,7 +124,8 @@ CREATE OR REPLACE FUNCTION "public"."get_profile_role"("profile_id" "uuid") RETU
   select role
   from public.profiles
   where id = profile_id
-    and family_id = public.current_family_id();
+    and family_id = public.current_family_id()
+    and org_id = public.app_current_org_id();
 $$;
 
 
@@ -103,6 +140,7 @@ CREATE OR REPLACE FUNCTION "public"."giving_can_manage_fund"("_fund_id" "uuid") 
     public.giving_stewards_can_manage() and exists (
       select 1 from public.giving_funds f
       where f.id = _fund_id and f.steward_id = auth.uid()
+        and f.org_id = public.app_current_org_id()
     )
   );
 $$;
@@ -116,7 +154,9 @@ CREATE OR REPLACE FUNCTION "public"."giving_stewards_can_manage"() RETURNS boole
     SET "search_path" TO ''
     AS $$
   select coalesce(
-    (select value from public.site_settings where key = 'giving_manage_mode'),
+    (select value from public.site_settings
+      where key = 'giving_manage_mode'
+        and org_id = public.app_current_org_id()),
     'stewards'
   ) = 'stewards';
 $$;
@@ -144,18 +184,56 @@ CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     SET "search_path" TO ''
     AS $$
 declare
-  _role text := 'pending';
   _full_name text := new.raw_user_meta_data->>'full_name';
   _first text;
   _last text;
-  _default_org_id uuid := '00000000-0000-0000-0000-000000000001';
+  _org_ids uuid[];
+  _org_id uuid;
+  _hint_org_id uuid;
+  _role text;
 begin
+  -- Email matches are case-insensitive: GoTrue lowercases auth emails while
+  -- access_requests / family_invites store them as typed, so an exact
+  -- comparison would raise TN001 for anyone whose request was entered with
+  -- capitals — locking them out of signup entirely.
+  select coalesce(array_agg(distinct org_id), '{}') into _org_ids
+  from (
+    select org_id from public.access_requests
+    where lower(email) = lower(new.email) and status = 'approved'
+    union
+    select org_id from public.family_invites
+    where lower(invite_email) = lower(new.email) and accepted_at is null
+  ) matches;
+
+  -- Server-set disambiguator only: narrow within the resolved set, never
+  -- widen it. (jsonb ->> on a missing key is NULL; a malformed value should
+  -- fail the signup loudly rather than be ignored, so no exception handling
+  -- around the cast.)
+  _hint_org_id := nullif(new.raw_app_meta_data ->> 'org_id', '')::uuid;
+  if _hint_org_id is not null and _hint_org_id = any (_org_ids) then
+    _org_ids := array[_hint_org_id];
+  end if;
+
+  if coalesce(array_length(_org_ids, 1), 0) = 0 then
+    raise exception 'signup rejected: no approved access request or invite for %', new.email
+      using errcode = 'TN001';
+  elsif array_length(_org_ids, 1) > 1 then
+    raise exception 'signup ambiguous: % matches approved invitations in multiple organizations', new.email
+      using errcode = 'TN002';
+  end if;
+
+  _org_id := _org_ids[1];
+
+  -- Today's approval logic: an approved access request makes the signup a
+  -- member; an invite-only match starts as pending (the family claim flow
+  -- promotes it).
   if exists (
     select 1 from public.access_requests
-    where email = new.email
-      and status = 'approved'
+    where lower(email) = lower(new.email) and status = 'approved' and org_id = _org_id
   ) then
     _role := 'member';
+  else
+    _role := 'pending';
   end if;
 
   if _full_name is not null and btrim(_full_name) <> '' then
@@ -169,10 +247,10 @@ begin
   end if;
 
   insert into public.profiles (id, first_name, last_name, email, role, relationship, org_id)
-  values (new.id, _first, _last, new.email, _role, 'primary', _default_org_id);
+  values (new.id, _first, _last, new.email, _role, 'primary', _org_id);
 
   insert into public.organization_members (org_id, profile_id)
-  values (_default_org_id, new.id)
+  values (_org_id, new.id)
   on conflict do nothing;
 
   return new;
@@ -190,6 +268,7 @@ CREATE OR REPLACE FUNCTION "public"."is_admin"() RETURNS boolean
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
+      and org_id = public.app_current_org_id()
   );
 $$;
 
@@ -204,6 +283,7 @@ CREATE OR REPLACE FUNCTION "public"."is_content_editor"() RETURNS boolean
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role in ('content_editor', 'admin')
+      and org_id = public.app_current_org_id()
   );
 $$;
 
@@ -216,10 +296,12 @@ CREATE OR REPLACE FUNCTION "public"."is_group_leader"("_group_id" "uuid") RETURN
     SET "search_path" TO ''
     AS $$
   select exists (
-    select 1 from public.profile_groups
-    where profile_id = auth.uid()
-      and group_id = _group_id
-      and is_leader = true
+    select 1 from public.profile_groups pg
+    join public.member_groups g on g.id = pg.group_id
+    where pg.profile_id = auth.uid()
+      and pg.group_id = _group_id
+      and pg.is_leader = true
+      and g.org_id = public.app_current_org_id()
   );
 $$;
 
@@ -236,6 +318,7 @@ CREATE OR REPLACE FUNCTION "public"."is_household_manager"() RETURNS boolean
     where id = auth.uid()
       and relationship in ('primary', 'spouse')
       and role in ('member', 'content_editor', 'admin')
+      and org_id = public.app_current_org_id()
   );
 $$;
 
@@ -250,6 +333,7 @@ CREATE OR REPLACE FUNCTION "public"."is_member"() RETURNS boolean
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role in ('member', 'content_editor', 'admin')
+      and org_id = public.app_current_org_id()
   );
 $$;
 
@@ -282,138 +366,91 @@ $$;
 ALTER FUNCTION "public"."is_platform_admin"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_prayer_warrior"() RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-  select exists (
-    select 1 from public.profiles
-    where id = auth.uid() and is_prayer_warrior
-  );
-$$;
-
-
-ALTER FUNCTION "public"."is_prayer_warrior"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") RETURNS "uuid"
+CREATE OR REPLACE FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO ''
-    AS $$
+    AS $_$
 declare
   _org_id uuid;
+  _cal_id uuid;
 begin
-  insert into public.organizations (name, slug)
+  if _slug !~ '^[a-z0-9][a-z0-9-]{1,62}$' then
+    raise exception 'invalid organization slug: %', _slug using errcode = 'TN003';
+  end if;
+
+  -- 1. The org itself. branding carries only the tenant-overridable keys
+  -- from #221 / docs/design/DESIGN.md: display_name, logo_url, accent.
+  insert into public.organizations (name, slug, branding, status)
   values (
     _name,
-    lower(regexp_replace(_name, '[^a-zA-Z0-9]+', '-', 'g'))
-      || '-' || left(gen_random_uuid()::text, 8)
+    _slug,
+    jsonb_build_object('display_name', _name, 'logo_url', null, 'accent', null),
+    'active'
   )
   returning id into _org_id;
-  insert into public.organization_members (org_id, profile_id) values (_org_id, _owner_id);
+
+  -- 2. Prayer calendar, wired into settings: lib/prayerCalls.ts and
+  -- app/prayer read prayer_calendar_id, and a missing value degrades the
+  -- prayer surface — which is why the calendar is provisioning, not
+  -- onboarding.
+  insert into public.event_calendars (org_id, name, color)
+  values (_org_id, 'Prayer Calls', '#7c9885')
+  returning id into _cal_id;
+
+  -- 3. Settings defaults — the full key list in one auditable place.
+  -- serving_link_mode's deploy default is applied at read time by
+  -- getServingLinkMode() (SERVING_LINK_MODE env); the seed row here matches
+  -- the migration-seeded default. Only site_name is anon-readable (#215).
+  insert into public.site_settings (org_id, key, value, is_public)
+  values
+    (_org_id, 'site_name',               '',            true),
+    (_org_id, 'directory_app_url',       '',            false),
+    (_org_id, 'weekly_zoom_url',         '',            false),
+    (_org_id, 'zoom_meeting_time',       '',            false),
+    (_org_id, 'weekly_prayer_call_url',  '',            false),
+    (_org_id, 'weekly_prayer_call_time', '',            false),
+    (_org_id, 'serving_link_mode',       'signed',      false),
+    (_org_id, 'giving_manage_mode',      'stewards',    false),
+    (_org_id, 'giving_dashboard_tile',   'on',          false),
+    (_org_id, 'prayer_calendar_id',      _cal_id::text, false);
+
+  -- 4. Empty about page (per-org singleton: PK is (org_id, id), id CHECKed
+  -- true).
+  insert into public.about_page (org_id, id, body) values (_org_id, true, '');
+
+  -- 5. Approved access request for the owner, so their signup resolves
+  -- under handle_new_user()'s fail-closed rules.
+  insert into public.access_requests (org_id, name, email, status, reviewed_at)
+  values (_org_id, _name || ' owner', _owner_email, 'approved', now());
+
+  -- 6. The owner email must not already have a profile. The org created
+  -- above holds no profiles yet, so ANY existing profile with this email
+  -- necessarily belongs to another org — and a profile is never moved
+  -- between orgs. An unscoped `update profiles set org_id = _org_id where
+  -- email = ...` would be a cross-tenant write: once Phase 4 exposes a
+  -- caller, passing a competing org's admin email would re-pin that admin
+  -- into the caller's org — an account-takeover primitive that a "who may
+  -- provision" guard does not address. Raise instead, matching
+  -- handle_new_user()'s TN001/TN002: an email that already belongs
+  -- elsewhere is a conflict for a human to resolve, not something to
+  -- silently resolve by moving the account. The owner's profiles and
+  -- organization_members rows are created by handle_new_user() when they
+  -- sign up AFTER provisioning, through the approved access request above.
+  if exists (
+    -- Case-insensitive to match handle_new_user(): profile emails come from
+    -- GoTrue lowercased, while _owner_email arrives as typed.
+    select 1 from public.profiles where lower(email) = lower(_owner_email)
+  ) then
+    raise exception 'owner email % already belongs to another organization', _owner_email
+      using errcode = 'TN004';
+  end if;
+
   return _org_id;
 end;
-$$;
+$_$;
 
 
-ALTER FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog'
-    AS $$
-DECLARE
-  cmd record;
-BEGIN
-  FOR cmd IN
-    SELECT *
-    FROM pg_event_trigger_ddl_commands()
-    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
-      AND object_type IN ('table','partitioned table')
-  LOOP
-     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
-      BEGIN
-        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
-        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
-      EXCEPTION
-        WHEN OTHERS THEN
-          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
-      END;
-     ELSE
-        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
-     END IF;
-  END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."rls_auto_enable"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."sync_prayer_access_for_group"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-begin
-  -- Same locking discipline as the per-profile sync, and in deterministic
-  -- (id) order so two concurrent group-wide recomputes can't deadlock.
-  perform 1
-  from public.profiles
-  where id in (
-    select profile_id from public.profile_groups where group_id = new.id
-  )
-  order by id
-  for update;
-
-  update public.profiles p
-  set is_prayer_warrior = exists (
-    select 1
-    from public.profile_groups pg
-    join public.member_groups g on g.id = pg.group_id
-    where pg.profile_id = p.id
-      and g.grants_prayer_access
-  )
-  where p.id in (
-    select profile_id from public.profile_groups where group_id = new.id
-  );
-  return null;
-end;
-$$;
-
-
-ALTER FUNCTION "public"."sync_prayer_access_for_group"() OWNER TO "postgres";
-
-
-CREATE OR REPLACE FUNCTION "public"."sync_prayer_access_for_profile"() RETURNS "trigger"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO ''
-    AS $$
-declare
-  _profile_id uuid := coalesce(new.profile_id, old.profile_id);
-begin
-  -- Lock the profile row before recomputing so concurrent membership changes
-  -- for the same profile serialize here: under read committed, the statement
-  -- after the lock is granted runs with a fresh snapshot that includes the
-  -- other transaction's committed writes, so the last recompute can't clobber
-  -- the flag with a stale membership view.
-  perform 1 from public.profiles where id = _profile_id for update;
-
-  update public.profiles
-  set is_prayer_warrior = exists (
-    select 1
-    from public.profile_groups pg
-    join public.member_groups g on g.id = pg.group_id
-    where pg.profile_id = _profile_id
-      and g.grants_prayer_access
-  )
-  where id = _profile_id;
-  return null;
-end;
-$$;
-
-
-ALTER FUNCTION "public"."sync_prayer_access_for_profile"() OWNER TO "postgres";
+ALTER FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."touch_updated_at"() RETURNS "trigger"
@@ -606,8 +643,10 @@ CREATE OR REPLACE VIEW "public"."families_directory" WITH ("security_invoker"='t
         END AS "phone_home",
     "anniversary",
     "created_at",
-    "updated_at"
-   FROM "public"."family_units" "f";
+    "updated_at",
+    "org_id"
+   FROM "public"."family_units" "f"
+  WHERE ("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"));
 
 
 ALTER VIEW "public"."families_directory" OWNER TO "postgres";
@@ -680,7 +719,6 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "relationship" "text" DEFAULT 'primary'::"text" NOT NULL,
     "hide_birth_year" boolean DEFAULT false NOT NULL,
     "setup_completed" boolean DEFAULT false NOT NULL,
-    "is_prayer_warrior" boolean DEFAULT false NOT NULL,
     "email_announcements" boolean DEFAULT true NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "profiles_birth_day_check" CHECK ((("birth_day" >= 1) AND ("birth_day" <= 31))),
@@ -743,11 +781,13 @@ CREATE OR REPLACE VIEW "public"."families_directory_full" WITH ("security_invoke
                     ELSE "p"."birth_year"
                 END) ORDER BY "p"."relationship") AS "jsonb_agg"
            FROM "public"."profiles" "p"
-          WHERE (("p"."family_id" = "f"."id") AND ("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))), '[]'::"jsonb") AS "members",
+          WHERE (("p"."family_id" = "f"."id") AND ("p"."org_id" = "f"."org_id") AND ("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))), '[]'::"jsonb") AS "members",
     COALESCE(( SELECT "jsonb_agg"("jsonb_build_object"('id', "fm"."id", 'first_name', "fm"."first_name", 'last_name', "fm"."last_name", 'preferred_name', "fm"."preferred_name", 'avatar_url', "fm"."avatar_url", 'relationship', "fm"."relationship", 'is_class_member', "fm"."is_class_member", 'birth_month', "fm"."birth_month", 'birth_day', "fm"."birth_day", 'birth_year', "fm"."birth_year", 'claimed_profile_id', "fm"."claimed_profile_id") ORDER BY "fm"."relationship") AS "jsonb_agg"
            FROM "public"."family_members" "fm"
-          WHERE ("fm"."family_id" = "f"."id")), '[]'::"jsonb") AS "family_members_list"
-   FROM "public"."family_units" "f";
+          WHERE (("fm"."family_id" = "f"."id") AND ("fm"."org_id" = "f"."org_id"))), '[]'::"jsonb") AS "family_members_list",
+    "org_id"
+   FROM "public"."family_units" "f"
+  WHERE ("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"));
 
 
 ALTER VIEW "public"."families_directory_full" OWNER TO "postgres";
@@ -825,8 +865,8 @@ CREATE TABLE IF NOT EXISTS "public"."lecture_series" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
     "teacher" "text",
-    "is_archived" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "is_archived" boolean DEFAULT false NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
@@ -866,9 +906,7 @@ CREATE TABLE IF NOT EXISTS "public"."member_groups" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "show_in_directory_filter" boolean DEFAULT true NOT NULL,
     "is_serving_role" boolean DEFAULT false NOT NULL,
-    "grants_prayer_access" boolean DEFAULT false NOT NULL,
-    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
-    "functional_role" "text"
+    "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
 
@@ -951,10 +989,10 @@ CREATE TABLE IF NOT EXISTS "public"."prayer_requests" (
     "body" "text" NOT NULL,
     "category" "text" NOT NULL,
     "is_anonymous" boolean DEFAULT false NOT NULL,
-    "visible_to_warriors" boolean DEFAULT false NOT NULL,
     "is_answered" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "visible_to_warriors" boolean DEFAULT false NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "prayer_requests_body_check" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 2000))),
     CONSTRAINT "prayer_requests_category_check" CHECK (("category" = ANY (ARRAY['health'::"text", 'family'::"text", 'thanksgiving'::"text", 'prodigal'::"text", 'guidance'::"text", 'grief'::"text"])))
@@ -1001,13 +1039,15 @@ CREATE OR REPLACE VIEW "public"."prayer_wall" WITH ("security_invoker"='true') A
             ELSE "p"."avatar_url"
         END AS "avatar_url",
     COALESCE("pc"."praying_count", 0) AS "praying_count",
-    COALESCE("pc"."i_am_praying", false) AS "i_am_praying"
+    COALESCE("pc"."i_am_praying", false) AS "i_am_praying",
+    "r"."org_id"
    FROM (("public"."prayer_requests" "r"
-     LEFT JOIN "public"."profiles" "p" ON (("p"."id" = "r"."author_id")))
+     LEFT JOIN "public"."profiles" "p" ON ((("p"."id" = "r"."author_id") AND ("p"."org_id" = "r"."org_id"))))
      LEFT JOIN LATERAL ( SELECT ("count"(*))::integer AS "praying_count",
             "bool_or"(("pr"."profile_id" = ( SELECT "auth"."uid"() AS "uid"))) AS "i_am_praying"
            FROM "public"."prayer_responses" "pr"
-          WHERE ("pr"."request_id" = "r"."id")) "pc" ON (true));
+          WHERE (("pr"."request_id" = "r"."id") AND ("pr"."org_id" = "r"."org_id"))) "pc" ON (true))
+  WHERE ("r"."org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"));
 
 
 ALTER VIEW "public"."prayer_wall" OWNER TO "postgres";
@@ -1053,7 +1093,8 @@ SELECT
     NULL::"date" AS "anniversary",
     NULL::"text" AS "occupation",
     NULL::"text" AS "employer",
-    NULL::"jsonb" AS "groups";
+    NULL::"jsonb" AS "groups",
+    NULL::"uuid" AS "org_id";
 
 
 ALTER VIEW "public"."profiles_directory" OWNER TO "postgres";
@@ -1144,11 +1185,6 @@ ALTER TABLE "public"."site_settings" OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."about_page"
-    ADD CONSTRAINT "about_page_id_legacy_key" UNIQUE ("id");
-
-
-
-ALTER TABLE ONLY "public"."about_page"
     ADD CONSTRAINT "about_page_pkey" PRIMARY KEY ("org_id", "id");
 
 
@@ -1193,13 +1229,18 @@ ALTER TABLE ONLY "public"."class_teachers"
 
 
 
-ALTER TABLE ONLY "public"."class_teachers"
-    ADD CONSTRAINT "class_teachers_profile_id_legacy_key" UNIQUE ("profile_id");
+ALTER TABLE ONLY "public"."event_calendars"
+    ADD CONSTRAINT "event_calendars_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
 ALTER TABLE ONLY "public"."event_calendars"
     ADD CONSTRAINT "event_calendars_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."events"
+    ADD CONSTRAINT "events_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1218,8 +1259,23 @@ ALTER TABLE ONLY "public"."family_invites"
 
 
 
+ALTER TABLE ONLY "public"."family_invites"
+    ADD CONSTRAINT "family_invites_token_org_unique" UNIQUE ("token", "org_id");
+
+
+
+ALTER TABLE ONLY "public"."family_members"
+    ADD CONSTRAINT "family_members_id_org_unique" UNIQUE ("id", "org_id");
+
+
+
 ALTER TABLE ONLY "public"."family_members"
     ADD CONSTRAINT "family_members_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."family_units"
+    ADD CONSTRAINT "family_units_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1239,7 +1295,17 @@ ALTER TABLE ONLY "public"."giving_fund_methods"
 
 
 ALTER TABLE ONLY "public"."giving_funds"
+    ADD CONSTRAINT "giving_funds_id_org_unique" UNIQUE ("id", "org_id");
+
+
+
+ALTER TABLE ONLY "public"."giving_funds"
     ADD CONSTRAINT "giving_funds_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."lecture_series"
+    ADD CONSTRAINT "lecture_series_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1250,6 +1316,11 @@ ALTER TABLE ONLY "public"."lecture_series"
 
 ALTER TABLE ONLY "public"."lectures"
     ADD CONSTRAINT "lectures_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."member_groups"
+    ADD CONSTRAINT "member_groups_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1278,9 +1349,6 @@ ALTER TABLE ONLY "public"."page_content"
 
 
 
-ALTER TABLE ONLY "public"."page_content"
-    ADD CONSTRAINT "page_content_slug_legacy_key" UNIQUE ("slug");
-
 
 
 ALTER TABLE ONLY "public"."platform_admins"
@@ -1290,6 +1358,11 @@ ALTER TABLE ONLY "public"."platform_admins"
 
 ALTER TABLE ONLY "public"."prayer_call_sessions"
     ADD CONSTRAINT "prayer_call_sessions_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."prayer_requests"
+    ADD CONSTRAINT "prayer_requests_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1305,6 +1378,11 @@ ALTER TABLE ONLY "public"."prayer_responses"
 
 ALTER TABLE ONLY "public"."profile_groups"
     ADD CONSTRAINT "profile_groups_pkey" PRIMARY KEY ("profile_id", "group_id");
+
+
+
+ALTER TABLE ONLY "public"."profiles"
+    ADD CONSTRAINT "profiles_id_org_unique" UNIQUE ("id", "org_id");
 
 
 
@@ -1339,17 +1417,17 @@ ALTER TABLE ONLY "public"."serving_signups"
 
 
 ALTER TABLE ONLY "public"."serving_signups"
+    ADD CONSTRAINT "serving_signups_id_org_unique" UNIQUE ("id", "org_id");
+
+
+
+ALTER TABLE ONLY "public"."serving_signups"
     ADD CONSTRAINT "serving_signups_pkey" PRIMARY KEY ("id");
 
 
 
 ALTER TABLE ONLY "public"."serving_team_settings"
     ADD CONSTRAINT "serving_team_settings_pkey" PRIMARY KEY ("group_id");
-
-
-
-ALTER TABLE ONLY "public"."site_settings"
-    ADD CONSTRAINT "site_settings_key_legacy_key" UNIQUE ("key");
 
 
 
@@ -1446,7 +1524,6 @@ CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("ser
 
 
 
-CREATE UNIQUE INDEX "member_groups_org_id_functional_role_key" ON "public"."member_groups" USING "btree" ("org_id", "functional_role") WHERE ("functional_role" IS NOT NULL);
 
 
 
@@ -1601,11 +1678,12 @@ CREATE OR REPLACE VIEW "public"."profiles_directory" WITH ("security_invoker"='t
             WHEN "p"."hide_occupation" THEN NULL::"text"
             ELSE "p"."employer"
         END AS "employer",
-    COALESCE("jsonb_agg"("jsonb_build_object"('id', "mg"."id", 'name', "mg"."name", 'color', "mg"."color", 'icon', "mg"."icon") ORDER BY "mg"."display_order") FILTER (WHERE ("mg"."id" IS NOT NULL)), '[]'::"jsonb") AS "groups"
+    COALESCE("jsonb_agg"("jsonb_build_object"('id', "mg"."id", 'name', "mg"."name", 'color', "mg"."color", 'icon', "mg"."icon") ORDER BY "mg"."display_order") FILTER (WHERE ("mg"."id" IS NOT NULL)), '[]'::"jsonb") AS "groups",
+    "p"."org_id"
    FROM (("public"."profiles" "p"
-     LEFT JOIN "public"."profile_groups" "pg" ON (("p"."id" = "pg"."profile_id")))
-     LEFT JOIN "public"."member_groups" "mg" ON (("pg"."group_id" = "mg"."id")))
-  WHERE (("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))
+     LEFT JOIN "public"."profile_groups" "pg" ON ((("p"."id" = "pg"."profile_id") AND ("pg"."org_id" = "p"."org_id"))))
+     LEFT JOIN "public"."member_groups" "mg" ON ((("pg"."group_id" = "mg"."id") AND ("mg"."org_id" = "p"."org_id"))))
+  WHERE (("p"."is_unlisted" = false) AND ("p"."role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])) AND ("p"."org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")))
   GROUP BY "p"."id";
 
 
@@ -1618,10 +1696,6 @@ CREATE OR REPLACE TRIGGER "family_units_touch_updated_at" BEFORE UPDATE ON "publ
 
 
 
-CREATE OR REPLACE TRIGGER "member_groups_sync_prayer_access" AFTER UPDATE OF "grants_prayer_access" ON "public"."member_groups" FOR EACH ROW WHEN (("old"."grants_prayer_access" IS DISTINCT FROM "new"."grants_prayer_access")) EXECUTE FUNCTION "public"."sync_prayer_access_for_group"();
-
-
-
 CREATE OR REPLACE TRIGGER "member_groups_touch_updated_at" BEFORE UPDATE ON "public"."member_groups" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
 
 
@@ -1631,10 +1705,6 @@ CREATE OR REPLACE TRIGGER "prayer_call_sessions_touch_updated_at" BEFORE UPDATE 
 
 
 CREATE OR REPLACE TRIGGER "prayer_requests_touch_updated_at" BEFORE UPDATE ON "public"."prayer_requests" FOR EACH ROW EXECUTE FUNCTION "public"."touch_updated_at"();
-
-
-
-CREATE OR REPLACE TRIGGER "profile_groups_sync_prayer_access" AFTER INSERT OR DELETE ON "public"."profile_groups" FOR EACH ROW EXECUTE FUNCTION "public"."sync_prayer_access_for_profile"();
 
 
 
@@ -1653,7 +1723,7 @@ ALTER TABLE ONLY "public"."about_page"
 
 
 ALTER TABLE ONLY "public"."access_requests"
-    ADD CONSTRAINT "access_requests_invite_token_fkey" FOREIGN KEY ("invite_token") REFERENCES "public"."family_invites"("token") ON DELETE SET NULL;
+    ADD CONSTRAINT "access_requests_invite_token_fkey" FOREIGN KEY ("invite_token", "org_id") REFERENCES "public"."family_invites"("token", "org_id") ON DELETE SET NULL ("invite_token");
 
 
 
@@ -1668,7 +1738,7 @@ ALTER TABLE ONLY "public"."access_requests"
 
 
 ALTER TABLE ONLY "public"."announcements"
-    ADD CONSTRAINT "announcements_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "announcements_author_id_fkey" FOREIGN KEY ("author_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("author_id");
 
 
 
@@ -1683,7 +1753,7 @@ ALTER TABLE ONLY "public"."calendar_subscription_tokens"
 
 
 ALTER TABLE ONLY "public"."calendar_subscription_tokens"
-    ADD CONSTRAINT "calendar_subscription_tokens_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "calendar_subscription_tokens_user_id_fkey" FOREIGN KEY ("user_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1693,12 +1763,12 @@ ALTER TABLE ONLY "public"."class_teachers"
 
 
 ALTER TABLE ONLY "public"."class_teachers"
-    ADD CONSTRAINT "class_teachers_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "class_teachers_profile_id_fkey" FOREIGN KEY ("profile_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."event_calendars"
-    ADD CONSTRAINT "event_calendars_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "event_calendars_created_by_fkey" FOREIGN KEY ("created_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("created_by");
 
 
 
@@ -1708,12 +1778,12 @@ ALTER TABLE ONLY "public"."event_calendars"
 
 
 ALTER TABLE ONLY "public"."events"
-    ADD CONSTRAINT "events_calendar_id_fkey" FOREIGN KEY ("calendar_id") REFERENCES "public"."event_calendars"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "events_calendar_id_fkey" FOREIGN KEY ("calendar_id", "org_id") REFERENCES "public"."event_calendars"("id", "org_id") ON DELETE SET NULL ("calendar_id");
 
 
 
 ALTER TABLE ONLY "public"."events"
-    ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "events_created_by_fkey" FOREIGN KEY ("created_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("created_by");
 
 
 
@@ -1723,7 +1793,7 @@ ALTER TABLE ONLY "public"."events"
 
 
 ALTER TABLE ONLY "public"."events"
-    ADD CONSTRAINT "events_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "public"."events"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "events_series_id_fkey" FOREIGN KEY ("series_id", "org_id") REFERENCES "public"."events"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1733,12 +1803,12 @@ ALTER TABLE ONLY "public"."family_invites"
 
 
 ALTER TABLE ONLY "public"."family_invites"
-    ADD CONSTRAINT "family_invites_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "family_invites_family_id_fkey" FOREIGN KEY ("family_id", "org_id") REFERENCES "public"."family_units"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."family_invites"
-    ADD CONSTRAINT "family_invites_family_member_id_fkey" FOREIGN KEY ("family_member_id") REFERENCES "public"."family_members"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "family_invites_family_member_id_fkey" FOREIGN KEY ("family_member_id", "org_id") REFERENCES "public"."family_members"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1753,7 +1823,7 @@ ALTER TABLE ONLY "public"."family_members"
 
 
 ALTER TABLE ONLY "public"."family_members"
-    ADD CONSTRAINT "family_members_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "family_members_family_id_fkey" FOREIGN KEY ("family_id", "org_id") REFERENCES "public"."family_units"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1773,12 +1843,12 @@ ALTER TABLE ONLY "public"."feedback"
 
 
 ALTER TABLE ONLY "public"."feedback"
-    ADD CONSTRAINT "feedback_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "feedback_profile_id_fkey" FOREIGN KEY ("profile_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("profile_id");
 
 
 
 ALTER TABLE ONLY "public"."giving_fund_methods"
-    ADD CONSTRAINT "giving_fund_methods_fund_id_fkey" FOREIGN KEY ("fund_id") REFERENCES "public"."giving_funds"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "giving_fund_methods_fund_id_fkey" FOREIGN KEY ("fund_id", "org_id") REFERENCES "public"."giving_funds"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1788,12 +1858,12 @@ ALTER TABLE ONLY "public"."giving_fund_methods"
 
 
 ALTER TABLE ONLY "public"."giving_funds"
-    ADD CONSTRAINT "giving_funds_co_steward_id_fkey" FOREIGN KEY ("co_steward_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "giving_funds_co_steward_id_fkey" FOREIGN KEY ("co_steward_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("co_steward_id");
 
 
 
 ALTER TABLE ONLY "public"."giving_funds"
-    ADD CONSTRAINT "giving_funds_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "giving_funds_created_by_fkey" FOREIGN KEY ("created_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("created_by");
 
 
 
@@ -1803,7 +1873,7 @@ ALTER TABLE ONLY "public"."giving_funds"
 
 
 ALTER TABLE ONLY "public"."giving_funds"
-    ADD CONSTRAINT "giving_funds_steward_id_fkey" FOREIGN KEY ("steward_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "giving_funds_steward_id_fkey" FOREIGN KEY ("steward_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1813,7 +1883,7 @@ ALTER TABLE ONLY "public"."lecture_series"
 
 
 ALTER TABLE ONLY "public"."lectures"
-    ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "lectures_created_by_fkey" FOREIGN KEY ("created_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("created_by");
 
 
 
@@ -1823,7 +1893,7 @@ ALTER TABLE ONLY "public"."lectures"
 
 
 ALTER TABLE ONLY "public"."lectures"
-    ADD CONSTRAINT "lectures_series_id_fkey" FOREIGN KEY ("series_id") REFERENCES "public"."lecture_series"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "lectures_series_id_fkey" FOREIGN KEY ("series_id", "org_id") REFERENCES "public"."lecture_series"("id", "org_id") ON DELETE SET NULL ("series_id");
 
 
 
@@ -1857,18 +1927,20 @@ ALTER TABLE ONLY "public"."page_content"
 
 
 
+
+
 ALTER TABLE ONLY "public"."platform_admins"
     ADD CONSTRAINT "platform_admins_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."prayer_call_sessions"
-    ADD CONSTRAINT "prayer_call_sessions_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "prayer_call_sessions_event_id_fkey" FOREIGN KEY ("event_id", "org_id") REFERENCES "public"."events"("id", "org_id") ON DELETE SET NULL ("event_id");
 
 
 
 ALTER TABLE ONLY "public"."prayer_call_sessions"
-    ADD CONSTRAINT "prayer_call_sessions_leader_id_fkey" FOREIGN KEY ("leader_id") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "prayer_call_sessions_leader_id_fkey" FOREIGN KEY ("leader_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("leader_id");
 
 
 
@@ -1878,7 +1950,7 @@ ALTER TABLE ONLY "public"."prayer_call_sessions"
 
 
 ALTER TABLE ONLY "public"."prayer_requests"
-    ADD CONSTRAINT "prayer_requests_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "prayer_requests_author_id_fkey" FOREIGN KEY ("author_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1893,12 +1965,12 @@ ALTER TABLE ONLY "public"."prayer_responses"
 
 
 ALTER TABLE ONLY "public"."prayer_responses"
-    ADD CONSTRAINT "prayer_responses_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "prayer_responses_profile_id_fkey" FOREIGN KEY ("profile_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."prayer_responses"
-    ADD CONSTRAINT "prayer_responses_request_id_fkey" FOREIGN KEY ("request_id") REFERENCES "public"."prayer_requests"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "prayer_responses_request_id_fkey" FOREIGN KEY ("request_id", "org_id") REFERENCES "public"."prayer_requests"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1908,7 +1980,7 @@ ALTER TABLE ONLY "public"."profile_groups"
 
 
 ALTER TABLE ONLY "public"."profile_groups"
-    ADD CONSTRAINT "profile_groups_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "profile_groups_group_id_fkey" FOREIGN KEY ("group_id", "org_id") REFERENCES "public"."member_groups"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1918,7 +1990,7 @@ ALTER TABLE ONLY "public"."profile_groups"
 
 
 ALTER TABLE ONLY "public"."profile_groups"
-    ADD CONSTRAINT "profile_groups_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "profile_groups_profile_id_fkey" FOREIGN KEY ("profile_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1928,7 +2000,7 @@ ALTER TABLE ONLY "public"."profiles"
 
 
 ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "profiles_family_id_fkey" FOREIGN KEY ("family_id", "org_id") REFERENCES "public"."family_units"("id", "org_id") ON DELETE SET NULL ("family_id");
 
 
 
@@ -1943,7 +2015,7 @@ ALTER TABLE ONLY "public"."profiles"
 
 
 ALTER TABLE ONLY "public"."rsvps"
-    ADD CONSTRAINT "rsvps_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "public"."events"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "rsvps_event_id_fkey" FOREIGN KEY ("event_id", "org_id") REFERENCES "public"."events"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1953,12 +2025,12 @@ ALTER TABLE ONLY "public"."rsvps"
 
 
 ALTER TABLE ONLY "public"."rsvps"
-    ADD CONSTRAINT "rsvps_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "rsvps_user_id_fkey" FOREIGN KEY ("user_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."serving_broadcasts"
-    ADD CONSTRAINT "serving_broadcasts_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_broadcasts_group_id_fkey" FOREIGN KEY ("group_id", "org_id") REFERENCES "public"."member_groups"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -1968,7 +2040,7 @@ ALTER TABLE ONLY "public"."serving_broadcasts"
 
 
 ALTER TABLE ONLY "public"."serving_broadcasts"
-    ADD CONSTRAINT "serving_broadcasts_sent_by_fkey" FOREIGN KEY ("sent_by") REFERENCES "public"."profiles"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "serving_broadcasts_sent_by_fkey" FOREIGN KEY ("sent_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE SET NULL ("sent_by");
 
 
 
@@ -1978,27 +2050,27 @@ ALTER TABLE ONLY "public"."serving_signup_attendees"
 
 
 ALTER TABLE ONLY "public"."serving_signup_attendees"
-    ADD CONSTRAINT "serving_signup_attendees_profile_id_fkey" FOREIGN KEY ("profile_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_signup_attendees_profile_id_fkey" FOREIGN KEY ("profile_id", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."serving_signup_attendees"
-    ADD CONSTRAINT "serving_signup_attendees_signup_id_fkey" FOREIGN KEY ("signup_id") REFERENCES "public"."serving_signups"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_signup_attendees_signup_id_fkey" FOREIGN KEY ("signup_id", "org_id") REFERENCES "public"."serving_signups"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."serving_signups"
-    ADD CONSTRAINT "serving_signups_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_signups_created_by_fkey" FOREIGN KEY ("created_by", "org_id") REFERENCES "public"."profiles"("id", "org_id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."serving_signups"
-    ADD CONSTRAINT "serving_signups_family_id_fkey" FOREIGN KEY ("family_id") REFERENCES "public"."family_units"("id") ON DELETE SET NULL;
+    ADD CONSTRAINT "serving_signups_family_id_fkey" FOREIGN KEY ("family_id", "org_id") REFERENCES "public"."family_units"("id", "org_id") ON DELETE SET NULL ("family_id");
 
 
 
 ALTER TABLE ONLY "public"."serving_signups"
-    ADD CONSTRAINT "serving_signups_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_signups_group_id_fkey" FOREIGN KEY ("group_id", "org_id") REFERENCES "public"."member_groups"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -2008,7 +2080,7 @@ ALTER TABLE ONLY "public"."serving_signups"
 
 
 ALTER TABLE ONLY "public"."serving_team_settings"
-    ADD CONSTRAINT "serving_team_settings_group_id_fkey" FOREIGN KEY ("group_id") REFERENCES "public"."member_groups"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "serving_team_settings_group_id_fkey" FOREIGN KEY ("group_id", "org_id") REFERENCES "public"."member_groups"("id", "org_id") ON DELETE CASCADE;
 
 
 
@@ -2032,419 +2104,427 @@ ALTER TABLE ONLY "public"."site_settings"
 
 
 
-CREATE POLICY "Admins and household leaders can delete family members" ON "public"."family_members" FOR DELETE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can delete family members" ON "public"."family_members" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))));
 
 
 
-CREATE POLICY "Admins and household leaders can insert family members" ON "public"."family_members" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can insert family members" ON "public"."family_members" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))));
 
 
 
-CREATE POLICY "Admins and household leaders can update family members" ON "public"."family_members" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household leaders can update family members" ON "public"."family_members" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"]))))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."relationship" = ANY (ARRAY['primary'::"text", 'spouse'::"text"])))))))));
 
 
 
-CREATE POLICY "Admins and household primary can insert family invites" ON "public"."family_invites" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household primary can insert family invites" ON "public"."family_invites" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text"))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text")))))));
 
 
 
-CREATE POLICY "Admins and household primary can update family invites" ON "public"."family_invites" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
+CREATE POLICY "Admins and household primary can update family invites" ON "public"."family_invites" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text")))))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text"))))))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (EXISTS ( SELECT 1
    FROM "public"."profiles" "self"
-  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text"))))));
+  WHERE (("self"."id" = ( SELECT "auth"."uid"() AS "uid")) AND ("self"."family_id" = "family_invites"."family_id") AND ("self"."family_id" IS NOT NULL) AND ("self"."relationship" = 'primary'::"text")))))));
 
 
 
-CREATE POLICY "Admins and members can update family units" ON "public"."family_units" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member")))) WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member"))));
+CREATE POLICY "Admins and members can update family units" ON "public"."family_units" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member"))))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (("id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_member"() AS "is_member")))));
 
 
 
-CREATE POLICY "Admins and self-stewards can create funds" ON "public"."giving_funds" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ( SELECT "public"."is_member"() AS "is_member") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
+CREATE POLICY "Admins and self-stewards can create funds" ON "public"."giving_funds" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ( SELECT "public"."is_member"() AS "is_member") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
-CREATE POLICY "Admins and stewards can delete funds" ON "public"."giving_funds" FOR DELETE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
+CREATE POLICY "Admins and stewards can delete funds" ON "public"."giving_funds" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
-CREATE POLICY "Admins and stewards can update funds" ON "public"."giving_funds" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid")))));
+CREATE POLICY "Admins and stewards can update funds" ON "public"."giving_funds" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR (( SELECT "public"."giving_stewards_can_manage"() AS "giving_stewards_can_manage") AND ("steward_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
-CREATE POLICY "Admins can delete announcements" ON "public"."announcements" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete announcements" ON "public"."announcements" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete event calendars" ON "public"."event_calendars" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete event calendars" ON "public"."event_calendars" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete events" ON "public"."events" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete family units" ON "public"."family_units" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete family units" ON "public"."family_units" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete lectures" ON "public"."lectures" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete member groups" ON "public"."member_groups" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete member groups" ON "public"."member_groups" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete page content" ON "public"."page_content" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete prayer call sessions" ON "public"."prayer_call_sessions" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete prayer call sessions" ON "public"."prayer_call_sessions" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete profile groups" ON "public"."profile_groups" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete series" ON "public"."lecture_series" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can delete serving settings" ON "public"."serving_team_settings" FOR DELETE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can delete serving settings" ON "public"."serving_team_settings" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert announcements" ON "public"."announcements" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert event calendars" ON "public"."event_calendars" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert event calendars" ON "public"."event_calendars" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert events" ON "public"."events" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert family units" ON "public"."family_units" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert family units" ON "public"."family_units" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert lectures" ON "public"."lectures" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert lectures" ON "public"."lectures" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert member groups" ON "public"."member_groups" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert prayer call sessions" ON "public"."prayer_call_sessions" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert prayer call sessions" ON "public"."prayer_call_sessions" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert profile groups" ON "public"."profile_groups" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT WITH CHECK (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can insert series" ON "public"."lecture_series" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can read feedback" ON "public"."feedback" FOR SELECT USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can read feedback" ON "public"."feedback" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update access requests" ON "public"."access_requests" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update access requests" ON "public"."access_requests" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update announcements" ON "public"."announcements" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update event calendars" ON "public"."event_calendars" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update event calendars" ON "public"."event_calendars" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update events" ON "public"."events" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update events" ON "public"."events" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update lectures" ON "public"."lectures" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update lectures" ON "public"."lectures" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update member groups" ON "public"."member_groups" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update prayer call sessions" ON "public"."prayer_call_sessions" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update prayer call sessions" ON "public"."prayer_call_sessions" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update profile groups" ON "public"."profile_groups" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update profile groups" ON "public"."profile_groups" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update series" ON "public"."lecture_series" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update series" ON "public"."lecture_series" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can update settings" ON "public"."site_settings" FOR UPDATE USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can update settings" ON "public"."site_settings" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Admins can view access requests" ON "public"."access_requests" FOR SELECT USING (( SELECT "public"."is_admin"() AS "is_admin"));
+CREATE POLICY "Admins can view access requests" ON "public"."access_requests" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_admin"() AS "is_admin")));
 
 
 
-CREATE POLICY "Anon can read public settings" ON "public"."site_settings" FOR SELECT USING ("is_public");
+CREATE POLICY "Anon can read public settings" ON "public"."site_settings" FOR SELECT TO "authenticated", "anon" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND "is_public"));
 
 
 
-CREATE POLICY "Anyone can read event calendars" ON "public"."event_calendars" FOR SELECT USING (true);
+CREATE POLICY "Anyone can read event calendars" ON "public"."event_calendars" FOR SELECT TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
 
 
 
-CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELECT USING (true);
+CREATE POLICY "Anyone can read page content" ON "public"."page_content" FOR SELECT TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
 
 
 
-CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT WITH CHECK (true);
+CREATE POLICY "Anyone can submit access request" ON "public"."access_requests" FOR INSERT TO "authenticated", "anon" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("status" = 'pending'::"text") AND ("reviewed_by" IS NULL) AND ("reviewed_at" IS NULL) AND ("signup_token" IS NULL) AND ("token_expires_at" IS NULL)));
 
 
 
-CREATE POLICY "Editors can delete class teachers" ON "public"."class_teachers" FOR DELETE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can delete class teachers" ON "public"."class_teachers" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can insert about page" ON "public"."about_page" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can insert about page" ON "public"."about_page" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can insert class teachers" ON "public"."class_teachers" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can insert class teachers" ON "public"."class_teachers" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT WITH CHECK (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can insert page content" ON "public"."page_content" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can update about page" ON "public"."about_page" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can update about page" ON "public"."about_page" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can update class teachers" ON "public"."class_teachers" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can update class teachers" ON "public"."class_teachers" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR UPDATE USING (( SELECT "public"."is_content_editor"() AS "is_content_editor"));
+CREATE POLICY "Editors can update page content" ON "public"."page_content" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_content_editor"() AS "is_content_editor")));
 
 
 
-CREATE POLICY "Fund managers can add methods" ON "public"."giving_fund_methods" FOR INSERT WITH CHECK ("public"."giving_can_manage_fund"("fund_id"));
+CREATE POLICY "Fund managers can add methods" ON "public"."giving_fund_methods" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND "public"."giving_can_manage_fund"("fund_id")));
 
 
 
-CREATE POLICY "Fund managers can remove methods" ON "public"."giving_fund_methods" FOR DELETE USING ("public"."giving_can_manage_fund"("fund_id"));
+CREATE POLICY "Fund managers can remove methods" ON "public"."giving_fund_methods" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND "public"."giving_can_manage_fund"("fund_id")));
 
 
 
-CREATE POLICY "Fund managers can update methods" ON "public"."giving_fund_methods" FOR UPDATE USING ("public"."giving_can_manage_fund"("fund_id"));
+CREATE POLICY "Fund managers can update methods" ON "public"."giving_fund_methods" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND "public"."giving_can_manage_fund"("fund_id")));
 
 
 
-CREATE POLICY "Leaders and admins can insert serving settings" ON "public"."serving_team_settings" FOR INSERT WITH CHECK ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can insert serving settings" ON "public"."serving_team_settings" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Leaders and admins can log serving broadcasts" ON "public"."serving_broadcasts" FOR INSERT WITH CHECK ((("sent_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
+CREATE POLICY "Leaders and admins can log serving broadcasts" ON "public"."serving_broadcasts" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("sent_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Leaders and admins can update serving settings" ON "public"."serving_team_settings" FOR UPDATE USING ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can update serving settings" ON "public"."serving_team_settings" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Leaders and admins can view serving broadcasts" ON "public"."serving_broadcasts" FOR SELECT USING ((( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Leaders and admins can view serving broadcasts" ON "public"."serving_broadcasts" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Lectures visible to all" ON "public"."lectures" FOR SELECT USING (true);
+CREATE POLICY "Lectures visible to all" ON "public"."lectures" FOR SELECT TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
 
 
 
-CREATE POLICY "Members and admins can delete rsvps" ON "public"."rsvps" FOR DELETE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Members and admins can delete rsvps" ON "public"."rsvps" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Members and admins can insert rsvps" ON "public"."rsvps" FOR INSERT WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Members and admins can insert rsvps" ON "public"."rsvps" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Members and admins can update rsvps" ON "public"."rsvps" FOR UPDATE USING ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin"))) WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Members and admins can update rsvps" ON "public"."rsvps" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin")))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (((( SELECT "auth"."uid"() AS "uid") = "user_id") AND ( SELECT "public"."is_member"() AS "is_member")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Members and admins can view rsvps" ON "public"."rsvps" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Members and admins can view rsvps" ON "public"."rsvps" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_member"() AS "is_member") OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Members and published announcements are visible" ON "public"."announcements" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") OR ("is_published" = true)));
+CREATE POLICY "Members and published announcements are visible" ON "public"."announcements" FOR SELECT TO "authenticated", "anon" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "public"."is_member"() AS "is_member") OR ("is_published" = true))));
 
 
 
-CREATE POLICY "Members can create own subscription token" ON "public"."calendar_subscription_tokens" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+CREATE POLICY "Members can create own subscription token" ON "public"."calendar_subscription_tokens" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "auth"."uid"() AS "uid") = "user_id")));
 
 
 
-CREATE POLICY "Members can create serving signups" ON "public"."serving_signups" FOR INSERT WITH CHECK ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id") OR (EXISTS ( SELECT 1
+CREATE POLICY "Members can create serving signups" ON "public"."serving_signups" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("created_by" = ( SELECT "auth"."uid"() AS "uid")) AND (( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id") OR (EXISTS ( SELECT 1
    FROM "public"."profile_groups" "pg"
   WHERE (("pg"."profile_id" = ( SELECT "auth"."uid"() AS "uid")) AND ("pg"."group_id" = "serving_signups"."group_id")))))));
 
 
 
-CREATE POLICY "Members can delete own serving signups" ON "public"."serving_signups" FOR DELETE USING ((("created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id")));
+CREATE POLICY "Members can delete own serving signups" ON "public"."serving_signups" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (("created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("group_id"))));
 
 
 
-CREATE POLICY "Members can post own prayer requests" ON "public"."prayer_requests" FOR INSERT WITH CHECK ((( SELECT "public"."is_member"() AS "is_member") AND ("author_id" = ( SELECT "auth"."uid"() AS "uid"))));
+CREATE POLICY "Members can post own prayer requests" ON "public"."prayer_requests" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND ("author_id" = ( SELECT "auth"."uid"() AS "uid"))));
 
 
 
-CREATE POLICY "Members can pray for visible requests" ON "public"."prayer_responses" FOR INSERT WITH CHECK ((( SELECT "public"."is_member"() AS "is_member") AND ("profile_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
+CREATE POLICY "Members can pray for visible requests" ON "public"."prayer_responses" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND ("profile_id" = ( SELECT "auth"."uid"() AS "uid")) AND (EXISTS ( SELECT 1
    FROM "public"."prayer_requests" "r"
   WHERE ("r"."id" = "prayer_responses"."request_id")))));
 
 
 
-CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can read about page" ON "public"."about_page" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can read class teachers" ON "public"."class_teachers" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can read settings" ON "public"."site_settings" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can read settings" ON "public"."site_settings" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can submit their own feedback" ON "public"."feedback" FOR INSERT WITH CHECK (((( SELECT "auth"."uid"() AS "uid") = "profile_id") AND ( SELECT "public"."is_member"() AS "is_member")));
+CREATE POLICY "Members can submit their own feedback" ON "public"."feedback" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "auth"."uid"() AS "uid") = "profile_id") AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can update own subscription token" ON "public"."calendar_subscription_tokens" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id")) WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+CREATE POLICY "Members can update own subscription token" ON "public"."calendar_subscription_tokens" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "auth"."uid"() AS "uid") = "user_id"))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "auth"."uid"() AS "uid") = "user_id")));
 
 
 
-CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view all events" ON "public"."events" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view family invites" ON "public"."family_invites" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view family invites" ON "public"."family_invites" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view family members" ON "public"."family_members" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view family members" ON "public"."family_members" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view family units" ON "public"."family_units" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view fund methods" ON "public"."giving_fund_methods" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view fund methods" ON "public"."giving_fund_methods" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view giving funds" ON "public"."giving_funds" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view giving funds" ON "public"."giving_funds" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view member groups" ON "public"."member_groups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view member groups" ON "public"."member_groups" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view own subscription token" ON "public"."calendar_subscription_tokens" FOR SELECT USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
+CREATE POLICY "Members can view own subscription token" ON "public"."calendar_subscription_tokens" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (( SELECT "auth"."uid"() AS "uid") = "user_id")));
 
 
 
-CREATE POLICY "Members can view prayer call sessions" ON "public"."prayer_call_sessions" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+
+
+CREATE POLICY "Members can view prayer call sessions" ON "public"."prayer_call_sessions" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view prayer responses" ON "public"."prayer_responses" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
+CREATE POLICY "Members can view prayer responses" ON "public"."prayer_responses" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (EXISTS ( SELECT 1
    FROM "public"."prayer_requests" "r"
   WHERE ("r"."id" = "prayer_responses"."request_id")))));
 
 
 
-CREATE POLICY "Members can view profile groups" ON "public"."profile_groups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view profile groups" ON "public"."profile_groups" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view serving attendees" ON "public"."serving_signup_attendees" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view serving attendees" ON "public"."serving_signup_attendees" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view serving settings" ON "public"."serving_team_settings" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view serving settings" ON "public"."serving_team_settings" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT USING (( SELECT "public"."is_member"() AS "is_member"));
+CREATE POLICY "Members can view serving signups" ON "public"."serving_signups" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
 
-CREATE POLICY "Members can view visible prayer requests" ON "public"."prayer_requests" FOR SELECT USING ((( SELECT "public"."is_member"() AS "is_member") AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR (NOT "visible_to_warriors") OR ("visible_to_warriors" AND ( SELECT "public"."is_prayer_warrior"() AS "is_prayer_warrior")))));
+CREATE POLICY "Members can view visible prayer requests" ON "public"."prayer_requests" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member") AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR (NOT "visible_to_warriors"))));
 
 
 
-CREATE POLICY "Members can withdraw own prayer responses" ON "public"."prayer_responses" FOR DELETE USING (("profile_id" = ( SELECT "auth"."uid"() AS "uid")));
+CREATE POLICY "Members can withdraw own prayer responses" ON "public"."prayer_responses" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ("profile_id" = ( SELECT "auth"."uid"() AS "uid"))));
 
 
 
-CREATE POLICY "Posters and admins can delete prayer requests" ON "public"."prayer_requests" FOR DELETE USING ((("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Posters and admins can delete prayer requests" ON "public"."prayer_requests" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Posters and admins can update prayer requests" ON "public"."prayer_requests" FOR UPDATE USING ((("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin")));
+CREATE POLICY "Posters and admins can update prayer requests" ON "public"."prayer_requests" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (("author_id" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin"))));
 
 
 
-CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_household_manager"() AS "is_household_manager")))) WITH CHECK ((((( SELECT "auth"."uid"() AS "uid") = "id") AND ("role" = ( SELECT "public"."get_own_role"() AS "get_own_role")) AND (NOT ("email" IS DISTINCT FROM ( SELECT "public"."get_own_email"() AS "get_own_email")))) OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id"))))));
+CREATE POLICY "Profiles are updatable per access rules" ON "public"."profiles" FOR UPDATE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR ((( SELECT "auth"."uid"() AS "uid") <> "id") AND ("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ( SELECT "public"."is_household_manager"() AS "is_household_manager"))))) WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (((( SELECT "auth"."uid"() AS "uid") = "id") AND ("role" = ( SELECT "public"."get_own_role"() AS "get_own_role")) AND (NOT ("email" IS DISTINCT FROM ( SELECT "public"."get_own_email"() AS "get_own_email")))) OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND ("role" = "public"."get_profile_role"("id")) AND (NOT ("email" IS DISTINCT FROM "public"."get_profile_email"("id")))))));
 
 
 
-CREATE POLICY "Profiles are visible per access rules" ON "public"."profiles" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND (( SELECT "auth"."uid"() AS "uid") <> "id") AND ( SELECT "public"."is_member"() AS "is_member")) OR (( SELECT "public"."is_member"() AS "is_member") AND ("is_unlisted" = false) AND ("role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"])))));
+CREATE POLICY "Profiles are visible per access rules" ON "public"."profiles" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ((( SELECT "auth"."uid"() AS "uid") = "id") OR ( SELECT "public"."is_admin"() AS "is_admin") OR (("family_id" IS NOT NULL) AND ("family_id" = ( SELECT "public"."current_family_id"() AS "current_family_id")) AND (( SELECT "auth"."uid"() AS "uid") <> "id") AND ( SELECT "public"."is_member"() AS "is_member")) OR (( SELECT "public"."is_member"() AS "is_member") AND ("is_unlisted" = false) AND ("role" = ANY (ARRAY['member'::"text", 'content_editor'::"text", 'admin'::"text"]))))));
 
 
 
-CREATE POLICY "Series visible to all" ON "public"."lecture_series" FOR SELECT USING (true);
+CREATE POLICY "Series visible to all" ON "public"."lecture_series" FOR SELECT TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
 
 
 
-CREATE POLICY "Signup owners can add attendees" ON "public"."serving_signup_attendees" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+CREATE POLICY "Signup owners can add attendees" ON "public"."serving_signup_attendees" FOR INSERT TO "authenticated" WITH CHECK ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (EXISTS ( SELECT 1
    FROM "public"."serving_signups" "s"
-  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id"))))));
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id")))))));
 
 
 
-CREATE POLICY "Signup owners can remove attendees" ON "public"."serving_signup_attendees" FOR DELETE USING ((EXISTS ( SELECT 1
+CREATE POLICY "Signup owners can remove attendees" ON "public"."serving_signup_attendees" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (EXISTS ( SELECT 1
    FROM "public"."serving_signups" "s"
-  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id"))))));
+  WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id")))))));
+
+
+
+
+
+
 
 
 
@@ -2497,6 +2577,126 @@ ALTER TABLE "public"."member_groups" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "members can view their own org memberships" ON "public"."organization_members" FOR SELECT USING (("profile_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "org isolation" ON "public"."about_page" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."access_requests" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."announcements" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."calendar_subscription_tokens" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."class_teachers" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."event_calendars" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."events" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."family_invites" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."family_members" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."family_units" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."feedback" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."giving_fund_methods" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."giving_funds" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."lecture_series" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."lectures" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."member_groups" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."organization_members" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."organizations" AS RESTRICTIVE TO "authenticated", "anon" USING (("id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."page_content" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."prayer_call_sessions" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."prayer_requests" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."prayer_responses" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."profile_groups" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."profiles" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."rsvps" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."serving_broadcasts" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."serving_signup_attendees" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."serving_signups" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."serving_team_settings" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
+
+
+
+CREATE POLICY "org isolation" ON "public"."site_settings" AS RESTRICTIVE TO "authenticated", "anon" USING (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id"))) WITH CHECK (("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")));
 
 
 
@@ -2563,6 +2763,12 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "anon";
 GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."app_current_org_id"() TO "service_role";
+
+
+
+GRANT ALL ON FUNCTION "public"."app_request_org_id"() TO "anon";
+GRANT ALL ON FUNCTION "public"."app_request_org_id"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."app_request_org_id"() TO "service_role";
 
 
 
@@ -2662,32 +2868,8 @@ GRANT ALL ON FUNCTION "public"."is_platform_admin"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "anon";
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."is_prayer_warrior"() TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_owner_id" "uuid") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "anon";
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "anon";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_group"() TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "anon";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "authenticated";
-GRANT ALL ON FUNCTION "public"."sync_prayer_access_for_profile"() TO "service_role";
+REVOKE ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") TO "service_role";
 
 
 
@@ -2826,6 +3008,8 @@ GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 GRANT ALL ON TABLE "public"."page_content" TO "anon";
 GRANT ALL ON TABLE "public"."page_content" TO "authenticated";
 GRANT ALL ON TABLE "public"."page_content" TO "service_role";
+
+
 
 
 

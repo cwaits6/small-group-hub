@@ -1,5 +1,22 @@
 -- Seed a local admin user for development
 -- Email: admin@local.dev / Password: password123
+
+-- Phase 2 (CWA-9): handle_new_user() is fail-closed — a signup with no
+-- approved access request or family invite raises. Seed the approval first
+-- so the trigger resolves the admin into the default org.
+INSERT INTO public.access_requests (org_id, name, email, status, reviewed_at)
+SELECT '00000000-0000-0000-0000-000000000001', 'Local Admin', 'admin@local.dev', 'approved', now()
+WHERE NOT EXISTS (
+  -- Scoped to the default org and case-insensitive (GoTrue lowercases auth
+  -- emails). An approved request for this email in ANOTHER org must not
+  -- suppress the seed row — the trigger would then resolve the admin into
+  -- that org; with both rows present it fails loudly (TN002) instead.
+  SELECT 1 FROM public.access_requests
+  WHERE org_id = '00000000-0000-0000-0000-000000000001'
+    AND lower(email) = lower('admin@local.dev')
+    AND status = 'approved'
+);
+
 INSERT INTO auth.users (
   id,
   instance_id,
@@ -49,9 +66,19 @@ ON CONFLICT (id) DO NOTHING;
 -- so we just update it to admin
 UPDATE public.profiles SET role = 'admin' WHERE id = 'a0000000-0000-0000-0000-000000000001';
 
--- Dev-only starter group so the prayer wall's restricted-visibility flow is
--- testable locally. Production deployments create their own groups at
--- /admin/groups.
-INSERT INTO public.member_groups (id, org_id, name, description, color, icon, display_order, grants_prayer_access, is_serving_role)
-VALUES ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Prayer Warriors', 'Sees prayer requests shared with prayer warriors', '#8A6BB5', 'shield', 0, true, true)
-ON CONFLICT (id) DO NOTHING;
+-- Dev-only starter group so the serving flow is testable locally.
+-- Deployments create their own groups at /admin/groups — provisioning
+-- seeds none.
+INSERT INTO public.member_groups (id, org_id, name, description, color, icon, display_order, is_serving_role)
+VALUES ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Serving Team', 'Signs up to serve on Sundays', '#7C9885', 'hands', 0, true)
+-- Refresh the mutable fixture fields on re-seed so a stale local row picks
+-- up seed changes; id and org_id are preserved, and a same-id row that
+-- somehow belongs to another org is left untouched.
+ON CONFLICT (id) DO UPDATE
+  SET name = excluded.name,
+      description = excluded.description,
+      color = excluded.color,
+      icon = excluded.icon,
+      display_order = excluded.display_order,
+      is_serving_role = excluded.is_serving_role
+  WHERE member_groups.org_id = excluded.org_id;

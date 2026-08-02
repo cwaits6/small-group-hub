@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isContentEditorAllowed } from "@/lib/admin-access";
+import { resolveOrgSlug } from "@/lib/org";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -47,6 +48,15 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
+      // Org resolution header (Phase 2, CWA-9) — see lib/org.ts. The
+      // middleware client only serves authenticated auth/role checks, where
+      // the principal's org wins, but every client sends the header so anon
+      // paths never depend on which client they happen to use.
+      global: {
+        headers: {
+          "x-two42-org": resolveOrgSlug(request.headers.get("host")),
+        },
+      },
       cookies: {
         getAll() {
           return request.cookies.getAll();

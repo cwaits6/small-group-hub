@@ -5,7 +5,7 @@ import { siteConfig } from "@/lib/config";
 import { getServingLinkMode } from "@/lib/serving/config";
 import { verifyServingToken } from "@/lib/serving/links";
 import { formatServiceDate, isValidServiceDate } from "@/lib/serving/sundays";
-import { signupDisplayName } from "@/lib/serving/display";
+import { findSpouse, resolveSignupLabel } from "@/lib/serving/server";
 import { LinkActionConfirm } from "@/components/serving/LinkActionConfirm";
 
 export const metadata = { title: `Serving | ${siteConfig.name}` };
@@ -55,7 +55,38 @@ export default async function ServingLinkPage({
 
   const service = await createServiceClient();
 
-  const linkMode = await getServingLinkMode(service);
+  // The group is fetched first: its org_id scopes the link-mode read
+  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  // supabase-js returns { data: null, error } rather than throwing, so an
+  // uncaptured error is indistinguishable from an absent row and renders as
+  // "expired" with nothing in the logs. Phase 3 moves this surface off the
+  // service-role key, at which point 42501 becomes reachable here.
+  const { data: group, error: groupError } = await service
+    .from("member_groups")
+    .select("id, name, org_id")
+    .eq("id", payload.g)
+    .maybeSingle();
+
+  if (groupError) {
+    console.error("Serving link page: group lookup failed for %s:", payload.g, groupError);
+    return (
+      <Message
+        title="Something went wrong"
+        body="We couldn't load this link just now. Please try again in a moment, or sign in to the site to manage your serving Sundays."
+      />
+    );
+  }
+
+  if (!group) {
+    return (
+      <Message
+        title="This link has expired"
+        body="No problem — you can sign in to the site and manage your serving Sundays there."
+      />
+    );
+  }
+
+  const linkMode = await getServingLinkMode(service, group.org_id);
   if (linkMode === "login") {
     return (
       <Message
@@ -65,40 +96,56 @@ export default async function ServingLinkPage({
     );
   }
 
-  const [{ data: profile }, { data: group }, { data: settings }, { data: membership }, { data: signup }] =
-    await Promise.all([
-      service
-        .from("profiles")
-        .select("id, first_name, preferred_name, family_id, role")
-        .eq("id", payload.p)
-        .maybeSingle(),
-      service
-        .from("member_groups")
-        .select("id, name")
-        .eq("id", payload.g)
-        .maybeSingle(),
-      service
-        .from("serving_team_settings")
-        .select("enabled")
-        .eq("group_id", payload.g)
-        .maybeSingle(),
-      service
-        .from("profile_groups")
-        .select("profile_id")
-        .eq("profile_id", payload.p)
-        .eq("group_id", payload.g)
-        .maybeSingle(),
-      service
-        .from("serving_signups")
-        .select(
-          "id, family_id, created_by, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
-        )
-        .eq("group_id", payload.g)
-        .eq("service_date", payload.d)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: profile, error: profileError },
+    { data: settings, error: settingsError },
+    { data: membership, error: membershipError },
+    { data: signup, error: signupError },
+  ] = await Promise.all([
+    service
+      .from("profiles")
+      .select("id, first_name, preferred_name, family_id, role")
+      .eq("id", payload.p)
+      .maybeSingle(),
+    service
+      .from("serving_team_settings")
+      .select("enabled")
+      .eq("group_id", payload.g)
+      .maybeSingle(),
+    service
+      .from("profile_groups")
+      .select("profile_id")
+      .eq("profile_id", payload.p)
+      .eq("group_id", payload.g)
+      .maybeSingle(),
+    service
+      .from("serving_signups")
+      .select(
+        "id, family_id, created_by, serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
+      )
+      .eq("group_id", payload.g)
+      .eq("service_date", payload.d)
+      .maybeSingle(),
+  ]);
 
-  if (!profile || profile.role === "pending" || !group || !settings?.enabled) {
+  const loadError = profileError ?? settingsError ?? membershipError ?? signupError;
+  if (loadError) {
+    console.error(
+      "Serving link page: lookup failed for profile %s, group %s, date %s:",
+      payload.p,
+      payload.g,
+      payload.d,
+      loadError
+    );
+    return (
+      <Message
+        title="Something went wrong"
+        body="We couldn't load this link just now. Please try again in a moment, or sign in to the site to manage your serving Sundays."
+      />
+    );
+  }
+
+  if (!profile || profile.role === "pending" || !settings?.enabled) {
     return (
       <Message
         title="This link has expired"
@@ -136,34 +183,28 @@ export default async function ServingLinkPage({
           preferred_name: string | null;
         })
         .filter(Boolean);
-      let familyName: string | null = null;
-      if (attendees.length > 1 && signup.family_id) {
-        const { data: family } = await service
-          .from("family_units")
-          .select("family_name")
-          .eq("id", signup.family_id)
-          .single();
-        familyName = family?.family_name ?? null;
-      }
+      // resolveSignupLabel is non-fatal: the household name only enriches
+      // the "already covered" copy, so a failed read degrades to the
+      // attendee names.
+      const coveredLabel = await resolveSignupLabel(
+        service,
+        attendees,
+        signup.family_id
+      );
       return (
         <Message
           title="That Sunday is covered"
-          body={`${signupDisplayName(attendees, familyName)} already has ${dateLabel} — thank you for offering! Check the serving page for other open Sundays.`}
+          body={`${coveredLabel} already has ${dateLabel} — thank you for offering! Check the serving page for other open Sundays.`}
         />
       );
     }
 
-    // Offer the spouse option when the member has one on file
+    // Offer the spouse option when the member has one on file. findSpouse is
+    // non-fatal: a failed read degrades to not offering the option rather
+    // than blocking the signup.
     let spouseName: string | null = null;
     if (profile.family_id) {
-      const { data: spouse } = await service
-        .from("profiles")
-        .select("id, first_name, preferred_name")
-        .eq("family_id", profile.family_id)
-        .in("relationship", ["primary", "spouse"])
-        .neq("id", profile.id)
-        .limit(1)
-        .maybeSingle();
+      const spouse = await findSpouse(service, profile.family_id, profile.id);
       spouseName = spouse ? spouse.preferred_name || spouse.first_name : null;
     }
 

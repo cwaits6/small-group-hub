@@ -131,6 +131,15 @@ two42 was built to solve exactly that. It has since been open-sourced so other g
    NEXT_PUBLIC_SITE_URL=http://localhost:3000
    ```
 
+   `NEXT_PUBLIC_ORG_SLUG` is optional and defaults to `default`, which matches the
+   organization the migrations seed. It is sent as the `x-two42-org` header so
+   anonymous visitors resolve the right tenant — if you set it, it must be the slug
+   of the **seeded default organization** (`DEFAULT_ORG_ID` in `lib/org.ts`), not
+   merely any existing `organizations.slug`: the anonymous `/join` form inserts
+   that fixed org id, so a slug pointing at a different organization rejects every
+   join submission. See
+   [`docs/security/tenancy-model.md`](docs/security/tenancy-model.md).
+
 6. **Start the dev server**
    ```bash
    npm run dev
@@ -139,12 +148,27 @@ two42 was built to solve exactly that. It has since been open-sourced so other g
 
 ### Bootstrap Your First Admin
 
-Since there are no admins yet, you need to manually promote the first one:
+Signups are fail-closed: a new user is only created if their email already has an
+approved access request or an open family invite. So approve yourself first, then
+invite yourself, then promote yourself.
 
-1. Go to **Supabase → Authentication → Users → Invite user** and invite your email
-2. Click the magic link in the email to sign in
-3. In **Table Editor → profiles**, find your row and change `role` to `admin`
-4. Refresh — you'll now have access to the Admin Panel at `/admin`
+1. In **Supabase → SQL Editor**, approve your own email:
+
+   ```sql
+   insert into public.access_requests (org_id, name, email, status, reviewed_at)
+   values (
+     (select id from public.organizations where slug = 'default'),
+     'Your Name', 'you@example.com', 'approved', now()
+   );
+   ```
+
+2. Go to **Supabase → Authentication → Users → Invite user** and invite that same email
+3. Click the magic link in the email to sign in
+4. In **Table Editor → profiles**, find your row and change `role` to `admin`
+5. Refresh — you'll now have access to the Admin Panel at `/admin`
+
+> Skipping step 1 makes the invite fail with `TN001 — signup rejected: no approved
+> access request or invite`.
 
 ---
 
@@ -175,7 +199,10 @@ Change `name` and you're done. Colors can be adjusted in `app/globals.css`. Ever
 1. Push your code to GitHub
 2. Connect the repo at [vercel.com/new](https://vercel.com/new)
 3. Add all 5 environment variables (same as `.env.local`, with your production domain for `NEXT_PUBLIC_SITE_URL`)
-4. Click **Deploy**
+4. Only set `NEXT_PUBLIC_ORG_SLUG` if you renamed the seeded organization — it must
+   be the slug of that same seeded organization (`DEFAULT_ORG_ID` in `lib/org.ts`);
+   pointing it at any other organization makes anonymous join requests fail
+5. Click **Deploy**
 
 Then update your Supabase redirect URLs to include your production domain.
 

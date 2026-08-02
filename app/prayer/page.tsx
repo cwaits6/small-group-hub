@@ -4,7 +4,7 @@ import { siteConfig } from "@/lib/config";
 import { displayName, initials } from "@/lib/names";
 import { loadFundFormData } from "@/lib/giving/server";
 import { PrayerBoard } from "@/components/prayer/PrayerBoard";
-import type { PrayerCallSession, PrayerWallRow, PrayerWarrior } from "@/lib/types";
+import type { PrayerCallSession, PrayerWallRow } from "@/lib/types";
 
 export const metadata = { title: `Prayer | ${siteConfig.name}` };
 
@@ -27,7 +27,6 @@ export default async function PrayerPage() {
     { data: requests, error: requestsError },
     { data: sessions, error: sessionsError },
     { members },
-    { data: warriors },
     { data: calSetting },
   ] = await Promise.all([
     supabase
@@ -40,14 +39,6 @@ export default async function PrayerPage() {
       .order("display_order")
       .order("created_at"),
     loadFundFormData(supabase),
-    // Roster of everyone with prayer-wall access (members of any group that
-    // grants it) so posters can see who a warrior-restricted request will
-    // reach. RLS trims this to listed profiles.
-    supabase
-      .from("profiles")
-      .select("id, first_name, last_name, preferred_name, avatar_url")
-      .eq("is_prayer_warrior", true)
-      .order("first_name"),
     supabase
       .from("site_settings")
       .select("value")
@@ -68,8 +59,7 @@ export default async function PrayerPage() {
         Prayer
       </h1>
       <p className="text-lg text-muted-foreground max-w-2xl">
-        Post a request with your name or anonymously, and choose who can see
-        it.
+        Post a request with your name or anonymously.
       </p>
 
       <div className="mt-10">
@@ -84,7 +74,6 @@ export default async function PrayerPage() {
           }}
           isAdmin={isAdmin}
           members={members}
-          warriors={(warriors ?? []) as PrayerWarrior[]}
           prayerCalendarId={calSetting?.value ?? null}
         />
       </div>
