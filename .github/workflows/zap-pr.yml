@@ -55,6 +55,13 @@ jobs:
       # 2. PR: poll Vercel API by commit SHA until READY.
       #    - If Vercel cancels (CI-only commit), fall back to the last READY deployment
       #      on this branch (valid — the app code hasn't changed).
+      #    - If Vercel never registers a deployment at all, fall back the same way after
+      #      a short grace period. A dropped GitHub -> Vercel webhook used to spin here
+      #      for the full 10 minutes and then hard-fail, leaving the PR permanently red
+      #      with no recovery except an unrelated push. The two waits are deliberately
+      #      different lengths: "no record yet" resolves within seconds of the push if it
+      #      is going to resolve at all, while "record exists, still building" legitimately
+      #      takes minutes, so only the former gets the short fuse.
       #    - If no branch deployment has ever existed, fail. Don't scan main (misleading).
       - name: Resolve deployment URL
         id: deployment
@@ -77,18 +84,102 @@ jobs:
             exit 0
           }
 
+          # Every Vercel call goes through here: bounded timeouts and retries so a
+          # single slow or flaky response can't hang the job or (under `bash -e`)
+          # abort the scan outright. Query params are passed as --data-urlencode,
+          # never interpolated into the URL — `&`, `#` and `=` are all legal in
+          # branch names and would otherwise rewrite or truncate the query and
+          # resolve a deployment for a different ref.
+          # CURL_BUDGET caps one lookup INCLUDING its retries; callers set it from
+          # the time left on the overall deadline. --max-time is per attempt, so
+          # without --retry-max-time three retries would silently multiply it
+          # (4 x 15s + delays) and the "10 minute" bound would be fiction.
+          vercel_deployments() {
+            curl -sfS --connect-timeout 10 --max-time 15 \
+              --retry 3 --retry-delay 5 --retry-all-errors \
+              --retry-max-time "${CURL_BUDGET:-30}" \
+              --get 'https://api.vercel.com/v6/deployments' \
+              --data-urlencode "projectId=$VERCEL_PROJECT_ID" \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "$@"
+          }
+
+          # Most recent READY deployment on this branch, if any. Used whenever the
+          # head commit itself has no scannable deployment. state=READY filters
+          # server-side so a page full of BUILDING/CANCELED deployments can't hide
+          # a good one; the client-side select stays as a guard in case the filter
+          # is ignored. Exit 2 = the lookup itself failed, which is distinct from a
+          # successful lookup that found nothing (exit 0, empty output).
+          branch_fallback() {
+            # The recovery path gets its own budget rather than whatever scraps
+            # the poll loop left — it runs at most once, right before exiting.
+            local CURL_BUDGET=30
+            FB=$(vercel_deployments \
+              --data-urlencode "meta-githubCommitRef=$HEAD_REF" \
+              --data-urlencode "state=READY" \
+              --data-urlencode "limit=10") || return 2
+            jq -r '[.deployments[]? | select(.state == "READY")][0].url // ""' <<<"$FB" || return 2
+          }
+
+          # Shared exit path for "the head commit has no scannable deployment".
+          # $1 is the log line for the success case. Returns to the caller only
+          # when the branch genuinely has no READY deployment; a failed lookup is
+          # reported as itself rather than masquerading as "nothing found".
+          try_branch_fallback() {
+            if FB_URL=$(branch_fallback); then
+              if [ -n "$FB_URL" ]; then
+                echo "$1"
+                resolve_url "$FB_URL"
+              fi
+              return 0
+            fi
+            echo "::error::Could not query Vercel for prior branch deployments (network failure or unexpected response)."
+            exit 1
+          }
+
+          # Polls that saw no deployment record at all before giving up on the
+          # commit. Short on purpose: if no record exists ~2 min after the push,
+          # the webhook was dropped and one will never appear. Counts only genuine
+          # "NONE" observations, not failed lookups.
+          MISSING_ATTEMPTS=5
+          MISSING_SEEN=0
+
+          # One wall-clock deadline for the whole resolve phase. A fixed attempt
+          # count is not a time bound once each lookup can retry, so this — not
+          # the per-attempt timeouts — is what actually caps the step.
+          POLL_BUDGET=600
+          DEADLINE=$(( $(date +%s) + POLL_BUDGET ))
+
           # Give Vercel a moment to register the deployment before first poll.
           echo "Waiting 20s for Vercel to register deployment..."
           sleep 20
 
           echo "Polling for Vercel deployment (commit: $COMMIT_SHA)..."
-          for i in $(seq 1 30); do
-            RESPONSE=$(curl -sf \
-              "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitSha=$COMMIT_SHA&limit=1" \
-              -H "Authorization: Bearer $VERCEL_TOKEN")
-            STATE=$(echo "$RESPONSE" | jq -r '.deployments[0].state // "NONE"')
-            URL=$(echo "$RESPONSE"   | jq -r '.deployments[0].url   // ""')
-            echo "Attempt $i/30: state=$STATE"
+          i=0
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            i=$((i + 1))
+            REMAINING=$(( DEADLINE - $(date +%s) ))
+            # Never let a lookup and its retries outlive the deadline.
+            CURL_BUDGET=$(( REMAINING < 30 ? REMAINING : 30 ))
+
+            # A failed lookup or unparseable body is not evidence that the
+            # deployment is missing, so it resolves to UNKNOWN and simply polls
+            # again instead of counting toward MISSING_ATTEMPTS.
+            if RESPONSE=$(vercel_deployments \
+              --data-urlencode "meta-githubCommitSha=$COMMIT_SHA" \
+              --data-urlencode "limit=1"); then
+              STATE=$(jq -r '.deployments[0].state // "NONE"' <<<"$RESPONSE") || STATE=UNKNOWN
+              URL=$(jq -r '.deployments[0].url // ""' <<<"$RESPONSE") || URL=""
+            else
+              STATE=UNKNOWN
+              URL=""
+            fi
+            [ -n "$STATE" ] || STATE=UNKNOWN
+            echo "Attempt $i (${REMAINING}s of budget left): state=$STATE"
+
+            if [ "$STATE" = "NONE" ]; then
+              MISSING_SEEN=$((MISSING_SEEN + 1))
+            fi
 
             if [ "$STATE" = "READY" ] && [ -n "$URL" ]; then
               resolve_url "$URL"
@@ -96,23 +187,27 @@ jobs:
               # Vercel skipped this commit (only non-app files changed).
               # Use the last READY deployment on this branch if one exists.
               echo "Vercel skipped this commit — checking for prior branch deployment..."
-              FB=$(curl -sf \
-                "https://api.vercel.com/v6/deployments?projectId=$VERCEL_PROJECT_ID&meta-githubCommitRef=$HEAD_REF&limit=10" \
-                -H "Authorization: Bearer $VERCEL_TOKEN")
-              FB_URL=$(echo "$FB" | jq -r '[.deployments[] | select(.state=="READY")][0].url // ""')
-              if [ -n "$FB_URL" ]; then
-                echo "Using most recent READY deployment for branch '$HEAD_REF'"
-                resolve_url "$FB_URL"
-              fi
+              try_branch_fallback "Using most recent READY deployment for branch '$HEAD_REF'"
               echo "::error::No deployment found for this PR branch. If this is a CI-only PR, use workflow_dispatch with a target_url to test manually."
               exit 1
             elif [ "$STATE" = "ERROR" ]; then
               echo "::error::Vercel deployment errored out."
               exit 1
+            elif [ "$STATE" = "NONE" ] && [ "$MISSING_SEEN" -ge "$MISSING_ATTEMPTS" ]; then
+              # No deployment record at all after the grace period — a dropped
+              # GitHub -> Vercel webhook. Waiting out the remaining attempts cannot
+              # help: nothing is building. Scan the branch's last good build instead.
+              echo "Vercel never registered a deployment for $COMMIT_SHA after $MISSING_SEEN polls — checking for prior branch deployment..."
+              try_branch_fallback "::warning::No Vercel deployment exists for the head commit; scanning the most recent READY deployment for branch '$HEAD_REF' instead. The scan may not reflect the very latest commit."
+              echo "::error::Vercel never created a deployment for $COMMIT_SHA and this branch has no prior READY deployment. Push again to trigger one, or use workflow_dispatch with a target_url."
+              exit 1
             fi
+
+            # Don't burn the tail of the budget on a sleep we can't poll after.
+            [ $(( DEADLINE - $(date +%s) )) -gt 20 ] || break
             sleep 20
           done
-          echo "::error::Timed out waiting for Vercel deployment (10 min)."
+          echo "::error::Timed out after ~${POLL_BUDGET}s waiting for a READY Vercel deployment (${i} polls, last state: ${STATE:-none})."
           exit 1
 
       # Baseline scan: passive + spider only, no active attack (~3-5 min).
