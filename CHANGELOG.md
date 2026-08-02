@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/cwaits6/two42/compare/v1.1.0...v1.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **tenancy:** derive org_id from validated context at every app service-role call site ([#306](https://github.com/cwaits6/two42/issues/306)) ([5e11b44](https://github.com/cwaits6/two42/commit/5e11b443ac38e8bfeba8d78a7efe81826325f0f1))
+
 # [1.1.0](https://github.com/cwaits6/two42/compare/v1.0.1...v1.1.0) (2026-08-02)
 
 
