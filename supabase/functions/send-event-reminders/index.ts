@@ -1,5 +1,6 @@
 // Supabase Edge Function: send-event-reminders
-// Triggered by pg_cron daily at 8am — schedule defined in
+// Triggered by pg_cron daily at 08:00 UTC ('0 8 * * *' — 04:00 ET during EDT,
+// 03:00 ET during EST; the schedule is not localized) — defined in
 // supabase/migrations/20260729000000_reminder_cron_schedules.sql
 // Sends email reminders to users RSVPed to events starting in the next 24 hours.
 //
@@ -15,6 +16,7 @@ import {
   summarize,
   type Org,
   type OrgListClient,
+  type OrgRunCounts,
 } from "../_shared/orgs.ts";
 
 // What createClient(url, key) actually returns; ReturnType<typeof createClient>
@@ -65,7 +67,7 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-async function runForOrg(supabase: ServiceClient, org: Org): Promise<number> {
+async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCounts> {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -78,9 +80,10 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<number> {
     .lte("start_time", tomorrow.toISOString());
 
   if (eventsError) throw new Error(`events query failed: ${eventsError.message}`);
-  if (!events?.length) return 0;
+  if (!events?.length) return { sent: 0, sendFailures: 0 };
 
   let sent = 0;
+  let sendFailures = 0;
 
   for (const event of events) {
     // Get RSVPs with "yes" or "maybe"
@@ -151,22 +154,43 @@ async function runForOrg(supabase: ServiceClient, org: Org): Promise<number> {
             </div>
           `,
       })) sent++;
+      else sendFailures++;
     }
   }
 
-  return sent;
+  return { sent, sendFailures };
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 Deno.serve(async () => {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
-  // Cast: structurally checking the full SupabaseClient against OrgListClient
-  // trips TS2589 (excessively deep instantiation) on current supabase-js.
-  const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
-  const summary = summarize(await forEachOrg(orgs, (org) => runForOrg(supabase, org)));
-  return new Response(
-    JSON.stringify({ message: `Sent ${summary.emailsSent} reminder emails`, ...summary }),
-    { headers: { "Content-Type": "application/json" } },
-  );
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+    // Cast: structurally checking the full SupabaseClient against OrgListClient
+    // trips TS2589 (excessively deep instantiation) on current supabase-js.
+    const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
+    const summary = summarize(await forEachOrg(orgs, (org) => runForOrg(supabase, org)));
+    if (summary.failed.length > 0 || summary.emailsFailed > 0) {
+      console.error(
+        "run completed with failures: %d/%d orgs failed, %d emails rejected",
+        summary.failed.length,
+        summary.orgs,
+        summary.emailsFailed,
+      );
+    }
+    return new Response(
+      JSON.stringify({ message: `Sent ${summary.emailsSent} reminder emails`, ...summary }),
+      { headers: { "Content-Type": "application/json" } },
+    );
+  } catch (err) {
+    // Total failure (e.g. listActiveOrgs threw) — no org ran, so nothing has
+    // been emailed and a 5xx is safe. 500 vs 200 is the signal that separates
+    // "did not run" from "ran, possibly with per-org failures"; a body here
+    // means net._http_response carries a diagnosis instead of an empty 500.
+    console.error("reminder run aborted before completion:", err);
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
 });

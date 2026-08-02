@@ -79,14 +79,32 @@ Deno.test("forEachOrg runs every org and totals the counts", async () => {
   const seen: string[] = [];
   const results = await forEachOrg([orgA, orgB, orgC], (org) => {
     seen.push(org.slug);
-    return Promise.resolve(seen.length * 10);
+    return Promise.resolve({ sent: seen.length * 10, sendFailures: seen.length });
   });
   assertEquals(seen, ["a", "b", "c"]);
   assertEquals(results, [
-    { orgId: "a-id", slug: "a", sent: 10 },
-    { orgId: "b-id", slug: "b", sent: 20 },
-    { orgId: "c-id", slug: "c", sent: 30 },
+    { orgId: "a-id", slug: "a", sent: 10, sendFailures: 1 },
+    { orgId: "b-id", slug: "b", sent: 20, sendFailures: 2 },
+    { orgId: "c-id", slug: "c", sent: 30, sendFailures: 3 },
   ]);
+});
+
+// Sequential iteration is the sole throttle on outbound Resend concurrency —
+// the module comment makes it load-bearing. Asserting on call order alone
+// cannot catch a regression: Promise.all(orgs.map(fn)) preserves both the
+// `seen` order and the result order. An in-flight counter is what distinguishes
+// them, and it also catches a bounded-concurrency pool, not just full fan-out.
+Deno.test("forEachOrg runs orgs sequentially, never overlapping", async () => {
+  let inFlight = 0;
+  let maxInFlight = 0;
+  await forEachOrg([orgA, orgB, orgC], async () => {
+    inFlight++;
+    maxInFlight = Math.max(maxInFlight, inFlight);
+    await new Promise((r) => setTimeout(r, 5));
+    inFlight--;
+    return { sent: 1, sendFailures: 0 };
+  });
+  assertEquals(maxInFlight, 1, "orgs must not overlap");
 });
 
 Deno.test("forEachOrg continues after one org throws", async () => {
@@ -97,17 +115,18 @@ Deno.test("forEachOrg continues after one org throws", async () => {
     const results = await forEachOrg([orgA, orgB, orgC], (org) => {
       seen.push(org.slug);
       if (org.slug === "b") return Promise.reject(new Error("org b exploded"));
-      return Promise.resolve(1);
+      return Promise.resolve({ sent: 1, sendFailures: 0 });
     });
     assertEquals(seen, ["a", "b", "c"]);
-    assertEquals(results[0], { orgId: "a-id", slug: "a", sent: 1 });
+    assertEquals(results[0], { orgId: "a-id", slug: "a", sent: 1, sendFailures: 0 });
     assertEquals(results[1], {
       orgId: "b-id",
       slug: "b",
       sent: 0,
+      sendFailures: 0,
       error: "org b exploded",
     });
-    assertEquals(results[2], { orgId: "c-id", slug: "c", sent: 1 });
+    assertEquals(results[2], { orgId: "c-id", slug: "c", sent: 1, sendFailures: 0 });
   } finally {
     console.error = originalError;
   }
@@ -119,22 +138,63 @@ Deno.test("forEachOrg records non-Error throws", async () => {
   try {
     const results = await forEachOrg([orgA], () => Promise.reject("plain string"));
     assertEquals(results, [
-      { orgId: "a-id", slug: "a", sent: 0, error: "plain string" },
+      { orgId: "a-id", slug: "a", sent: 0, sendFailures: 0, error: "plain string" },
     ]);
   } finally {
     console.error = originalError;
   }
 });
 
+Deno.test("forEachOrg returns [] for no orgs", async () => {
+  assertEquals(await forEachOrg([], () => Promise.resolve({ sent: 1, sendFailures: 0 })), []);
+});
+
 Deno.test("summarize totals sends and lists failures by slug", () => {
   const results: OrgRunResult[] = [
-    { orgId: "a-id", slug: "a", sent: 5 },
-    { orgId: "b-id", slug: "b", sent: 0, error: "org b exploded" },
-    { orgId: "c-id", slug: "c", sent: 7 },
+    { orgId: "a-id", slug: "a", sent: 5, sendFailures: 0 },
+    { orgId: "b-id", slug: "b", sent: 0, sendFailures: 0, error: "org b exploded" },
+    { orgId: "c-id", slug: "c", sent: 7, sendFailures: 0 },
   ];
   assertEquals(summarize(results), {
     orgs: 3,
     emailsSent: 12,
+    emailsFailed: 0,
     failed: [{ org: "b", error: "org b exploded" }],
   });
+});
+
+// A run in which Resend rejected every email must not be reportable as a quiet
+// day: no send failure throws, so without emailsFailed the body is identical to
+// "nobody had a reminder due".
+Deno.test("summarize counts send failures separately from thrown org failures", () => {
+  const results: OrgRunResult[] = [
+    { orgId: "a-id", slug: "a", sent: 0, sendFailures: 12 },
+    { orgId: "b-id", slug: "b", sent: 0, sendFailures: 5 },
+  ];
+  assertEquals(summarize(results), {
+    orgs: 2,
+    emailsSent: 0,
+    emailsFailed: 17,
+    failed: [],
+  });
+});
+
+Deno.test("summarize reports every org failing without throwing", () => {
+  const results: OrgRunResult[] = [
+    { orgId: "a-id", slug: "a", sent: 0, sendFailures: 0, error: "a died" },
+    { orgId: "b-id", slug: "b", sent: 0, sendFailures: 0, error: "b died" },
+  ];
+  assertEquals(summarize(results), {
+    orgs: 2,
+    emailsSent: 0,
+    emailsFailed: 0,
+    failed: [
+      { org: "a", error: "a died" },
+      { org: "b", error: "b died" },
+    ],
+  });
+});
+
+Deno.test("summarize returns zeroed totals for no orgs", () => {
+  assertEquals(summarize([]), { orgs: 0, emailsSent: 0, emailsFailed: 0, failed: [] });
 });

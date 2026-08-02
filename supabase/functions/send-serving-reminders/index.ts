@@ -19,6 +19,7 @@ import {
   listActiveOrgs,
   summarize,
   type OrgListClient,
+  type OrgRunCounts,
 } from "../_shared/orgs.ts";
 
 // What createClient(url, key) actually returns; ReturnType<typeof createClient>
@@ -183,7 +184,7 @@ async function runDaily(
   supabase: ServiceClient,
   orgId: string,
   canSign: boolean
-): Promise<number> {
+): Promise<OrgRunCounts> {
   const todayDow = new Date().getDay();
 
   // Only process teams whose reminder_days include today
@@ -197,9 +198,10 @@ async function runDaily(
   if (teamSettingsError) {
     throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
   }
-  if (!teamSettings?.length) return 0;
+  if (!teamSettings?.length) return { sent: 0, sendFailures: 0 };
 
   let sent = 0;
+  let sendFailures = 0;
 
   for (const { group_id } of teamSettings) {
     const { data: group, error: groupError } = await supabase
@@ -214,6 +216,9 @@ async function runDaily(
 
     const sunday = nextSunday();
 
+    // The embed carries no org_id filter and needs none: the parent row is
+    // org-filtered below and composite (col, org_id) FKs keep the traversal
+    // inside this tenant. See the note in _shared/orgs.ts.
     const { data: signup, error: signupError } = await supabase
       .from("serving_signups")
       .select("id, serving_signup_attendees(profiles(id, first_name, preferred_name, email))")
@@ -264,10 +269,11 @@ async function runDaily(
           </p>
         `),
       })) sent++;
+      else sendFailures++;
     }
   }
 
-  return sent;
+  return { sent, sendFailures };
 }
 
 // ── Monthly mode: broadcast open Sundays to the whole team ───────────────────
@@ -276,7 +282,7 @@ async function runMonthly(
   supabase: ServiceClient,
   orgId: string,
   canSign: boolean
-): Promise<number> {
+): Promise<OrgRunCounts> {
   const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
     .select("group_id, window_weeks")
@@ -286,9 +292,10 @@ async function runMonthly(
   if (teamSettingsError) {
     throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
   }
-  if (!teamSettings?.length) return 0;
+  if (!teamSettings?.length) return { sent: 0, sendFailures: 0 };
 
   let sent = 0;
+  let sendFailures = 0;
 
   for (const { group_id, window_weeks } of teamSettings) {
     let teamSent = 0;
@@ -318,7 +325,8 @@ async function runMonthly(
 
     if (!openDates.length) continue; // all covered — nothing to broadcast
 
-    // Get all team members
+    // Get all team members. The profiles embed is org-safe by FK traversal
+    // from the org-filtered profile_groups parent — see _shared/orgs.ts.
     const { data: members, error: membersError } = await supabase
       .from("profile_groups")
       .select("profiles(id, first_name, preferred_name, email, email_announcements)")
@@ -379,12 +387,15 @@ async function runMonthly(
           </p>
         `),
       })) { sent++; teamSent++; }
+      else sendFailures++;
     }
 
     // Log broadcast (service key bypasses RLS; sent_by = null marks automated;
     // org_id comes from the row context being processed, not a constant).
     // Do not throw on failure — the emails have already gone out, and an
-    // audit-log problem must not abort the remaining teams.
+    // audit-log problem must not abort the remaining teams. The cost is that
+    // this failure never reaches summary.failed: the run reports unqualified
+    // success and the log line below is the only record.
     const { error: broadcastError } = await supabase.from("serving_broadcasts").insert({
       group_id,
       sent_by: null,
@@ -394,41 +405,79 @@ async function runMonthly(
       recipient_count: teamSent,
     });
     if (broadcastError) {
-      console.error(`[org ${orgId}] serving_broadcasts insert failed for group ${group_id}:`, broadcastError.message);
+      // Full error object, not .message — serving_broadcasts has composite
+      // (group_id, org_id) FKs, whose violations put the offending key values
+      // in `details`/`hint` while `message` stays generic.
+      console.error(
+        "[org %s] serving_broadcasts insert failed for group %s:",
+        orgId,
+        group_id,
+        broadcastError,
+      );
     }
   }
 
-  return sent;
+  return { sent, sendFailures };
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   let mode = "daily";
-  try {
-    const body = await req.json();
-    if (body?.mode === "monthly") mode = "monthly";
-  } catch {
-    // no body or bad JSON — default to daily
+  // An absent body is normal (the daily cron posts nothing); a present but
+  // unparseable body is an alarm — it means the monthly job's {"mode":
+  // "monthly"} did not arrive, and the month's open-Sunday broadcast silently
+  // runs as a daily instead. Detection latency for that is ~30 days, so the
+  // two conditions are distinguished rather than both swallowed.
+  const rawBody = await req.text().catch(() => "");
+  if (rawBody.trim()) {
+    try {
+      const body = JSON.parse(rawBody);
+      if (body?.mode === "monthly") mode = "monthly";
+    } catch (err) {
+      console.error("request body present but unparseable, defaulting to daily:", err);
+    }
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
-  // Cast: structurally checking the full SupabaseClient against OrgListClient
-  // trips TS2589 (excessively deep instantiation) on current supabase-js.
-  const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
-  const summary = summarize(
-    await forEachOrg(orgs, async (org) => {
-      // Resolved inside the per-org callback so a failure here is caught by
-      // this org's boundary instead of aborting the whole run.
-      const canSign = await resolveCanSign(supabase, org.id);
-      return mode === "monthly"
-        ? await runMonthly(supabase, org.id, canSign)
-        : await runDaily(supabase, org.id, canSign);
-    }),
-  );
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+    // Cast: structurally checking the full SupabaseClient against OrgListClient
+    // trips TS2589 (excessively deep instantiation) on current supabase-js.
+    const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
+    const summary = summarize(
+      await forEachOrg(orgs, async (org) => {
+        // Resolved inside the per-org callback so a failure here is caught by
+        // this org's boundary instead of aborting the whole run.
+        const canSign = await resolveCanSign(supabase, org.id);
+        return mode === "monthly"
+          ? await runMonthly(supabase, org.id, canSign)
+          : await runDaily(supabase, org.id, canSign);
+      }),
+    );
 
-  return new Response(
-    JSON.stringify({ mode, message: `Sent ${summary.emailsSent} emails`, ...summary }),
-    { headers: { "Content-Type": "application/json" } }
-  );
+    if (summary.failed.length > 0 || summary.emailsFailed > 0) {
+      console.error(
+        "%s run completed with failures: %d/%d orgs failed, %d emails rejected",
+        mode,
+        summary.failed.length,
+        summary.orgs,
+        summary.emailsFailed,
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ mode, message: `Sent ${summary.emailsSent} emails`, ...summary }),
+      { headers: { "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    // Total failure (e.g. listActiveOrgs threw) — no org ran, so nothing has
+    // been emailed and a 5xx is safe. 500 vs 200 is the signal that separates
+    // "did not run" from "ran, possibly with per-org failures"; a body here
+    // means net._http_response carries a diagnosis instead of an empty 500.
+    console.error("%s reminder run aborted before completion:", mode, err);
+    return new Response(
+      JSON.stringify({ mode, error: err instanceof Error ? err.message : String(err) }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 });

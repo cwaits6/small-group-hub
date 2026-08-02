@@ -82,10 +82,16 @@ jobs:
           git diff --exit-code lib/supabase/database.types.ts
 
   # Edge function unit tests (CWA-10 / #212). Pure units against the
-  # _shared/ modules — no network, no database. `deno check` on the two
-  # index.ts files is deliberately not run here: it fetches esm.sh at build
-  # time and would make the job flaky on a third-party CDN; the
-  # `supabase functions deploy` step below is the bundling gate for those.
+  # _shared/ modules — no network, no database.
+  #
+  # The two index.ts files are checked non-blocking (continue-on-error): they
+  # import an unpinned https://esm.sh/@supabase/supabase-js@2, so a hard gate
+  # would fail on third-party CDN drift rather than on our code. The only
+  # blocking compile of those files is `supabase functions deploy` in the
+  # migrate job below, which runs on push — i.e. POST-merge. A type error in
+  # an index.ts therefore surfaces here as a PR annotation, and if ignored,
+  # fails deploy after merge (blocking the migrations behind it in that job).
+  # Pinning the esm.sh import would let this step become a real gate.
   deno-test:
     name: Edge function unit tests
     runs-on: ubuntu-latest
@@ -106,6 +112,14 @@ jobs:
 
       - name: Run edge function unit tests
         run: deno test --allow-env supabase/functions/tests/
+
+      # Non-blocking: see the note above. Annotates the PR instead of letting
+      # a type error reach the post-merge deploy unseen.
+      - name: Type-check edge function entry points (non-blocking)
+        continue-on-error: true
+        run: |
+          deno check supabase/functions/send-event-reminders/index.ts \
+                     supabase/functions/send-serving-reminders/index.ts
 
   migrate:
     name: Push migrations & dump schema

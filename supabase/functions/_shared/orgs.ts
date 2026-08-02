@@ -5,6 +5,13 @@
 // therefore has to live in the query text: enumerate orgs here, then filter
 // every downstream query on org_id explicitly.
 //
+// The one exception is a nested PostgREST embed — `.select("a, b(c)")` — which
+// cannot take its own filter. Those are safe *because* the parent row was
+// already org-filtered and every FK into an org-owned parent is composite
+// (col, org_id), so an embed traversal cannot leave the tenant. That argument
+// only holds while the parent is filtered: never embed from an unfiltered
+// `.from(`.
+//
 // Deliberately free of any @supabase/supabase-js import so it can be unit
 // tested offline against the structural type below.
 
@@ -47,33 +54,45 @@ export async function listActiveOrgs(supabase: OrgListClient): Promise<Org[]> {
   return data ?? [];
 }
 
-export interface OrgRunResult {
+/**
+ * What a per-org runner reports back. `sendFailures` counts emails Resend
+ * refused or that never left the function — without it, a run in which every
+ * send failed is byte-identical to a legitimately quiet day, because a failed
+ * send throws nothing and so never reaches `failed[]`.
+ */
+export interface OrgRunCounts {
+  sent: number;
+  sendFailures: number;
+}
+
+export interface OrgRunResult extends OrgRunCounts {
   orgId: string;
   slug: string;
-  sent: number;
   error?: string;
 }
 
 /**
  * Run `fn` once per org, sequentially, isolating failures: one org throwing is
  * logged with its slug and recorded, and the remaining orgs still run.
- * Sequential rather than parallel so outbound Resend volume stays at today's
- * rate instead of being multiplied by the org count.
+ * Sequential rather than parallel so outbound Resend concurrency stays at
+ * today's rate instead of being multiplied by the org count.
  */
 export async function forEachOrg(
   orgs: Org[],
-  fn: (org: Org) => Promise<number>,
+  fn: (org: Org) => Promise<OrgRunCounts>,
 ): Promise<OrgRunResult[]> {
   const results: OrgRunResult[] = [];
   for (const org of orgs) {
     try {
-      results.push({ orgId: org.id, slug: org.slug, sent: await fn(org) });
+      const { sent, sendFailures } = await fn(org);
+      results.push({ orgId: org.id, slug: org.slug, sent, sendFailures });
     } catch (err) {
-      console.error(`[org ${org.slug} ${org.id}] reminder run failed:`, err);
+      console.error("[org %s %s] reminder run failed:", org.slug, org.id, err);
       results.push({
         orgId: org.id,
         slug: org.slug,
         sent: 0,
+        sendFailures: 0,
         error: err instanceof Error ? err.message : String(err),
       });
     }
@@ -81,14 +100,26 @@ export async function forEachOrg(
   return results;
 }
 
+/**
+ * Roll per-org results into the HTTP response body.
+ *
+ * The invocation contract is deliberately **HTTP 200 even when every org
+ * failed** — per-org failures are reported in `failed[]`, not in the status
+ * code. Returning 5xx would make pg_cron retry a run that has already sent
+ * real email to the orgs that succeeded, duplicating reminders to every
+ * healthy tenant. Monitor `failed[]` and `emailsFailed`, not the status code;
+ * a 500 means the run did not start (see the handler's catch).
+ */
 export function summarize(results: OrgRunResult[]): {
   orgs: number;
   emailsSent: number;
+  emailsFailed: number;
   failed: Array<{ org: string; error: string }>;
 } {
   return {
     orgs: results.length,
     emailsSent: results.reduce((n, r) => n + r.sent, 0),
+    emailsFailed: results.reduce((n, r) => n + r.sendFailures, 0),
     failed: results
       .filter((r) => r.error)
       .map((r) => ({ org: r.slug, error: r.error as string })),
