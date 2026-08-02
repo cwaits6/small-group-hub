@@ -31,9 +31,13 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+// fileURLToPath, not new URL(...).pathname: the latter stays percent-encoded,
+// so any checkout path containing a space or non-ASCII character would make
+// every readFileSync below fail.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 // The definition site: its `const { createClient } = await import(...)` would
 // read as a client binding to any name-based scan. Nothing in it queries.
@@ -310,7 +314,12 @@ function functionName(fnNode) {
 
 function scanFile(rel) {
   const text = fs.readFileSync(path.join(repoRoot, rel), "utf8");
-  const sourceFile = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  // Kind must follow the extension. Parsing a .ts file as TSX silently
+  // reinterprets angle-bracket type assertions and generic arrows as JSX,
+  // which can drop the .from() chains that follow them from the scan — a
+  // guard that skips a file reports clean on an unscoped query.
+  const scriptKind = rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true, scriptKind);
 
   // Pass 1: identifiers bound as `const X = await createServiceClient()`.
   // Never name-match `supabase` globally — six files bind an AUTHENTICATED

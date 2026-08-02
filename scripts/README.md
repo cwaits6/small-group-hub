@@ -9,7 +9,8 @@ filters were enforced by review alone: deleting one produced no type error, no
 build failure, and no test failure, and is behaviorally invisible while
 exactly one organization exists.
 
-The guard runs as the blocking `Test / tenancy-guard` CI job. Run it locally:
+The guard runs as the blocking `Service-role org_id guard` CI job. Run it
+locally:
 
 ```bash
 npm run guard:tenancy

@@ -12,7 +12,7 @@ PR, with the justification and the tenancy risk.**
 
 ## Automated enforcement (CWA-44)
 
-The blocking `Test / tenancy-guard` CI job runs
+The blocking `Service-role org_id guard` CI job runs
 [`scripts/check-service-role-org-scope.mjs`](../../scripts/README.md), which
 turns this document's rules into assertions:
 
