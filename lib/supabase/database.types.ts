@@ -43,6 +43,7 @@ export type Database = {
       }
       access_requests: {
         Row: {
+          approved_role: string | null
           created_at: string
           email: string
           id: string
@@ -57,6 +58,7 @@ export type Database = {
           token_expires_at: string | null
         }
         Insert: {
+          approved_role?: string | null
           created_at?: string
           email: string
           id?: string
@@ -71,6 +73,7 @@ export type Database = {
           token_expires_at?: string | null
         }
         Update: {
+          approved_role?: string | null
           created_at?: string
           email?: string
           id?: string
@@ -691,21 +694,21 @@ export type Database = {
       }
       giving_fund_methods: {
         Row: {
-          custom_handle: string
+          custom_handle: string | null
           display_order: number
           fund_id: string
           method: string
           org_id: string
         }
         Insert: {
-          custom_handle: string
+          custom_handle?: string | null
           display_order?: number
           fund_id: string
           method: string
           org_id?: string
         }
         Update: {
-          custom_handle?: string
+          custom_handle?: string | null
           display_order?: number
           fund_id?: string
           method?: string
@@ -1038,7 +1041,7 @@ export type Database = {
           id: string
           name: string
           slug: string
-          status: string
+          status: Database["public"]["Enums"]["org_status"]
         }
         Insert: {
           branding?: Json
@@ -1046,7 +1049,7 @@ export type Database = {
           id?: string
           name: string
           slug: string
-          status?: string
+          status?: Database["public"]["Enums"]["org_status"]
         }
         Update: {
           branding?: Json
@@ -1054,7 +1057,7 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
-          status?: string
+          status?: Database["public"]["Enums"]["org_status"]
         }
         Relationships: []
       }
@@ -1089,6 +1092,42 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_handles: {
+        Row: {
+          handle: string
+          method: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          handle: string
+          method: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          handle?: string
+          method?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_handles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_handles_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -2084,7 +2123,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      org_status: "active" | "suspended"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2211,7 +2250,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      org_status: ["active", "suspended"],
+    },
   },
 } as const
 

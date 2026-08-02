@@ -382,6 +382,12 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', owner_a)::text, true);
   lead_own := public.is_group_leader(group_a)::text;
   lead_other := public.is_group_leader(group_b)::text;
+  -- owner_a is org A's founding ADMIN since access_requests.approved_role
+  -- (CWA-11), and giving_can_manage_fund() short-circuits true for any org
+  -- admin — the restrictive org floor is what keeps that in-org. The
+  -- cross-org probe therefore needs a non-admin principal: user-meta@
+  -- resolved into org A as a plain member above.
+  perform set_config('request.jwt.claims', json_build_object('sub', current_setting('su.user_meta_user'))::text, true);
   manage_other := public.giving_can_manage_fund(fund_b)::text;
   reset role;
 
