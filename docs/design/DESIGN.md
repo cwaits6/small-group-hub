@@ -71,15 +71,20 @@ Tokens come in two layers.
 
 **1. Product tokens — fixed.** Defined as CSS custom properties in `app/globals.css` (`@theme`): the Fraunces wordmark, shell chrome, structural neutrals, spacing, radii, and semantic colors. Not overridable by a tenant.
 
-**2. Tenant tokens — per-org (planned).** The **`organizations.branding`** (jsonb) column exists in the schema (Phase 1, #210) but nothing reads or applies it yet — the API and runtime below describe the intended design, not current behavior:
+**2. Tenant tokens — per-org.** The **`organizations.branding`** (jsonb) column (Phase 1, #210) is read at runtime since Phase 3 (#212) by `lib/branding.ts`, which falls back per-key to the platform defaults — an invalid `accent` must never discard a valid `display_name`. Validation is per-key and uneven; the table records what each key actually gets:
 
-| Key | Meaning |
-|---|---|
-| `display_name` | the church/group name shown within their space |
-| `logo_url` | their logo (falls back to their name set in Fraunces) |
-| `accent` | a single accent color, validated for contrast |
+| Key | Meaning | Validation in `resolveBranding()` |
+|---|---|---|
+| `display_name` | the church/group name shown within their space (tab title, email sender name) | non-empty after trim; C0/C1 control characters stripped (it reaches `From:` and `Subject:` headers) |
+| `logo_url` | their logo (falls back to their name set in Fraunces; not rendered yet — a later phase) | **type-checked only** — any string passes, including `javascript:`. Must be validated before the first render |
+| `accent` | a single accent color; drives `--color-brand-primary` **and** the shadcn `--primary` / `--ring` / `--sidebar-primary` / `--sidebar-ring` | strict 6-digit hex — the CSS-injection guard for the `<style>` block and every inline `style=""` in `lib/email/*` |
+| `reply_to` | the org's Reply-To address on outbound email (the platform From: domain never varies) | conservative address shape, ≤ 254 chars; anything else falls back to no Reply-To |
 
-Once built, tenant tokens will be resolved for the active org and applied to the app root at runtime; there will be no per-tenant CSS bundle.
+**Contrast is not yet enforced on `accent`.** `--primary` is paired with a hardcoded `--primary-foreground: #FFFFFF` in `app/globals.css`, so a light accent yields white-on-light on every primary button — `#FFFF00` scores about 1.07:1 against the ≥ 4.5:1 floor below. The read path deliberately does not reject on contrast (the right fix is deriving a per-accent foreground). **This must be enforced on the write path before any admin UI can set `accent`.**
+
+Overriding `accent` produces a *partial* palette by design: `--color-brand-primary-light`, `--color-brand-accent` (Marigold), `--color-brand-warm`, and the email `accentLight` all stay bound to the platform constants rather than inventing a color-derivation scheme. Note the resulting name collision — `branding.accent` overrides `NEXT_PUBLIC_COLOR_PRIMARY`, *not* `NEXT_PUBLIC_COLOR_ACCENT`.
+
+Tenant tokens are resolved for the active org per request and applied to the app root as CSS custom properties in `app/layout.tsx`; there is no per-tenant CSS bundle. Outbound email in `lib/email/*` carries the same identity: the org's `display_name` as the From: display name and `reply_to` as Reply-To.
 
 A tenant may not change layout, typography, structural or semantic colors, or the two42 wordmark on platform-level surfaces (sign-in, "powered by").
 

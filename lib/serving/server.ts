@@ -14,6 +14,7 @@ import {
   sendServingCancelNoticeEmail,
   sendServingConfirmationEmail,
 } from "@/lib/email/serving";
+import { resolveEmailBranding } from "@/lib/email/identity";
 
 export interface NamedProfile {
   id: string;
@@ -96,6 +97,10 @@ export async function sendSignupConfirmation(
     opts.orgId
   );
 
+  // resolveEmailBranding never throws — it degrades to platform defaults —
+  // so this needs no guard of its own.
+  const branding = await resolveEmailBranding(opts.orgId);
+
   const linkMode = await getServingLinkMode(supabase, opts.orgId);
   const cancelUrl =
     linkMode === "signed"
@@ -119,6 +124,7 @@ export async function sendSignupConfirmation(
       serviceDate: opts.serviceDate,
       teamName: opts.groupName,
     }),
+    branding,
   });
 }
 
@@ -134,6 +140,14 @@ export async function notifyLeadersOfCancel(
     excludeProfileId?: string;
   }
 ) {
+  // orgId is required rather than self-resolving: resolveEmailBranding() would
+  // otherwise fall back to the REQUEST org, and resolveOrgSlug() in lib/org.ts
+  // ignores the host and returns NEXT_PUBLIC_ORG_SLUG. That is the right org
+  // today only because the deployment is single-tenant, and this function's
+  // anonymous signed-link caller has no session to resolve from. Both callers
+  // hold an already-authorized org_id and pass it.
+  const branding = await resolveEmailBranding(opts.orgId);
+
   // org_id filter is required: this is an email fan-out surface on a
   // service-role client — an unscoped read would mail another org's leaders.
   const { data: leaders, error } = await service
@@ -168,6 +182,7 @@ export async function notifyLeadersOfCancel(
         teamName: opts.groupName,
         serviceDate: opts.serviceDate,
         servingUrl: `${siteConfig.url}/serving/${opts.groupId}`,
+        branding,
       });
     } catch (err) {
       console.error("Failed to send serving cancel notice to leader:", leader.id, err);

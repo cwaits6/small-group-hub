@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
+import { getOrgBranding } from "@/lib/branding";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -33,10 +34,15 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: siteConfig.name,
-  description: siteConfig.description,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await getOrgBranding();
+  return {
+    // No title.template: 25 pages already hardcode "| siteConfig.name" in
+    // their static titles, and a template would double the suffix.
+    title: b.display_name,
+    description: siteConfig.description,
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -56,10 +62,16 @@ export default async function RootLayout({
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const [{ data }, { data: groupData }] = await Promise.all([
+      const [{ data, error }, { data: groupData, error: groupError }] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("profile_groups").select("group_id").eq("profile_id", user.id),
       ]);
+      // Neither failure can render an error page — the layout wraps every
+      // route — but both degrade silently otherwise: a null profile renders
+      // an authenticated member with the logged-out Header/AppShell, and a
+      // null groupData silently denies serving access.
+      if (error) console.error("Layout: failed to load profile:", error);
+      if (groupError) console.error("Layout: failed to load profile groups:", groupError);
       profile = data;
 
       if (profile?.role === "admin") {
@@ -74,6 +86,11 @@ export default async function RootLayout({
       }
     }
   }
+
+  // Free on every path: generateMetadata() above already awaited this, and
+  // cache() memoizes it for the request. Single-row read — RLS supplies the
+  // id predicate, so there is deliberately no .eq() here (lib/branding.ts).
+  const b = await getOrgBranding();
 
   return (
     // suppressHydrationWarning: the head script sets data-textsize on <html>
@@ -93,12 +110,16 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               :root {
-                --color-brand-primary: ${siteConfig.colors.primary};
+                --color-brand-primary: ${b.accent};
                 --color-brand-primary-light: ${siteConfig.colors.primaryLight};
                 --color-brand-accent: ${siteConfig.colors.accent};
                 --color-brand-warm: ${siteConfig.colors.warm};
                 --color-brand-bg-light: ${siteConfig.colors.backgroundLight};
                 --color-brand-bg-muted: ${siteConfig.colors.backgroundMuted};
+                --primary: ${b.accent};
+                --ring: ${b.accent};
+                --sidebar-primary: ${b.accent};
+                --sidebar-ring: ${b.accent};
               }
             `,
           }}

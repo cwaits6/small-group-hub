@@ -30,7 +30,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(34);
 
 -- Structural, permanent exemptions — named once, joined by every check.
 create temporary table tenancy_root_tables on commit drop as
@@ -295,6 +295,19 @@ select isnt(
   (select count(*)::int from bare_true_policies),
   0,
   'lint DOES flag the injected bare-true probe policy when not excluded'
+);
+
+-- Same org_id-column gate as above excludes organizations, so its permissive
+-- policies (since 20260801000002) sit outside the sweep. A behavioral test
+-- cannot cover the gap either: the restrictive floor enforces the same
+-- predicate, so a bare-true permissive policy here is behaviorally identical
+-- to the correct one. Assert the predicate structurally instead.
+select is(
+  (select count(*)::int from pg_catalog.pg_policies p
+    where p.schemaname = 'public' and p.tablename = 'organizations'
+      and (p.qual = 'true' or p.with_check = 'true')),
+  0,
+  'no policy on organizations has a bare true USING / WITH CHECK'
 );
 
 -- ── Phase 2 check 3 (§9.4): FKs into org-owned parents are composite ───────
