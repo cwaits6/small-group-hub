@@ -572,7 +572,7 @@ trustworthy; do not add a check without one.
 
 ## 12. Open items for the maintainer
 
-1. **Names of the three functional groups** (§6.2) — resolved 2026-08-01:
+1. **Group provisioning** (§6.2) — resolved 2026-08-01:
    provisioning seeds no groups at all; groups are org-defined with per-group
    capability flags and per-membership leadership (see §6.2).
 2. **Group-scoping of member-facing surfaces** (§3.4) — recommend splitting into

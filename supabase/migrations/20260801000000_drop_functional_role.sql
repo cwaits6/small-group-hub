@@ -16,6 +16,19 @@
 -- dead again — no app surface ever consumed it (generated types aside), and
 -- every row on the deployed org carries NULL. Drop it and its partial unique.
 
+-- Preflight: the every-row-is-NULL claim above is asserted, not assumed. The
+-- explicit lock is held until this migration's transaction commits, so no
+-- concurrent write can populate the column between the check and the drop.
+do $$
+begin
+  lock table public.member_groups in access exclusive mode;
+  if exists (
+    select 1 from public.member_groups where functional_role is not null
+  ) then
+    raise exception 'member_groups.functional_role has populated rows; refusing to drop the column';
+  end if;
+end $$;
+
 drop index if exists public.member_groups_org_id_functional_role_key;
 
 alter table public.member_groups

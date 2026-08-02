@@ -16,7 +16,9 @@
 -- access_requests row for the owner's email BEFORE any auth user exists, so
 -- the owner's subsequent signup resolves fail-closed through
 -- handle_new_user(). A profile with that email that already belongs to
--- another org is rejected (TN004), never moved — see step 6.
+-- another org is rejected (TN004), never moved — see step 6. An email that
+-- merely holds an approved access request or unclaimed family invite in
+-- another org is also rejected (TN005) — see step 7.
 --
 -- Authorization: SECURITY DEFINER + search_path = '' + REVOKE from
 -- public/anon/authenticated is the WHOLE story. In Phase 2 the only callers
@@ -108,9 +110,39 @@ begin
       using errcode = 'TN004';
   end if;
 
+  -- 7. Nor may the owner email hold an approved access request or unclaimed
+  -- family invite in another org (a profile-less owner: invited or approved
+  -- elsewhere but not yet signed up). The step-5 insert would then be a
+  -- SECOND match for handle_new_user(), which rejects the owner's eventual
+  -- signup as ambiguous (TN002) — a broken state this transaction would
+  -- otherwise commit. The org_id filter excludes the request created in
+  -- step 5; checked after step 6 so an email that also has a profile keeps
+  -- raising TN004.
+  if exists (
+    select 1 from public.access_requests
+    where lower(email) = lower(_owner_email)
+      and status = 'approved'
+      and org_id <> _org_id
+  ) or exists (
+    select 1 from public.family_invites
+    where lower(invite_email) = lower(_owner_email)
+      and accepted_at is null
+      and org_id <> _org_id
+  ) then
+    raise exception 'owner email % already has an approved access request or unclaimed invite in another organization', _owner_email
+      using errcode = 'TN005';
+  end if;
+
   return _org_id;
 end;
 $$;
 
 revoke execute on function public.provision_organization(text, text, text)
   from public, anon, authenticated;
+
+-- service_role keeps EXECUTE. Supabase's default privileges already grant it;
+-- stating it explicitly means the Phase 4 server-side caller does not depend
+-- on those defaults. service_role is never reachable from clients, so this
+-- does not re-open PostgREST RPC.
+grant execute on function public.provision_organization(text, text, text)
+  to service_role;

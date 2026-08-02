@@ -7,8 +7,14 @@
 INSERT INTO public.access_requests (org_id, name, email, status, reviewed_at)
 SELECT '00000000-0000-0000-0000-000000000001', 'Local Admin', 'admin@local.dev', 'approved', now()
 WHERE NOT EXISTS (
+  -- Scoped to the default org and case-insensitive (GoTrue lowercases auth
+  -- emails). An approved request for this email in ANOTHER org must not
+  -- suppress the seed row — the trigger would then resolve the admin into
+  -- that org; with both rows present it fails loudly (TN002) instead.
   SELECT 1 FROM public.access_requests
-  WHERE email = 'admin@local.dev' AND status = 'approved'
+  WHERE org_id = '00000000-0000-0000-0000-000000000001'
+    AND lower(email) = lower('admin@local.dev')
+    AND status = 'approved'
 );
 
 INSERT INTO auth.users (

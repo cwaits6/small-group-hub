@@ -108,6 +108,50 @@ select ok(
       and om.org_id is distinct from current_setting('su.org_b')::uuid),
   'the rejected call granted no membership outside the owner''s own org');
 
+-- A profile-less owner email is still rejected when another org already
+-- holds an approved access request or unclaimed family invite for it:
+-- provisioning would insert a SECOND approved request, and the owner's
+-- eventual signup would then be ambiguous (TN002) — neither org could
+-- onboard them. The fixture email is stored with capitals to prove the
+-- guard matches case-insensitively, like handle_new_user().
+do $$
+declare
+  _family uuid;
+  _fm uuid;
+begin
+  insert into public.access_requests (org_id, name, email, status)
+    values (current_setting('su.org_a')::uuid, 'unclaimed owner',
+            'Unclaimed-Owner@leak.example.test', 'approved');
+  insert into public.family_units (org_id, family_name)
+    values (current_setting('su.org_b')::uuid, 'pending invite family')
+    returning id into _family;
+  insert into public.family_members (org_id, family_id, first_name, relationship)
+    values (current_setting('su.org_b')::uuid, _family, 'pending invitee', 'spouse')
+    returning id into _fm;
+  insert into public.family_invites (org_id, family_id, family_member_id, invite_email)
+    values (current_setting('su.org_b')::uuid, _family, _fm, 'Pending-Invitee@leak.example.test');
+end $$;
+
+select throws_ok(
+  $$ select public.provision_organization('Signup Suite Org E', 'signup-suite-org-e', 'unclaimed-owner@leak.example.test') $$,
+  'TN005', null,
+  'provisioning refuses an owner email with an approved access request in another org');
+
+select throws_ok(
+  $$ select public.provision_organization('Signup Suite Org F', 'signup-suite-org-f', 'pending-invitee@leak.example.test') $$,
+  'TN005', null,
+  'provisioning refuses an owner email with an unclaimed family invite in another org');
+
+select ok(
+  not exists (select 1 from public.organizations
+    where slug in ('signup-suite-org-e', 'signup-suite-org-f')),
+  'the TN005-rejected calls left no partial org behind (atomic)');
+
+select is(
+  (select count(*)::int from public.access_requests
+    where lower(email) in ('unclaimed-owner@leak.example.test', 'pending-invitee@leak.example.test')),
+  1, 'the TN005-rejected calls left no second approved access request behind');
+
 -- Guardrails
 select throws_ok(
   $$ select public.provision_organization('Dup Org', 'signup-suite-org-a', 'dup@leak.example.test') $$,
