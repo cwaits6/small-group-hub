@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts"],
+    // app/** is included so a route test is not silently collected as zero
+    // tests — an omitted glob makes a test file look green while never running.
+    include: ["lib/**/*.test.ts", "app/**/*.test.ts"],
   },
   resolve: {
     // Mirrors tsconfig.json `paths: { "@/*": ["./*"] }`. A plain alias
