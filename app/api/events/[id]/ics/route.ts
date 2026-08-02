@@ -39,17 +39,6 @@ export async function GET(
     return new Response("Unauthorized", { status: 401 });
   }
 
-  // Sliding expiration — see subscriptionTokenExpiryDate() for policy.
-  const { error: expiryError } = await supabase
-    .from("calendar_subscription_tokens")
-    .update({ expires_at: subscriptionTokenExpiryDate() })
-    .eq("id", sub.id)
-    .eq("org_id", sub.org_id);
-
-  if (expiryError) {
-    console.error("Failed to extend calendar subscription expiry:", expiryError);
-  }
-
   // The service client bypasses RLS, so re-check membership here:
   // events are only visible to member roles (see "Members can view all
   // events" policy). A token minted by a pending, deleted, or otherwise
@@ -70,6 +59,19 @@ export async function GET(
 
   if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Sliding expiration — see subscriptionTokenExpiryDate() for policy. Runs
+  // only after the owner passed the role check above: a token minted by a
+  // pending or deleted profile must not keep renewing itself.
+  const { error: expiryError } = await supabase
+    .from("calendar_subscription_tokens")
+    .update({ expires_at: subscriptionTokenExpiryDate() })
+    .eq("id", sub.id)
+    .eq("org_id", sub.org_id);
+
+  if (expiryError) {
+    console.error("Failed to extend calendar subscription expiry:", expiryError);
   }
 
   // A cross-org event id falls out as "not found" — the 404 below is the
