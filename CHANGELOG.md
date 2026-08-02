@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/cwaits6/two42/compare/v1.2.0...v1.3.0) (2026-08-02)
+
+
+### Features
+
+* **tenancy:** app-layer org resolution + public per-org join route ([#323](https://github.com/cwaits6/two42/issues/323)) ([8566b8f](https://github.com/cwaits6/two42/commit/8566b8f204173a69b78344ce9a413726d0eda9b5)), closes [#314](https://github.com/cwaits6/two42/issues/314) [#213](https://github.com/cwaits6/two42/issues/213)
+
 # [1.2.0](https://github.com/cwaits6/two42/compare/v1.1.1...v1.2.0) (2026-08-02)
 
 
