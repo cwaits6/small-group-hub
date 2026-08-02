@@ -128,12 +128,13 @@ export async function forEachOrg(
 /**
  * Roll per-org results into the HTTP response body.
  *
- * The invocation contract is deliberately **HTTP 200 even when every org
- * failed** — per-org failures are reported in `failed[]`, not in the status
- * code. Returning 5xx would make pg_cron retry a run that has already sent
- * real email to the orgs that succeeded, duplicating reminders to every
- * healthy tenant. Monitor `failed[]` and `emailsFailed`, not the status code;
- * a 500 means the run did not start (see the handler's catch).
+ * The invocation contract: **HTTP 500 when any org failed, 200 only for a
+ * clean run.** The cron schedules invoke via pg_net's `net.http_post`, which
+ * is fire-and-forget — the status lands in `net._http_response` and nothing
+ * retries a 5xx (pg_cron reruns on schedule, not on failure), so a 5xx can
+ * never cause duplicate sends. The body always carries `failed[]` and the
+ * counts for diagnosis. Resend-level rejections (`emailsFailed`) alone stay
+ * 200: the run itself completed and each rejection is logged per profile.
  */
 export function summarize(results: OrgRunResult[]): {
   orgs: number;

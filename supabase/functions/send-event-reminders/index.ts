@@ -199,15 +199,20 @@ Deno.serve(async () => {
         summary.emailsFailed,
       );
     }
+    // Status contract: see summarize() in _shared/orgs.ts — 500 when any org
+    // failed (pg_net records it in net._http_response; nothing retries a 5xx,
+    // so no duplicate sends), 200 only for a clean run.
     return new Response(
       JSON.stringify({ message: `Sent ${summary.emailsSent} reminder emails`, ...summary }),
-      { headers: { "Content-Type": "application/json" } },
+      {
+        status: summary.failed.length > 0 ? 500 : 200,
+        headers: { "Content-Type": "application/json" },
+      },
     );
   } catch (err) {
-    // Total failure (e.g. listActiveOrgs threw) — no org ran, so nothing has
-    // been emailed and a 5xx is safe. 500 vs 200 is the signal that separates
-    // "did not run" from "ran, possibly with per-org failures"; a body here
-    // means net._http_response carries a diagnosis instead of an empty 500.
+    // Total failure (e.g. listActiveOrgs threw) — no org ran. The body means
+    // net._http_response carries a diagnosis instead of an empty 500; the
+    // per-org-failure case above also returns 500 but with `failed[]` populated.
     console.error("reminder run aborted before completion:", err);
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
