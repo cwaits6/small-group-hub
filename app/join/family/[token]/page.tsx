@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { siteConfig } from "@/lib/config";
-import { resolveOrgSlug } from "@/lib/org";
+import { resolveOrgSlug, resolveRequestOrgId } from "@/lib/org";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
 
 interface PageProps {
@@ -24,19 +24,10 @@ export default async function FamilyJoinPage({ params }: PageProps) {
   // way it is the same value the downstream access_requests RLS WITH CHECK
   // compares against, and NULL fails closed below.
   const requestClient = await createClient();
-  const { data: resolvedOrg, error: orgError } = await requestClient.rpc("app_request_org_id");
-  const requestOrgId = typeof resolvedOrg === "string" ? resolvedOrg : null;
-  if (orgError) {
-    console.error("Family join page: org resolution failed:", orgError);
-  } else if (!requestOrgId) {
-    // The RPC succeeded but returned NULL — the resolved slug matches no
-    // organization row. orgError stays null in this path, so without this
-    // log this redirect is indistinguishable from an ordinary invalid token.
-    console.error(
-      "Family join page: org resolution returned NULL for slug %s",
-      resolveOrgSlug()
-    );
-  }
+  const requestOrgId = await resolveRequestOrgId(requestClient, {
+    label: "Family join page",
+    orgSlug: resolveOrgSlug(),
+  });
 
   // Fail closed — same destination the invalid-token branch uses.
   if (!requestOrgId) {

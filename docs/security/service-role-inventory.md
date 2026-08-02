@@ -34,6 +34,12 @@ error and a NULL result (a slug matching no organization row) are each
 logged, then the family-invite page redirects to `/join` and the join form
 renders a "Join requests unavailable" notice instead of a form whose every
 submission would die on a bare `42501`. Neither falls back to an org.
+Since Phase 4b (CWA-48 / #314) that fail-closed resolution is the single
+`resolveRequestOrgId()` in `lib/org.ts` — the RPC call, the NULL narrowing,
+and the dual fail-closed logging live in one place. The public per-org route
+`app/[orgSlug]/join` uses the same helper (with the URL slug overriding the
+`x-two42-org` header on both the request and browser clients) and adds
+**no** service-role client, so it needs no row in the tables below.
 
 One lookup is deliberately unscoped: the initial `signup_token` read in
 `app/api/auth/consume-token/route.ts` and `app/api/auth/verify-token/route.ts`,

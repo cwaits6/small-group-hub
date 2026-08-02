@@ -40,7 +40,13 @@ Rules that make these safe:
   to Phase 3 and must be gated on `auth.role() = 'service_role'`.
 - Every app Supabase client (server, browser, middleware) sends
   `x-two42-org` from `resolveOrgSlug()` in `lib/org.ts` — a trivial
-  host-independent mapping until Phase 5 custom domains.
+  host-independent mapping until Phase 5 custom domains. The one exception:
+  the public per-org routes (`app/[orgSlug]/join`) pass the URL slug
+  explicitly to `createClient(orgSlug)` on **both** the server and browser
+  clients. The DB still validates that slug against a real `organizations`
+  row and still ignores it for authenticated principals, so the trust model
+  is unchanged — the header grants nothing, it only selects which org's
+  already-public surface an anonymous request is about.
 
 Also, `org_id` on every org-owned table is `NOT NULL DEFAULT
 app_current_org_id()`: a write with no session and no explicit org violates
