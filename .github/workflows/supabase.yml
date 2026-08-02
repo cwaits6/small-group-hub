@@ -124,6 +124,7 @@ jobs:
   migrate:
     name: Push migrations & dump schema
     if: github.event_name == 'push'
+    needs: deno-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
