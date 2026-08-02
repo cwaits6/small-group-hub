@@ -13,10 +13,26 @@ export default async function PlatformOrganizationsPage() {
   // list existing is the whole point of the platform surface. See
   // docs/security/service-role-inventory.md.
   const service = await createServiceClient();
-  const { data: orgs } = await service
+  const { data: orgs, error } = await service
     .from("organizations")
     .select("id, name, slug, status, created_at")
     .order("slug");
+
+  // Without this, a failed read is indistinguishable from an empty
+  // deployment: orgs is null and the list renders "No organizations yet."
+  // There is no error boundary in app/, so render the failure rather than
+  // throwing into Next's default error page.
+  if (error) {
+    console.error("Platform organizations list read failed", error);
+    return (
+      <PageContainer size="wide">
+        <PageHeader title="Organizations" />
+        <p className="text-base">
+          Could not load organizations. Try again in a moment.
+        </p>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer size="wide">

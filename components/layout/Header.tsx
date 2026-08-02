@@ -62,7 +62,10 @@ export function Header({ profile, hasServingAccess, isPlatformAdmin = false }: H
   // The admin area supplies its own nav (AdminSidebarNav: a persistent rail on
   // desktop, a horizontal bar on mobile) plus a "Back to app" link. Swap, don't
   // stack: suppress the member-nav drawer here so admin has one nav system.
-  const isAdminArea = pathname.startsWith("/admin");
+  // /platform is the same deal — a platform admin who also has a member
+  // profile would otherwise get the member drawer stacked on the platform nav.
+  const isAdminArea =
+    pathname.startsWith("/admin") || pathname.startsWith("/platform");
 
   return (
     <header

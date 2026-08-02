@@ -188,7 +188,17 @@ export function OrganizationDetail({ org, owner }: OrganizationDetailProps) {
             size="lg"
             className="bg-brand-primary hover:bg-brand-primary/90 text-lg"
             disabled={busy === "branding"}
-            onClick={() => void patchOrg({ branding }, "branding")}
+            onClick={() => {
+              // page.tsx defaults an absent display_name to "", and the PATCH
+              // handler rejects an empty display_name with a 400. Sending the
+              // whole object would therefore make accent, logo, and reply_to
+              // unsavable for any org that has no display name yet. The
+              // handler keys off presence, so omit it when it is blank.
+              const { display_name, ...rest } = branding;
+              const payload =
+                display_name.trim() === "" ? rest : { display_name, ...rest };
+              void patchOrg({ branding: payload }, "branding");
+            }}
           >
             {busy === "branding" ? "Saving..." : "Save branding"}
           </Button>
@@ -208,8 +218,16 @@ export function OrganizationDetail({ org, owner }: OrganizationDetailProps) {
                   {owner.inviteOutstanding ? (
                     <>
                       An invite link is outstanding
+                      {/* Explicit locale and time zone — a bare
+                          toLocaleDateString() renders in the server's zone
+                          during SSR and the browser's on hydration. */}
                       {owner.tokenExpiresAt
-                        ? ` (expires ${new Date(owner.tokenExpiresAt).toLocaleDateString()})`
+                        ? ` (expires ${new Date(owner.tokenExpiresAt).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                            timeZone: "UTC",
+                          })})`
                         : ""}
                       . Sending again invalidates the previous link.
                     </>

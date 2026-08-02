@@ -14,7 +14,21 @@ export default async function PlatformOverviewPage() {
   // platform-admin authority is cross-org by design. See
   // docs/security/service-role-inventory.md.
   const service = await createServiceClient();
-  const { data: orgs } = await service.from("organizations").select("id, status");
+  const { data: orgs, error } = await service.from("organizations").select("id, status");
+
+  // A failed read would otherwise render a confident "0 active, 0 suspended"
+  // — wrong lifecycle data is worse here than an explicit failure.
+  if (error) {
+    console.error("Platform overview organizations read failed", error);
+    return (
+      <PageContainer>
+        <PageHeader title="Platform" />
+        <p className="text-base">
+          Could not load organization counts. Try again in a moment.
+        </p>
+      </PageContainer>
+    );
+  }
 
   const active = (orgs ?? []).filter((o) => o.status === "active").length;
   const suspended = (orgs ?? []).length - active;

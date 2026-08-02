@@ -24,21 +24,49 @@ export default async function PlatformOrganizationPage({ params }: PageProps) {
   // boundary on this BYPASSRLS client. See
   // docs/security/service-role-inventory.md.
   const service = await createServiceClient();
-  const { data: org } = await service
+  const { data: org, error: orgError } = await service
     .from("organizations")
     .select("id, name, slug, status, created_at, branding")
     .eq("id", id)
     .maybeSingle();
 
+  // Distinguish "read failed" from "no such organization" — both leave org
+  // null, but only the second should bounce to the list.
+  if (orgError) {
+    console.error("Platform organization detail read failed", orgError);
+    return (
+      <PageContainer>
+        <PageHeader title="Organization" backHref="/platform/organizations" backLabel="Back to Organizations" />
+        <p className="text-base">
+          Could not load this organization. Try again in a moment.
+        </p>
+      </PageContainer>
+    );
+  }
+
   if (!org) redirect("/platform/organizations");
 
-  const { data: ownerRequests } = await service
+  const { data: ownerRequests, error: ownerError } = await service
     .from("access_requests")
     .select("name, email, signup_token, token_expires_at")
     .eq("org_id", id)
     .eq("approved_role", "admin")
     .order("created_at", { ascending: true })
     .limit(1);
+
+  // A failed read here would render "No founding-admin request exists",
+  // which could lead an operator to provision a second owner.
+  if (ownerError) {
+    console.error("Platform founding-admin read failed", ownerError);
+    return (
+      <PageContainer>
+        <PageHeader title={org.name} subtitle={org.slug} backHref="/platform/organizations" backLabel="Back to Organizations" />
+        <p className="text-base">
+          Could not load the founding-admin request. Try again in a moment.
+        </p>
+      </PageContainer>
+    );
+  }
 
   const ownerRow = ownerRequests?.[0] ?? null;
   const owner: OwnerRequest | null = ownerRow

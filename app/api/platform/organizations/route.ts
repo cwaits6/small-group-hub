@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { EMAIL } from "@/lib/branding";
 import { requirePlatformAdmin } from "@/lib/platform-access";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
   if (!SLUG.test(slug)) {
     return NextResponse.json(
       { error: "Slug must be lowercase letters, numbers, and hyphens." },
+      { status: 400 }
+    );
+  }
+  // The owner email becomes the founding admin's identifier on the
+  // access_requests row and is what the invite is later sent to, so a
+  // malformed address here surfaces as a silent delivery failure much later.
+  if (ownerEmail.length > 254 || !EMAIL.test(ownerEmail)) {
+    return NextResponse.json(
+      { error: "Enter a valid owner email address." },
       { status: 400 }
     );
   }

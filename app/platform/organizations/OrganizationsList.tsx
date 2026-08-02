@@ -35,6 +35,12 @@ interface OrganizationsListProps {
 // clean message before the RPC raises.
 const SLUG = /^[a-z0-9][a-z0-9-]{1,62}$/;
 
+// Mirrors EMAIL in lib/branding.ts. Copied rather than imported: that module
+// pulls in the server Supabase client, and this is a client component. The
+// route handler re-validates with the shared constant — this is only to save
+// the operator a round trip.
+const EMAIL = /^[^\s@<>,;:"\\]+@[^\s@<>,;:"\\]+\.[^\s@<>,;:"\\]+$/;
+
 export function OrganizationsList({ initialOrgs }: OrganizationsListProps) {
   const router = useRouter();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -51,6 +57,10 @@ export function OrganizationsList({ initialOrgs }: OrganizationsListProps) {
     }
     if (!SLUG.test(slug)) {
       toast.error("Slug must be lowercase letters, numbers, and hyphens.");
+      return;
+    }
+    if (ownerEmail.length > 254 || !EMAIL.test(ownerEmail)) {
+      toast.error("Enter a valid owner email address.");
       return;
     }
 
@@ -112,7 +122,17 @@ export function OrganizationsList({ initialOrgs }: OrganizationsListProps) {
                     </div>
                     <p className="text-base text-muted-foreground">{org.slug}</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Created {new Date(org.created_at).toLocaleDateString()}
+                      {/* Locale and time zone are explicit: a bare
+                          toLocaleDateString() renders in the server's zone
+                          during SSR and the browser's on hydration, which
+                          React reports as a mismatch. */}
+                      Created{" "}
+                      {new Date(org.created_at).toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                        timeZone: "UTC",
+                      })}
                     </p>
                   </div>
                   <div className="flex gap-2 shrink-0">
