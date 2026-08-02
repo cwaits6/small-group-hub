@@ -71,4 +71,14 @@ UPDATE public.profiles SET role = 'admin' WHERE id = 'a0000000-0000-0000-0000-00
 -- seeds none.
 INSERT INTO public.member_groups (id, org_id, name, description, color, icon, display_order, is_serving_role)
 VALUES ('b0000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Serving Team', 'Signs up to serve on Sundays', '#7C9885', 'hands', 0, true)
-ON CONFLICT (id) DO NOTHING;
+-- Refresh the mutable fixture fields on re-seed so a stale local row picks
+-- up seed changes; id and org_id are preserved, and a same-id row that
+-- somehow belongs to another org is left untouched.
+ON CONFLICT (id) DO UPDATE
+  SET name = excluded.name,
+      description = excluded.description,
+      color = excluded.color,
+      icon = excluded.icon,
+      display_order = excluded.display_order,
+      is_serving_role = excluded.is_serving_role
+  WHERE member_groups.org_id = excluded.org_id;
