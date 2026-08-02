@@ -17,9 +17,10 @@ import type { Profile } from "@/lib/types";
 interface HeaderProps {
   profile: Profile | null;
   hasServingAccess: boolean;
+  isPlatformAdmin?: boolean;
 }
 
-export function Header({ profile, hasServingAccess }: HeaderProps) {
+export function Header({ profile, hasServingAccess, isPlatformAdmin = false }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { collapsed, setCollapsed } = useSidebar();
@@ -61,7 +62,10 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
   // The admin area supplies its own nav (AdminSidebarNav: a persistent rail on
   // desktop, a horizontal bar on mobile) plus a "Back to app" link. Swap, don't
   // stack: suppress the member-nav drawer here so admin has one nav system.
-  const isAdminArea = pathname.startsWith("/admin");
+  // /platform is the same deal — a platform admin who also has a member
+  // profile would otherwise get the member drawer stacked on the platform nav.
+  const isAdminArea =
+    pathname.startsWith("/admin") || pathname.startsWith("/platform");
 
   return (
     <header
@@ -162,6 +166,17 @@ export function Header({ profile, hasServingAccess }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {isPlatformAdmin && (
+            <Button
+              variant="ghost"
+              size="lg"
+              className="text-base text-slate-600 hover:text-brand-primary"
+              nativeButton={false}
+              render={<Link href="/platform" />}
+            >
+              Platform
+            </Button>
+          )}
           {profile ? (
             <Button
               variant="outline"

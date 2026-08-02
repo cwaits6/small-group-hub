@@ -78,6 +78,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // getUser() may refresh the session, in which case setAll() has written the
+  // rotated auth cookies onto supabaseResponse. A bare NextResponse.redirect()
+  // starts from an empty cookie jar and drops them, so the browser keeps
+  // replaying the stale refresh token. Every early return below goes through
+  // this helper.
+  const redirectTo = (url: URL) => {
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie);
+    });
+    return response;
+  };
+
   const pathname = request.nextUrl.pathname;
 
   // Protected routes - require authentication
@@ -86,12 +99,13 @@ export async function updateSession(request: NextRequest) {
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
   const isAdmin = adminPaths.some((p) => pathname.startsWith(p));
+  const isPlatform = pathname.startsWith("/platform");
 
-  if ((isProtected || isAdmin) && !user) {
+  if ((isProtected || isAdmin || isPlatform) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+    return redirectTo(url);
   }
 
   if (isAdmin && user) {
@@ -107,7 +121,20 @@ export async function updateSession(request: NextRequest) {
     if (profile?.role !== "admin" && !contentEditorAllowed) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
+      return redirectTo(url);
+    }
+  }
+
+  // /platform is gated on platform_admins, never profiles.role — an org
+  // admin is not a platform operator. Defense in depth only: the layout,
+  // pages, and route handlers each repeat this check independently. An RPC
+  // error denies (fail closed).
+  if (isPlatform && user) {
+    const { data: isPlatformAdmin, error } = await supabase.rpc("is_platform_admin");
+    if (error || isPlatformAdmin !== true) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return redirectTo(url);
     }
   }
 

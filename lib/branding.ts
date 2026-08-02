@@ -7,6 +7,19 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
+import { HEX } from "@/lib/contrast";
+
+// The contrast math and the write-path accent guard (#319) live in
+// lib/contrast.ts so the client-side branding form can share them; this
+// module stays their canonical server-side import site.
+export {
+  ACCENT_CONTRAST_REFERENCE,
+  ACCENT_CONTRAST_MIN,
+  relativeLuminance,
+  contrastRatio,
+  validateAccent,
+  type AccentValidation,
+} from "@/lib/contrast";
 
 export type OrgBranding = {
   display_name: string;
@@ -22,24 +35,18 @@ export const BRANDING_DEFAULTS: OrgBranding = {
   reply_to: null,
 };
 
-// accent is interpolated into every CSS context this app emits — the <style>
-// block in app/layout.tsx and the inline style="" attributes throughout
-// lib/email/* — with no per-sink escaping. This strict hex shape is the
-// CSS-injection guard for all of them. Do not relax it.
-const HEX = /^#[0-9a-fA-F]{6}$/;
-
 // display_name reaches RFC 5322 headers (From:, and three Subject: lines in
 // lib/email/resend.ts) and the document <title>; strip C0/C1 control
 // characters at this boundary so no sink has to. formatFromHeader() keeps its
 // own CR/LF strip as defence-in-depth.
-const CONTROL = /[\u0000-\u001F\u007F-\u009F]/g;
+export const CONTROL = /[\u0000-\u001F\u007F-\u009F]/g;
 
 // reply_to becomes an RFC 5322 Reply-To header via the Resend API, which
 // rejects malformed addresses — and sendInviteEmail throws on rejection, so
 // one bad character in the branding column would 500 every invite send.
 // Deliberately conservative: over-rejecting yields no Reply-To header, which
 // is the pre-branding behavior and strictly better than a failed send.
-const EMAIL = /^[^\s@<>,;:"\\]+@[^\s@<>,;:"\\]+\.[^\s@<>,;:"\\]+$/;
+export const EMAIL = /^[^\s@<>,;:"\\]+@[^\s@<>,;:"\\]+\.[^\s@<>,;:"\\]+$/;
 
 /**
  * Merge a raw branding jsonb value onto the defaults. Falls back per-key —

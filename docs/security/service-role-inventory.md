@@ -102,10 +102,31 @@ What earlier phases already closed on this surface:
 - The DB-layer analogue, `giving_stewards_can_manage()`, is org-scoped in
   the schema itself.
 
-## App routes and pages (13 sites)
+## Phase 4a status (CWA-11 / #213, stream 1/2)
+
+The `/platform` operator surface introduces a new anchor class:
+**platform-admin authority**. Every `/platform` site below gates on
+`getPlatformAdmin()` / `requirePlatformAdmin()` (`lib/platform-access.ts`),
+resolved through the cookie-bound request client — `is_platform_admin()` is
+SECURITY DEFINER over `platform_admins` keyed on `auth.uid()`, and an RPC
+error denies. A platform admin's authority is **cross-org by design**, so
+these sites read `organizations` (the tenant root, no `org_id`) unfiltered
+or by `.eq("id", id)`; that is the point of the surface, not a leak. The one
+org-owned table touched (`access_requests`) is always filtered
+`.eq("org_id", id)` — on a BYPASSRLS client that filter IS the tenant
+boundary. The restrictive RLS floor gains no platform-admin escape hatch;
+the cross-org reach lives only in these app-layer sites.
+
+## App routes and pages (19 sites)
 
 | File | Why service-role is used | Org derived from | Scoped queries |
 |------|--------------------------|------------------|----------------|
+| `app/platform/page.tsx` | Platform overview counts every org across tenants; RLS pins a request to one org | Platform-admin authority: `getPlatformAdmin()` via the cookie-bound request client; cross-org by design, confined to `organizations` (tenant root) | `organizations` (id, status — deliberately unfiltered) |
+| `app/platform/organizations/page.tsx` | Org list across tenants — the surface's purpose | Platform-admin authority (as above); confined to `organizations` (tenant root) | `organizations` (deliberately unfiltered list) |
+| `app/platform/organizations/[id]/page.tsx` | Org detail + founding-admin request; both invisible to the caller's own-org RLS | Platform-admin authority; org id from the route param | `organizations` `.eq("id", id)`; `access_requests` `.eq("org_id", id).eq("approved_role", "admin")` |
+| `app/api/platform/organizations/route.ts` | `provision_organization()` is EXECUTE-granted to `service_role` only | Platform-admin authority; the RPC creates the org and derives everything from it transactionally | `rpc("provision_organization")` only |
+| `app/api/platform/organizations/[id]/route.ts` | Status/branding writes on the tenant root, which has no org-admin write policy | Platform-admin authority; org id from the route param | `organizations` read + update `.eq("id", id)` (branding merged, never replaced) |
+| `app/api/platform/organizations/[id]/invite-owner/route.ts` | Mints the founding admin's `signup_token`; the platform admin's own-org RLS could never reach the new org's request row | Platform-admin authority; org id from the route param | `access_requests` update `.eq("org_id", id).eq("approved_role", "admin").eq("email", ownerEmail)`; rollback update on the same filters + minted token; email branding via `resolveEmailBranding(id)` |
 | `app/serving/go/page.tsx` | Unauthenticated, HMAC-signed serving link; no session exists to satisfy RLS | HMAC-validated `member_groups` row; link rejected when `profiles.org_id` disagrees | `serving_team_settings`, `profile_groups`, `serving_signups`, `profiles` (spouse), `family_units` (label) |
 | `app/serving/[groupId]/page.tsx` | Surfaces pending (never-logged-in) spouse profiles that RLS hides from the caller | Caller's own RLS-scoped profile | `profiles` (spouse lookup) |
 | `app/join/family/[token]/page.tsx` | Signed family-invite link resolved before login; no session | `app_request_org_id()` via the cookie-bound request client (`x-two42-org` header for anonymous visitors, own org for signed-in ones); invite lookup filtered on it | `family_invites` |

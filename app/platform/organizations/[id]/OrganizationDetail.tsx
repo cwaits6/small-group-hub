@@ -1,0 +1,302 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Mail, Pause, Play } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ACCENT_CONTRAST_MIN,
+  ACCENT_CONTRAST_REFERENCE,
+  contrastRatio,
+  HEX,
+} from "@/lib/contrast";
+import type { Database } from "@/lib/supabase/database.types";
+
+type OrgStatus = Database["public"]["Enums"]["org_status"];
+
+export interface OrgDetail {
+  id: string;
+  name: string;
+  slug: string;
+  status: OrgStatus;
+  branding: {
+    display_name: string;
+    logo_url: string;
+    accent: string;
+    reply_to: string;
+  };
+}
+
+export interface OwnerRequest {
+  name: string;
+  email: string;
+  inviteOutstanding: boolean;
+  tokenExpiresAt: string | null;
+}
+
+interface OrganizationDetailProps {
+  org: OrgDetail;
+  owner: OwnerRequest | null;
+}
+
+export function OrganizationDetail({ org, owner }: OrganizationDetailProps) {
+  const router = useRouter();
+  const [branding, setBranding] = useState(org.branding);
+  const [brandingError, setBrandingError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"branding" | "invite" | "status" | null>(null);
+
+  // Display-only readout; the API's validateAccent() is the enforced guard.
+  const accentValid = HEX.test(branding.accent);
+  const accentRatio = accentValid
+    ? contrastRatio(branding.accent, ACCENT_CONTRAST_REFERENCE)
+    : null;
+
+  async function patchOrg(body: Record<string, unknown>, kind: "branding" | "status") {
+    setBusy(kind);
+    if (kind === "branding") setBrandingError(null);
+    try {
+      const res = await fetch(`/api/platform/organizations/${org.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.error || "Failed to update organization.";
+        if (kind === "branding") setBrandingError(message);
+        toast.error(message);
+        return;
+      }
+      toast.success(kind === "branding" ? "Branding saved." : "Status updated.");
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSendInvite() {
+    if (!owner) return;
+    setBusy("invite");
+    try {
+      const res = await fetch(`/api/platform/organizations/${org.id}/invite-owner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerEmail: owner.email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error || "Failed to send invite.");
+        return;
+      }
+      toast.success(`Invite sent to ${owner.email}.`);
+      router.refresh();
+    } catch (err) {
+      console.error(err);
+      toast.error("Network error. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function handleStatusChange(next: OrgStatus) {
+    if (next === "suspended") {
+      if (
+        !confirm(
+          `Suspending stops reminder emails for this organization. Members can still sign in. Suspend ${org.name}?`
+        )
+      ) {
+        return;
+      }
+    }
+    void patchOrg({ status: next }, "status");
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Branding</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="branding-display-name">Display name</Label>
+            <Input
+              id="branding-display-name"
+              value={branding.display_name}
+              onChange={(e) => setBranding({ ...branding, display_name: e.target.value })}
+              placeholder={org.name}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="branding-accent">Accent color</Label>
+            <Input
+              id="branding-accent"
+              value={branding.accent}
+              onChange={(e) => setBranding({ ...branding, accent: e.target.value })}
+              placeholder="#B85C38"
+            />
+            {branding.accent !== "" && (
+              <p className="text-sm text-muted-foreground">
+                {accentRatio !== null ? (
+                  <>
+                    {accentRatio >= ACCENT_CONTRAST_MIN ? "Passes" : "Fails"} at{" "}
+                    {accentRatio.toFixed(2)}:1 against white text ({ACCENT_CONTRAST_MIN}:1
+                    required).
+                  </>
+                ) : (
+                  <>Enter a 6-digit hex color such as #B85C38.</>
+                )}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Leave empty to use the platform default.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="branding-logo-url">Logo URL</Label>
+            <Input
+              id="branding-logo-url"
+              value={branding.logo_url}
+              onChange={(e) => setBranding({ ...branding, logo_url: e.target.value })}
+              placeholder="https://example.org/logo.png"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="branding-reply-to">Reply-to email</Label>
+            <Input
+              id="branding-reply-to"
+              type="email"
+              value={branding.reply_to}
+              onChange={(e) => setBranding({ ...branding, reply_to: e.target.value })}
+              placeholder="office@example.org"
+            />
+          </div>
+          {brandingError && (
+            <p className="text-base font-medium text-destructive" role="alert">
+              {brandingError}
+            </p>
+          )}
+          <Button
+            size="lg"
+            className="bg-brand-primary hover:bg-brand-primary/90 text-lg"
+            disabled={busy === "branding"}
+            onClick={() => {
+              // page.tsx defaults an absent display_name to "", and the PATCH
+              // handler rejects an empty display_name with a 400. Sending the
+              // whole object would therefore make accent, logo, and reply_to
+              // unsavable for any org that has no display name yet. The
+              // handler keys off presence, so omit it when it is blank.
+              const { display_name, ...rest } = branding;
+              const payload =
+                display_name.trim() === "" ? rest : { display_name, ...rest };
+              void patchOrg({ branding: payload }, "branding");
+            }}
+          >
+            {busy === "branding" ? "Saving..." : "Save branding"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Founding admin</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {owner ? (
+            <>
+              <div>
+                <p className="text-xl font-semibold">{owner.email}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {owner.inviteOutstanding ? (
+                    <>
+                      An invite link is outstanding
+                      {/* Explicit locale and time zone — a bare
+                          toLocaleDateString() renders in the server's zone
+                          during SSR and the browser's on hydration. */}
+                      {owner.tokenExpiresAt
+                        ? ` (expires ${new Date(owner.tokenExpiresAt).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                            timeZone: "UTC",
+                          })})`
+                        : ""}
+                      . Sending again invalidates the previous link.
+                    </>
+                  ) : (
+                    <>No invite has been sent yet.</>
+                  )}
+                </p>
+              </div>
+              <Button
+                size="lg"
+                className="bg-brand-primary hover:bg-brand-primary/90 text-lg"
+                disabled={busy === "invite"}
+                onClick={() => void handleSendInvite()}
+              >
+                <Mail className="mr-1 h-5 w-5" />
+                {busy === "invite"
+                  ? "Sending..."
+                  : owner.inviteOutstanding
+                    ? "Resend invite"
+                    : "Send invite"}
+              </Button>
+            </>
+          ) : (
+            <p className="text-base text-muted-foreground">
+              No founding-admin request exists for this organization.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lifecycle</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-base">Current status:</span>
+            <Badge variant={org.status === "active" ? "secondary" : "destructive"}>
+              {org.status === "active" ? "Active" : "Suspended"}
+            </Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Suspending stops reminder emails for this organization. Members can
+            still sign in.
+          </p>
+          {org.status === "active" ? (
+            <Button
+              size="lg"
+              variant="destructive"
+              className="text-lg"
+              disabled={busy === "status"}
+              onClick={() => handleStatusChange("suspended")}
+            >
+              <Pause className="mr-1 h-5 w-5" />
+              {busy === "status" ? "Updating..." : "Suspend organization"}
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              className="bg-brand-primary hover:bg-brand-primary/90 text-lg"
+              disabled={busy === "status"}
+              onClick={() => handleStatusChange("active")}
+            >
+              <Play className="mr-1 h-5 w-5" />
+              {busy === "status" ? "Updating..." : "Reactivate organization"}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

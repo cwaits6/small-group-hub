@@ -156,8 +156,8 @@ insert into tenancy_leak_results
 insert into tenancy_leak_results
   select is(
     (select role from public.profiles where id = current_setting('leak_suite.owner_a')::uuid),
-    'member',
-    'owner A''s approved access request made them a member'
+    'admin',
+    'owner A''s provisioning access request (approved_role = admin, CWA-11) made them the founding admin'
   );
 
 -- ── Fixture-completeness gate (§9.1) ────────────────────────────────────────
