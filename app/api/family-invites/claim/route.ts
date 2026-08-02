@@ -40,12 +40,16 @@ export async function POST(request: Request) {
   // Use service client so we can bypass RLS (new user may not yet have member role)
   const service = await createServiceClient();
 
-  // Load the invite
+  // Load the invite — its row is the org anchor for every write below
   const { data: invite, error: inviteError } = await service
     .from("family_invites")
-    .select("id, family_id, family_member_id, invite_email, accepted_at")
+    .select("id, org_id, family_id, family_member_id, invite_email, accepted_at")
     .eq("token", invite_token)
     .maybeSingle();
+
+  if (inviteError) {
+    console.error("family-invites/claim: invite lookup error:", inviteError);
+  }
 
   if (inviteError || !invite) {
     return NextResponse.json({ error: "Invite not found" }, { status: 404 });
@@ -66,15 +70,47 @@ export async function POST(request: Request) {
     );
   }
 
+  // The caller is authenticated but their role may still be `pending`, so RLS
+  // is not doing this check for us — and handle_new_user() should already
+  // have placed them in the invite's org, so a mismatch is a real anomaly.
+  const { data: callerProfile, error: callerError } = await service
+    .from("profiles")
+    .select("org_id")
+    .eq("id", user.id)
+    .single();
+
+  if (callerError) {
+    console.error("family-invites/claim: caller profile lookup error:", callerError);
+    return NextResponse.json(
+      { error: "Failed to link profile to family" },
+      { status: 500 },
+    );
+  }
+
+  if (callerProfile.org_id !== invite.org_id) {
+    console.error(
+      "family-invites/claim: caller org %s does not match invite org %s (user=%s, invite=%s)",
+      callerProfile.org_id,
+      invite.org_id,
+      user.id,
+      invite.id,
+    );
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const now = new Date().toISOString();
 
-  // 1. Link the new profile to the family
-  const { error: profileError } = await service
+  // 1. Link the new profile to the family. The scoped update returning zero
+  // rows is a real failure — without .select() an update matching nothing
+  // reported success while linking nothing.
+  const { data: linked, error: profileError } = await service
     .from("profiles")
     .update({ family_id: invite.family_id })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .eq("org_id", invite.org_id)
+    .select("id");
 
-  if (profileError) {
+  if (profileError || !linked || linked.length === 0) {
     console.error("family-invites/claim: profile update error:", profileError);
     return NextResponse.json(
       { error: "Failed to link profile to family" },
@@ -86,7 +122,8 @@ export async function POST(request: Request) {
   const { error: fmError } = await service
     .from("family_members")
     .update({ claimed_profile_id: user.id })
-    .eq("id", invite.family_member_id);
+    .eq("id", invite.family_member_id)
+    .eq("org_id", invite.org_id);
 
   if (fmError) {
     console.error("family-invites/claim: family_members update error:", fmError);
@@ -97,7 +134,8 @@ export async function POST(request: Request) {
   const { error: acceptError } = await service
     .from("family_invites")
     .update({ accepted_at: now })
-    .eq("id", invite.id);
+    .eq("id", invite.id)
+    .eq("org_id", invite.org_id);
 
   if (acceptError) {
     console.warn("family-invites/claim: failed to mark invite accepted (id=%s):", invite.id, acceptError);

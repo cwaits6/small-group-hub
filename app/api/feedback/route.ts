@@ -18,9 +18,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // org_id is read on the authenticated client, so RLS scopes it to the
+  // caller's own org — it anchors the service-role reads below.
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, first_name, last_name, preferred_name")
+    .select("org_id, role, first_name, last_name, preferred_name")
     .eq("id", user.id)
     .single();
 
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
     .from("feedback")
     .select("id", { count: "exact", head: true })
     .eq("profile_id", user.id)
+    .eq("org_id", profile.org_id)
     .gte("created_at", windowStart);
   if (countError) {
     console.error("Failed to check feedback rate limit:", countError);
@@ -80,10 +83,14 @@ export async function POST(request: Request) {
   // isn't reliable once the response has been sent.
   after(async () => {
     try {
+      // org_id filter is required: this is an email fan-out on a service-role
+      // client — a role-only read mails every org's admins a copy of one
+      // org's feedback.
       const { data: admins } = await service
         .from("profiles")
         .select("email")
         .eq("role", "admin")
+        .eq("org_id", profile.org_id)
         .not("email", "is", null);
       const emails = (admins ?? [])
         .map((a) => a.email)

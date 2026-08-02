@@ -130,12 +130,15 @@ export async function POST(request: Request) {
   const service = await createServiceClient();
   const linkMode = await getServingLinkMode(supabase, group.org_id);
 
+  // org_id filter is required: the recipient list is the email fan-out
+  // surface, so an unscoped service-role read here mails another org's members.
   const { data: memberRows } = await service
     .from("profile_groups")
     .select(
       "profiles(id, first_name, last_name, preferred_name, email, role, email_announcements)"
     )
-    .eq("group_id", groupId);
+    .eq("group_id", groupId)
+    .eq("org_id", group.org_id);
 
   const members = (memberRows ?? [])
     .map(

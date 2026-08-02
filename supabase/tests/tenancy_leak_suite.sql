@@ -574,19 +574,19 @@ insert into tenancy_leak_results
   select is(current_setting('leak_suite.anon_approved'), '42501',
     'anon INSERT arriving pre-approved is rejected — no self-approved signup trust anchor (RLS 42501)');
 
--- Cross-layer coupling: JoinForm.tsx inserts org_id = DEFAULT_ORG_ID
--- ("00000000-…-0001", lib/org.ts) while the policy above resolves the org
--- from resolveOrgSlug()'s slug, which defaults to 'default'. Nothing in the
--- app keeps the two in sync, so pin the one fact that makes them agree: the
--- seeded default org must carry both that id AND that slug. If a migration
--- ever renames it, this fails here instead of silently rejecting every join
--- submission in production with a bare 42501 and no log line.
+-- The join flow (Phase 3, CWA-10) resolves its org through the same
+-- app_request_org_id() the policy above evaluates, so there is no UUID↔slug
+-- coupling left to drift — but the slug resolveOrgSlug() defaults to
+-- ('default', lib/org.ts) must still be reachable. If a migration renames the
+-- seeded org's slug, app_request_org_id() returns NULL for anon and every
+-- join submission fails closed; pin it here so that shows up as a test
+-- failure instead of a production 42501 with no log line.
 insert into tenancy_leak_results
   select is(
     (select slug from public.organizations
       where id = '00000000-0000-0000-0000-000000000001'::uuid),
     'default',
-    'the seeded DEFAULT_ORG_ID org has slug ''default'' (lib/org.ts coupling holds)');
+    'the seeded org resolveOrgSlug() defaults to still carries slug ''default'' (lib/org.ts)');
 
 -- ── platform_admins (org-orthogonal, unchanged by the org floor) ────────────
 do $$

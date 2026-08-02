@@ -39,7 +39,7 @@ export default async function ServingSchedulePage({
     await Promise.all([
       supabase
         .from("profiles")
-        .select("id, role, family_id, first_name, last_name, preferred_name")
+        .select("id, org_id, role, family_id, first_name, last_name, preferred_name")
         .eq("id", user.id)
         .single(),
       supabase
@@ -188,10 +188,14 @@ export default async function ServingSchedulePage({
   let spouse: { id: string; name: string } | null = null;
   if (profile.family_id) {
     const service = await createServiceClient();
+    // org_id comes from the caller's own RLS-scoped profile read above; the
+    // filter is required on a service-role read even though the composite FK
+    // already prevents a cross-org household.
     const { data: spouseRow } = await service
       .from("profiles")
       .select("id, first_name, last_name, preferred_name")
       .eq("family_id", profile.family_id)
+      .eq("org_id", profile.org_id)
       .in("relationship", ["primary", "spouse"])
       .neq("id", user.id)
       .limit(1)

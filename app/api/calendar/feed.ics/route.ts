@@ -19,11 +19,19 @@ export async function GET(request: Request) {
 
   const supabase = await createServiceClient();
 
-  const { data: sub } = await supabase
+  // The token row is the org anchor for this unauthenticated flow: org_id is
+  // stamped at issuance by the authenticated client's DEFAULT, so every query
+  // below filters on it. On a service-role client a key-only read spans all
+  // orgs the moment a second org exists.
+  const { data: sub, error: subError } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id, user_id, expires_at")
+    .select("id, user_id, org_id, expires_at")
     .eq("token_hash", hashSubscriptionToken(token))
     .single();
+
+  if (subError && subError.code !== "PGRST116") {
+    console.error("Calendar feed token lookup failed:", subError);
+  }
 
   if (!sub || new Date(sub.expires_at) < new Date()) {
     return new Response("Unauthorized", { status: 401 });
@@ -33,10 +41,30 @@ export async function GET(request: Request) {
   const { error: expiryError } = await supabase
     .from("calendar_subscription_tokens")
     .update({ expires_at: subscriptionTokenExpiryDate() })
-    .eq("id", sub.id);
+    .eq("id", sub.id)
+    .eq("org_id", sub.org_id);
 
   if (expiryError) {
     console.error("Failed to extend calendar subscription expiry:", expiryError);
+  }
+
+  // The service client bypasses RLS, so re-check membership here:
+  // events are only visible to member roles (see "Members can view all
+  // events" policy). A token minted by a pending, deleted, or otherwise
+  // non-member profile must not grant access to the event feed.
+  const { data: owner, error: ownerError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", sub.user_id)
+    .eq("org_id", sub.org_id)
+    .single();
+
+  if (ownerError && ownerError.code !== "PGRST116") {
+    console.error("Failed to look up token owner's profile:", ownerError);
+  }
+
+  if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Validate calendarId if provided
@@ -47,9 +75,12 @@ export async function GET(request: Request) {
   // Bound results to a reasonable time window
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+  // org_id filters are required on both reads: the service client bypasses
+  // RLS, so without them the feed would span every org's events and signups.
   let query = supabase
     .from("events")
     .select("*")
+    .eq("org_id", sub.org_id)
     .gte("start_time", thirtyDaysAgo)
     .order("start_time", { ascending: true })
     .limit(500);
@@ -65,6 +96,7 @@ export async function GET(request: Request) {
       supabase
         .from("serving_signups")
         .select("id, service_date, member_groups(name), serving_signup_attendees!inner(profile_id)")
+        .eq("org_id", sub.org_id)
         .eq("serving_signup_attendees.profile_id", sub.user_id)
         .gte("service_date", thirtyDaysAgo.slice(0, 10))
         .order("service_date", { ascending: true }),

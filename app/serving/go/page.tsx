@@ -55,12 +55,12 @@ export default async function ServingLinkPage({
 
   const service = await createServiceClient();
 
-  // The group is fetched first: its org_id scopes the link-mode read
-  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  // The group is fetched first: its org_id is the org anchor for every read
+  // below (Phase 3, CWA-10 — the surface stays on the service-role key, so
+  // the org filter is what confines it to one tenant).
   // supabase-js returns { data: null, error } rather than throwing, so an
   // uncaptured error is indistinguishable from an absent row and renders as
-  // "expired" with nothing in the logs. Phase 3 moves this surface off the
-  // service-role key, at which point 42501 becomes reachable here.
+  // "expired" with nothing in the logs.
   const { data: group, error: groupError } = await service
     .from("member_groups")
     .select("id, name, org_id")
@@ -104,19 +104,21 @@ export default async function ServingLinkPage({
   ] = await Promise.all([
     service
       .from("profiles")
-      .select("id, first_name, preferred_name, family_id, role")
+      .select("id, org_id, first_name, preferred_name, family_id, role")
       .eq("id", payload.p)
       .maybeSingle(),
     service
       .from("serving_team_settings")
       .select("enabled")
       .eq("group_id", payload.g)
+      .eq("org_id", group.org_id)
       .maybeSingle(),
     service
       .from("profile_groups")
       .select("profile_id")
       .eq("profile_id", payload.p)
       .eq("group_id", payload.g)
+      .eq("org_id", group.org_id)
       .maybeSingle(),
     service
       .from("serving_signups")
@@ -125,6 +127,7 @@ export default async function ServingLinkPage({
       )
       .eq("group_id", payload.g)
       .eq("service_date", payload.d)
+      .eq("org_id", group.org_id)
       .maybeSingle(),
   ]);
 
@@ -146,6 +149,19 @@ export default async function ServingLinkPage({
   }
 
   if (!profile || profile.role === "pending" || !settings?.enabled) {
+    return (
+      <Message
+        title="This link has expired"
+        body="No problem — you can sign in to the site and manage your serving Sundays there."
+      />
+    );
+  }
+
+  // The HMAC covers `g` and `p` as opaque ids; nothing in the signature binds
+  // them to the same tenant, so the pairing is asserted here against the two
+  // rows. A cross-org pairing renders the same copy as any invalid link — a
+  // distinguishing message would be an org-existence oracle.
+  if (profile.org_id !== group.org_id) {
     return (
       <Message
         title="This link has expired"
@@ -189,7 +205,8 @@ export default async function ServingLinkPage({
       const coveredLabel = await resolveSignupLabel(
         service,
         attendees,
-        signup.family_id
+        signup.family_id,
+        group.org_id
       );
       return (
         <Message
@@ -204,7 +221,12 @@ export default async function ServingLinkPage({
     // than blocking the signup.
     let spouseName: string | null = null;
     if (profile.family_id) {
-      const spouse = await findSpouse(service, profile.family_id, profile.id);
+      const spouse = await findSpouse(
+        service,
+        profile.family_id,
+        profile.id,
+        group.org_id
+      );
       spouseName = spouse ? spouse.preferred_name || spouse.first_name : null;
     }
 

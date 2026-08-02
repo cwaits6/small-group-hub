@@ -36,13 +36,13 @@ export async function POST(request: Request) {
 
   const service = await createServiceClient();
 
-  // The group is fetched first: its org_id scopes the link-mode read
-  // (Phase 2, CWA-9 — settings are per-org, keyed on (org_id, key)).
+  // The group is fetched first: its org_id is the org anchor for every read
+  // and write below (Phase 3, CWA-10 — the surface stays on the service-role
+  // key, so the org filter is what confines it to one tenant).
   // supabase-js does not throw on a failed read — it returns { data: null,
   // error }. Every check below is a truthiness test, so without capturing
   // `error` a 42501, a PostgREST 5xx and a genuinely absent row all render as
-  // "this link expired", with nothing in the logs. Phase 3 moves this surface
-  // off the service-role key, at which point 42501 becomes reachable here.
+  // "this link expired", with nothing in the logs.
   const { data: group, error: groupError } = await service
     .from("member_groups")
     .select("id, name, org_id")
@@ -75,13 +75,14 @@ export async function POST(request: Request) {
   ] = await Promise.all([
     service
       .from("profiles")
-      .select("id, first_name, last_name, preferred_name, family_id, email, role")
+      .select("id, org_id, first_name, last_name, preferred_name, family_id, email, role")
       .eq("id", payload.p)
       .maybeSingle(),
     service
       .from("serving_team_settings")
       .select("enabled")
       .eq("group_id", payload.g)
+      .eq("org_id", group.org_id)
       .maybeSingle(),
   ]);
 
@@ -105,6 +106,17 @@ export async function POST(request: Request) {
     );
   }
 
+  // The HMAC covers `g` and `p` as opaque ids; nothing in the signature binds
+  // them to the same tenant, so the pairing is asserted here against the two
+  // rows. A cross-org pairing gets the same response as any invalid link — a
+  // distinguishing message would be an org-existence oracle.
+  if (profile.org_id !== group.org_id) {
+    return NextResponse.json(
+      { error: "This link is no longer valid — please use the site instead" },
+      { status: 400 }
+    );
+  }
+
   if (payload.a === "signup") {
     if (!isValidServiceDate(payload.d)) {
       return NextResponse.json(
@@ -119,6 +131,7 @@ export async function POST(request: Request) {
       .select("profile_id")
       .eq("profile_id", profile.id)
       .eq("group_id", payload.g)
+      .eq("org_id", group.org_id)
       .maybeSingle();
     if (membershipError) {
       console.error(
@@ -143,7 +156,12 @@ export async function POST(request: Request) {
     if (includeSpouse && profile.family_id) {
       // findSpouse is non-fatal: a failed read degrades to signing up the
       // member alone rather than failing the whole action.
-      const spouse = await findSpouse(service, profile.family_id, profile.id);
+      const spouse = await findSpouse(
+        service,
+        profile.family_id,
+        profile.id,
+        group.org_id
+      );
       if (spouse) attendees.push(spouse);
     }
 
@@ -185,7 +203,11 @@ export async function POST(request: Request) {
       );
     if (attendeeError) {
       console.error("Signed-link attendee insert failed:", attendeeError);
-      await service.from("serving_signups").delete().eq("id", signup.id);
+      await service
+        .from("serving_signups")
+        .delete()
+        .eq("id", signup.id)
+        .eq("org_id", group.org_id);
       return NextResponse.json({ error: "Failed to sign up" }, { status: 500 });
     }
 
@@ -221,6 +243,7 @@ export async function POST(request: Request) {
     )
     .eq("group_id", payload.g)
     .eq("service_date", payload.d)
+    .eq("org_id", group.org_id)
     .maybeSingle();
 
   // Distinguishing this from the absent-row case matters most here: telling a
@@ -262,7 +285,8 @@ export async function POST(request: Request) {
   const { error: deleteError } = await service
     .from("serving_signups")
     .delete()
-    .eq("id", signup.id);
+    .eq("id", signup.id)
+    .eq("org_id", group.org_id);
   if (deleteError) {
     console.error("Signed-link cancel failed:", deleteError);
     return NextResponse.json({ error: "Failed to cancel" }, { status: 500 });
@@ -271,12 +295,14 @@ export async function POST(request: Request) {
   try {
     await notifyLeadersOfCancel(service, {
       groupId: payload.g,
+      orgId: group.org_id,
       groupName: group.name,
       serviceDate: payload.d,
       memberLabel: await resolveSignupLabel(
         service,
         attendeeProfiles,
-        signup.family_id
+        signup.family_id,
+        group.org_id
       ),
       excludeProfileId: profile.id,
     });

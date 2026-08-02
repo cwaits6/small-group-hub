@@ -25,14 +25,18 @@ export interface NamedProfile {
 export async function resolveSignupLabel(
   supabase: SupabaseClient,
   attendees: NamedProfile[],
-  familyId: string | null
+  familyId: string | null,
+  orgId: string
 ): Promise<string> {
   let familyName: string | null = null;
   if (attendees.length > 1 && familyId) {
+    // org_id filter is required: on a service-role client a key-only read
+    // matches rows from every org the moment a second org exists.
     const { data: family, error } = await supabase
       .from("family_units")
       .select("family_name")
       .eq("id", familyId)
+      .eq("org_id", orgId)
       .single();
     // Non-fatal: the household name only enriches the label, so a failed
     // read degrades to the attendee names.
@@ -52,12 +56,16 @@ export async function resolveSignupLabel(
 export async function findSpouse(
   supabase: SupabaseClient,
   familyId: string,
-  excludeProfileId: string
+  excludeProfileId: string,
+  orgId: string
 ): Promise<NamedProfile | null> {
+  // org_id filter is required: on a service-role client a key-only read
+  // matches rows from every org the moment a second org exists.
   const { data: spouse, error } = await supabase
     .from("profiles")
     .select("id, first_name, last_name, preferred_name")
     .eq("family_id", familyId)
+    .eq("org_id", orgId)
     .in("relationship", ["primary", "spouse"])
     .neq("id", excludeProfileId)
     .limit(1)
@@ -84,7 +92,8 @@ export async function sendSignupConfirmation(
   const attendeesLabel = await resolveSignupLabel(
     supabase,
     opts.attendees,
-    opts.familyId
+    opts.familyId,
+    opts.orgId
   );
 
   const linkMode = await getServingLinkMode(supabase, opts.orgId);
@@ -118,16 +127,20 @@ export async function notifyLeadersOfCancel(
   service: SupabaseClient,
   opts: {
     groupId: string;
+    orgId: string;
     groupName: string;
     serviceDate: string;
     memberLabel: string;
     excludeProfileId?: string;
   }
 ) {
+  // org_id filter is required: this is an email fan-out surface on a
+  // service-role client — an unscoped read would mail another org's leaders.
   const { data: leaders } = await service
     .from("profile_groups")
     .select("profiles(id, first_name, last_name, preferred_name, email)")
     .eq("group_id", opts.groupId)
+    .eq("org_id", opts.orgId)
     .eq("is_leader", true);
 
   for (const row of leaders ?? []) {
