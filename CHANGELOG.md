@@ -1,3 +1,17 @@
+## [1.1.1](https://github.com/cwaits6/two42/compare/v1.1.0...v1.1.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* **tenancy:** derive org_id from validated context at every app service-role call site ([#306](https://github.com/cwaits6/two42/issues/306)) ([5e11b44](https://github.com/cwaits6/two42/commit/5e11b443ac38e8bfeba8d78a7efe81826325f0f1))
+
+# [1.1.0](https://github.com/cwaits6/two42/compare/v1.0.1...v1.1.0) (2026-08-02)
+
+
+### Features
+
+* **functions:** iterate organizations in reminder edge functions ([#305](https://github.com/cwaits6/two42/issues/305)) ([5a111a6](https://github.com/cwaits6/two42/commit/5a111a606d53e1480b1e51c2310ceb9f7af08636)), closes [#300](https://github.com/cwaits6/two42/issues/300) [#212](https://github.com/cwaits6/two42/issues/212) [#306](https://github.com/cwaits6/two42/issues/306)
+
 ## [1.0.1](https://github.com/cwaits6/two42/compare/v1.0.0...v1.0.1) (2026-08-02)
 
 

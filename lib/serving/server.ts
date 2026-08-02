@@ -26,14 +26,18 @@ export interface NamedProfile {
 export async function resolveSignupLabel(
   supabase: SupabaseClient,
   attendees: NamedProfile[],
-  familyId: string | null
+  familyId: string | null,
+  orgId: string
 ): Promise<string> {
   let familyName: string | null = null;
   if (attendees.length > 1 && familyId) {
+    // org_id filter is required: on a service-role client a key-only read
+    // matches rows from every org the moment a second org exists.
     const { data: family, error } = await supabase
       .from("family_units")
       .select("family_name")
       .eq("id", familyId)
+      .eq("org_id", orgId)
       .single();
     // Non-fatal: the household name only enriches the label, so a failed
     // read degrades to the attendee names.
@@ -53,12 +57,16 @@ export async function resolveSignupLabel(
 export async function findSpouse(
   supabase: SupabaseClient,
   familyId: string,
-  excludeProfileId: string
+  excludeProfileId: string,
+  orgId: string
 ): Promise<NamedProfile | null> {
+  // org_id filter is required: on a service-role client a key-only read
+  // matches rows from every org the moment a second org exists.
   const { data: spouse, error } = await supabase
     .from("profiles")
     .select("id, first_name, last_name, preferred_name")
     .eq("family_id", familyId)
+    .eq("org_id", orgId)
     .in("relationship", ["primary", "spouse"])
     .neq("id", excludeProfileId)
     .limit(1)
@@ -85,7 +93,8 @@ export async function sendSignupConfirmation(
   const attendeesLabel = await resolveSignupLabel(
     supabase,
     opts.attendees,
-    opts.familyId
+    opts.familyId,
+    opts.orgId
   );
 
   // resolveEmailBranding never throws — it degrades to platform defaults —
@@ -124,28 +133,41 @@ export async function notifyLeadersOfCancel(
   service: SupabaseClient,
   opts: {
     groupId: string;
+    orgId: string;
     groupName: string;
     serviceDate: string;
     memberLabel: string;
     excludeProfileId?: string;
-    // Optional so existing app/api callers stay zero-diff. Omitting it is
-    // NOT equivalent: resolveEmailBranding then self-resolves from the
-    // REQUEST org, which is the deployment's configured org — resolveOrgSlug()
-    // in lib/org.ts ignores the host and returns NEXT_PUBLIC_ORG_SLUG. That
-    // happens to be the right org today only because the deployment is
-    // single-tenant. Any caller holding an already-authorized org_id must
-    // pass it; app/api/serving/link-action (the anonymous signed-link cancel)
-    // has group.org_id in scope and does not yet — tracked as a follow-up,
-    // and it MUST be closed before Phase 5 host→org resolution lands.
-    orgId?: string;
   }
 ) {
+  // orgId is required rather than self-resolving: resolveEmailBranding() would
+  // otherwise fall back to the REQUEST org, and resolveOrgSlug() in lib/org.ts
+  // ignores the host and returns NEXT_PUBLIC_ORG_SLUG. That is the right org
+  // today only because the deployment is single-tenant, and this function's
+  // anonymous signed-link caller has no session to resolve from. Both callers
+  // hold an already-authorized org_id and pass it.
   const branding = await resolveEmailBranding(opts.orgId);
-  const { data: leaders } = await service
+
+  // org_id filter is required: this is an email fan-out surface on a
+  // service-role client — an unscoped read would mail another org's leaders.
+  const { data: leaders, error } = await service
     .from("profile_groups")
     .select("profiles(id, first_name, last_name, preferred_name, email)")
     .eq("group_id", opts.groupId)
+    .eq("org_id", opts.orgId)
     .eq("is_leader", true);
+
+  // Non-throwing by contract (see file header), but a failed read here is not
+  // a graceful degradation — it means the team's leaders are never told the
+  // slot opened, with no other signal that it happened. Log it.
+  if (error) {
+    console.error(
+      "Serving leaders lookup failed for group %s (org=%s):",
+      opts.groupId,
+      opts.orgId,
+      error
+    );
+  }
 
   for (const row of leaders ?? []) {
     const leader = row.profiles as unknown as

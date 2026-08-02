@@ -7,12 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { DEFAULT_ORG_ID } from "@/lib/org";
 import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
 
-function JoinFormFields() {
+function JoinFormFields({ orgId }: { orgId: string }) {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const supabase = createClient();
@@ -37,9 +36,10 @@ function JoinFormFields() {
         email,
         message: message || null,
         // Anon insert: the fail-closed org_id DEFAULT resolves to NULL
-        // without a session, so the org is passed explicitly (Phase 1
-        // interim — see lib/org.ts).
-        org_id: DEFAULT_ORG_ID,
+        // without a session, so the org is passed explicitly — resolved
+        // server-side from the same app_request_org_id() the RLS WITH CHECK
+        // evaluates (see app/join/page.tsx).
+        org_id: orgId,
         // Store the family invite token on the access request so that when
         // the user creates their account the family link can be established.
         ...(inviteToken ? { invite_token: inviteToken } : {}),
@@ -47,9 +47,11 @@ function JoinFormFields() {
 
       if (error) {
         // This is the product's only public write path and it is anon-only, so
-        // there is no session to debug against. A 42501 here means the org_id
-        // above disagrees with the org the x-two42-org header resolves — see
-        // lib/org.ts and docs/security/tenancy-model.md.
+        // there is no session to debug against. The org_id above comes from
+        // the same app_request_org_id() the RLS WITH CHECK evaluates, so a
+        // 42501 here means the x-two42-org header did not survive to
+        // PostgREST — not that two constants disagree. See
+        // docs/security/tenancy-model.md.
         console.error("Access request insert failed:", error);
         toast.error("Something went wrong. Please try again.");
         return;
@@ -141,7 +143,7 @@ function JoinFormFields() {
   );
 }
 
-export function JoinForm() {
+export function JoinForm({ orgId }: { orgId: string }) {
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-12 max-w-lg">
@@ -152,7 +154,7 @@ export function JoinForm() {
         </Card>
       </div>
     }>
-      <JoinFormFields />
+      <JoinFormFields orgId={orgId} />
     </Suspense>
   );
 }

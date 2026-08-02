@@ -182,7 +182,7 @@ export async function DELETE(request: Request) {
   const { data: signup, error: signupError } = await supabase
     .from("serving_signups")
     .select(
-      "id, group_id, service_date, family_id, created_by, member_groups(name), serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
+      "id, org_id, group_id, service_date, family_id, created_by, member_groups(name), serving_signup_attendees(profiles(id, first_name, last_name, preferred_name))"
     )
     .eq("id", signupId)
     .maybeSingle();
@@ -226,14 +226,18 @@ export async function DELETE(request: Request) {
       .map((a: { profiles: unknown }) => a.profiles)
       .filter(Boolean) as NamedProfile[];
 
+    // The deleted signup's own org_id scopes the notification lookups — it is
+    // the row this route just authorised via the RLS-checked delete above.
     await notifyLeadersOfCancel(service, {
       groupId: signup.group_id,
+      orgId: signup.org_id,
       groupName,
       serviceDate: signup.service_date,
       memberLabel: await resolveSignupLabel(
         service,
         attendeeProfiles,
-        signup.family_id
+        signup.family_id,
+        signup.org_id
       ),
       excludeProfileId: user.id,
     });

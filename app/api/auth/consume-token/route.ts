@@ -10,10 +10,34 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceClient();
 
+  // This lookup genuinely cannot be org-scoped: org_id isn't known until this
+  // row resolves it. signup_token is currently globally UNIQUE, so
+  // .maybeSingle() is safe today; if that constraint ever became per-org,
+  // this lookup would need to change, since it would then match multiple
+  // rows and .maybeSingle() would error. The write below is scoped to
+  // (id, org_id) once the row is known — that scoping is what stays correct
+  // if the constraint changes.
+  const { data: row, error: lookupError } = await supabase
+    .from("access_requests")
+    .select("id, org_id")
+    .eq("signup_token", token)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Failed to look up signup token:", lookupError);
+    return NextResponse.json({ error: "Failed to invalidate token" }, { status: 500 });
+  }
+
+  // Zero rows means the token was already consumed — stay idempotent.
+  if (!row) {
+    return NextResponse.json({ success: true });
+  }
+
   const { error } = await supabase
     .from("access_requests")
     .update({ signup_token: null })
-    .eq("signup_token", token);
+    .eq("id", row.id)
+    .eq("org_id", row.org_id);
 
   if (error) {
     console.error("Failed to consume signup token:", error);

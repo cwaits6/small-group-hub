@@ -22,48 +22,69 @@ export async function GET(
 
   const supabase = await createServiceClient();
 
-  const { data: sub } = await supabase
+  // The token row is the org anchor for this unauthenticated flow: org_id is
+  // stamped at issuance by the authenticated client's DEFAULT, so every query
+  // below filters on it.
+  const { data: sub, error: subError } = await supabase
     .from("calendar_subscription_tokens")
-    .select("id, user_id, expires_at")
+    .select("id, user_id, org_id, expires_at")
     .eq("token_hash", hashSubscriptionToken(token))
     .single();
 
-  if (!sub || new Date(sub.expires_at) < new Date()) {
-    return new Response("Unauthorized", { status: 401 });
+  if (subError && subError.code !== "PGRST116") {
+    console.error("Event ICS token lookup failed:", subError);
   }
 
-  // Sliding expiration — see subscriptionTokenExpiryDate() for policy.
-  const { error: expiryError } = await supabase
-    .from("calendar_subscription_tokens")
-    .update({ expires_at: subscriptionTokenExpiryDate() })
-    .eq("id", sub.id);
-
-  if (expiryError) {
-    console.error("Failed to extend calendar subscription expiry:", expiryError);
+  if (!sub || new Date(sub.expires_at) < new Date()) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // The service client bypasses RLS, so re-check membership here:
   // events are only visible to member roles (see "Members can view all
   // events" policy). A token minted by a pending, deleted, or otherwise
   // non-member profile must not grant access to arbitrary events by UUID.
+  // The role check alone was insufficient once org_id landed: role answers
+  // *who* may fetch, org_id answers *whose* events — both lookups are scoped
+  // to the token row's org.
   const { data: owner, error: ownerError } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", sub.user_id)
+    .eq("org_id", sub.org_id)
     .single();
 
-  if (ownerError) {
+  // A real (non-PGRST116) failure here is a transient DB error, not an
+  // absent or non-member owner — 401 is terminal to a calendar client while
+  // 500 is retryable, so the two must not collapse into the same response.
+  if (ownerError && ownerError.code !== "PGRST116") {
     console.error("Failed to look up token owner's profile:", ownerError);
+    return new Response("Something went wrong", { status: 500 });
   }
 
   if (!owner || !["member", "content_editor", "admin"].includes(owner.role)) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  // Sliding expiration — see subscriptionTokenExpiryDate() for policy. Runs
+  // only after the owner passed the role check above: a token minted by a
+  // pending or deleted profile must not keep renewing itself.
+  const { error: expiryError } = await supabase
+    .from("calendar_subscription_tokens")
+    .update({ expires_at: subscriptionTokenExpiryDate() })
+    .eq("id", sub.id)
+    .eq("org_id", sub.org_id);
+
+  if (expiryError) {
+    console.error("Failed to extend calendar subscription expiry:", expiryError);
+  }
+
+  // A cross-org event id falls out as "not found" — the 404 below is the
+  // correct answer (a distinguishing status would be an org-existence oracle).
   const { data: event, error } = await supabase
     .from("events")
     .select("*")
     .eq("id", id)
+    .eq("org_id", sub.org_id)
     .single();
 
   if (error || !event) {

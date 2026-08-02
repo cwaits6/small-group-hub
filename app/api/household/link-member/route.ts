@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const { data: currentProfile } = await supabase
     .from("profiles")
-    .select("role, family_id, setup_completed, relationship")
+    .select("org_id, role, family_id, setup_completed, relationship")
     .eq("id", user.id)
     .single();
 
@@ -65,11 +65,19 @@ export async function POST(request: Request) {
   // Verify the target profile exists, has no household, and is a member
   const { data: target } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, family_id, role, setup_completed")
+    .select("id, org_id, first_name, last_name, family_id, role, setup_completed")
     .eq("id", profile_id)
     .single();
 
   if (!target) {
+    return NextResponse.json({ error: "Member not found." }, { status: 404 });
+  }
+
+  // This read runs on the authenticated client, so RLS already scopes it to
+  // the caller's org — the check is defence-in-depth against a future
+  // permissive policy. Reuse the not-found response: a distinguishing message
+  // would be a cross-org existence oracle.
+  if (target.org_id !== currentProfile.org_id) {
     return NextResponse.json({ error: "Member not found." }, { status: 404 });
   }
 
@@ -88,7 +96,9 @@ export async function POST(request: Request) {
   // The .is("family_id", null) predicate closes the TOCTOU window: if another
   // request assigned this person to a household between the check above and this
   // write, the update will match 0 rows and we return 409 rather than silently
-  // overwriting.
+  // overwriting. The org_id predicate is the tenancy analogue of the same
+  // defence — this write bypasses RLS, so it must be confined to the caller's
+  // own org explicitly.
   const service = await createServiceClient();
   const { data: updated, error } = await service
     .from("profiles")
@@ -97,6 +107,7 @@ export async function POST(request: Request) {
       ...(relationship ? { relationship } : {}),
     })
     .eq("id", profile_id)
+    .eq("org_id", currentProfile.org_id)
     .is("family_id", null)
     .select("id");
 

@@ -1,10 +1,11 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { siteConfig } from "@/lib/config";
+import { resolveOrgSlug } from "@/lib/org";
 import { AuthShell } from "@/app/(auth)/_components/AuthShell";
 
 interface PageProps {
@@ -16,15 +17,46 @@ export const metadata = { title: `Join Your Household | ${siteConfig.name}` };
 export default async function FamilyJoinPage({ params }: PageProps) {
   const { token } = await params;
 
+  // Resolve the request's org through the request-scoped server client. It is
+  // cookie-bound, not anonymous: for a signed-in visitor app_request_org_id()
+  // returns their own org and ignores x-two42-org; for the anonymous
+  // invite-link case (the common one) it resolves the header's slug. Either
+  // way it is the same value the downstream access_requests RLS WITH CHECK
+  // compares against, and NULL fails closed below.
+  const requestClient = await createClient();
+  const { data: resolvedOrg, error: orgError } = await requestClient.rpc("app_request_org_id");
+  const requestOrgId = typeof resolvedOrg === "string" ? resolvedOrg : null;
+  if (orgError) {
+    console.error("Family join page: org resolution failed:", orgError);
+  } else if (!requestOrgId) {
+    // The RPC succeeded but returned NULL — the resolved slug matches no
+    // organization row. orgError stays null in this path, so without this
+    // log this redirect is indistinguishable from an ordinary invalid token.
+    console.error(
+      "Family join page: org resolution returned NULL for slug %s",
+      resolveOrgSlug()
+    );
+  }
+
+  // Fail closed — same destination the invalid-token branch uses.
+  if (!requestOrgId) {
+    redirect("/join");
+  }
+
   // Public page — uses service client to bypass RLS for token validation
   const supabase = await createServiceClient();
 
-  // Validate the token
-  const { data: invite } = await supabase
+  // Validate the token. The org filter matters because the downstream
+  // access_requests(invite_token, org_id) → family_invites(token, org_id)
+  // composite FK means an invite from a different org than the host resolves
+  // would fail with an opaque FK violation partway through signup — catching
+  // it here turns that into the existing invalid-token → /join path.
+  const { data: invite, error: inviteError } = await supabase
     .from("family_invites")
     .select(
       `
       id,
+      org_id,
       invite_email,
       accepted_at,
       family_member_id,
@@ -39,7 +71,12 @@ export default async function FamilyJoinPage({ params }: PageProps) {
     `,
     )
     .eq("token", token)
+    .eq("org_id", requestOrgId)
     .maybeSingle();
+
+  if (inviteError) {
+    console.error("Family join page: invite lookup failed:", inviteError);
+  }
 
   // Invalid token → redirect to regular join page
   if (!invite) {
