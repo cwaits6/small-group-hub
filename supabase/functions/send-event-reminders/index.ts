@@ -9,6 +9,7 @@
 // org_id explicitly (CWA-10 Phase 3, #212).
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { chunk } from "../_shared/chunk.ts";
 import { escapeHtml } from "../_shared/html.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
@@ -61,17 +62,7 @@ async function sendEmail(
 
 // ── Per-org run ───────────────────────────────────────────────────────────────
 
-// PostgREST `.in()` filters serialize into the query string; chunk large id
-// lists to stay under URL-length limits.
 const IN_CHUNK_SIZE = 200;
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
 
 async function runForOrg(supabase: ServiceClient, org: Org): Promise<OrgRunCounts> {
   const now = new Date();

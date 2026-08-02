@@ -14,6 +14,7 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { escapeHtml } from "../_shared/html.ts";
+import { nextSunday, upcomingSundays } from "../_shared/sundays.ts";
 import { resolveServiceKey } from "../_shared/service-key.ts";
 import {
   forEachOrg,
@@ -88,30 +89,7 @@ async function createToken(
   return `${payloadB64}.${await hmacSign(payloadB64, secret)}`;
 }
 
-// ── Sunday helpers ────────────────────────────────────────────────────────────
-
-function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function nextSunday(from: Date = new Date()): string {
-  const d = new Date(from);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
-  return toDateStr(d);
-}
-
-function upcomingSundays(weeks: number, from: Date = new Date()): string[] {
-  const d = new Date(from);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
-  const result: string[] = [];
-  for (let i = 0; i < weeks; i++) {
-    result.push(toDateStr(d));
-    d.setDate(d.getDate() + 7);
-  }
-  return result;
-}
+// ── Date formatting ───────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
