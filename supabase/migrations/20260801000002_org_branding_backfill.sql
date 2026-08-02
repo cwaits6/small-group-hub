@@ -1,13 +1,15 @@
 -- Org branding backfill + read unblock (CWA-10 Phase 3, #212, stream 3/3).
 -- organizations.branding has existed since 20260730010000_org_spine.sql, but
 -- org #1 was seeded '{}' while provision_organization() gives new orgs the
--- canonical shape — the seeded org could never be branded. Worse, nothing
--- could READ the table at all: the only permissive select policy ("org
--- members can view their orgs") is gated on organization_members, which the
--- app never populates, so every PostgREST caller — anon and authenticated —
--- saw 0 rows. Backfill the seeded org, add the missing permissive SELECT
--- policy (the restrictive "org isolation" floor still pins rows to the
--- request org), and add reply_to to the canonical branding shape.
+-- canonical shape — the seeded org could never be branded. Worse, the seeded
+-- org's members could not READ the table at all: the only permissive select
+-- policy ("org members can view their orgs") is gated on
+-- organization_members, which handle_new_user() has populated only since
+-- 20260731000014 and which was never backfilled — so every profile predating
+-- that migration (i.e. all of org #1) resolved 0 rows, as did every anon
+-- caller. Backfill the seeded org, add a permissive SELECT policy that does
+-- not depend on membership (the restrictive "org isolation" floor still pins
+-- rows to the request org), and add reply_to to the canonical branding shape.
 
 -- Preflight: the seeded org must exist, or the backfill would silently
 -- touch zero rows and the app would keep serving env-var defaults.

@@ -10,7 +10,7 @@ import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
-import { getOrgBranding, resolveBranding, type OrgBranding } from "@/lib/branding";
+import { getOrgBranding } from "@/lib/branding";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -58,20 +58,21 @@ export default async function RootLayout({
 
   let profile = null;
   let hasServingAccess = false;
-  let branding: OrgBranding | null = null;
   if (hasAuthCookie) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // Branding rides the existing profiles select as a PostgREST embed
-      // (profiles_org_id_fkey) — zero added round trips on this path.
-      const [{ data }, { data: groupData }] = await Promise.all([
-        supabase.from("profiles").select("*, organizations(branding)").eq("id", user.id).single(),
+      const [{ data, error }, { data: groupData, error: groupError }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("profile_groups").select("group_id").eq("profile_id", user.id),
       ]);
-      const { organizations: org, ...profileRow } = data ?? {};
-      profile = data ? profileRow : null;
-      branding = resolveBranding(org?.branding);
+      // Neither failure can render an error page — the layout wraps every
+      // route — but both degrade silently otherwise: a null profile renders
+      // an authenticated member with the logged-out Header/AppShell, and a
+      // null groupData silently denies serving access.
+      if (error) console.error("Layout: failed to load profile:", error);
+      if (groupError) console.error("Layout: failed to load profile groups:", groupError);
+      profile = data;
 
       if (profile?.role === "admin") {
         hasServingAccess = true;
@@ -86,9 +87,10 @@ export default async function RootLayout({
     }
   }
 
-  // Anon path: no existing fetch to ride, so this is one cache()-memoized
-  // indexed PK lookup shared with generateMetadata.
-  const b = branding ?? (await getOrgBranding());
+  // Free on every path: generateMetadata() above already awaited this, and
+  // cache() memoizes it for the request. Single-row read — RLS supplies the
+  // id predicate, so there is deliberately no .eq() here (lib/branding.ts).
+  const b = await getOrgBranding();
 
   return (
     // suppressHydrationWarning: the head script sets data-textsize on <html>

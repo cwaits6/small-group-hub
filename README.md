@@ -14,7 +14,7 @@
 
 two42 was originally built for the **Incouragers** Sunday small group class at **First Redeemer Church** — a group of ~150 members who needed a better home than Facebook. Designed for all ages and comfortable on any device, it gives your group a dedicated space for events, announcements, lectures, and community — without the noise of social media.
 
-It's open source and fully configurable, so any small group or church class can fork it, swap in their name and colors, and have it running in under an hour.
+It's open source and fully configurable, so any small group or church class can fork it, set their name and colors in the database, and have it running in under an hour.
 
 ---
 
@@ -32,7 +32,7 @@ two42 was built to solve exactly that. It has since been open-sourced so other g
 - **Warmth** — Large fonts, readable text, and an inviting design that welcomes everyone
 - **Affordability** — Runs for ~$10–15/year (domain name only — everything else is free)
 - **Privacy** — Your community's data stays yours, not a tech company's
-- **Customizable** — Fork it and brand it as your own with a single config file change
+- **Customizable** — Fork it and brand it as your own; name, colors, and email identity are per-org rows, not a redeploy
 
 ---
 
@@ -179,9 +179,14 @@ Branding lives in the database, in the `organizations.branding` jsonb column
 title, and outbound email all read it per-org at runtime — onboarding a second
 organization is a database insert, not a redeploy.
 
-The `NEXT_PUBLIC_APP_NAME` / `NEXT_PUBLIC_COLOR_*` / `NEXT_PUBLIC_EMAIL_FROM`
-environment variables (see `.env.example`) survive only as last-resort fallback
-defaults, used when an org's branding row is empty or unreadable. Everything
+Only two environment variables are demoted by this: `NEXT_PUBLIC_APP_NAME` and
+`NEXT_PUBLIC_COLOR_PRIMARY` (see `.env.example`) survive as last-resort fallback
+defaults, used when an org's branding row is empty or unreadable.
+`NEXT_PUBLIC_EMAIL_FROM` is **not** a fallback — the sending address is
+deliberately platform-wide and no branding key can reach it, because SPF/DKIM
+are configured for that domain; branding varies only the display name and
+Reply-To. The remaining `NEXT_PUBLIC_COLOR_*` vars, `APP_DESCRIPTION`,
+`APP_TAGLINE`, and `LOGO_MONOGRAM` are likewise still platform-wide. Everything
 else — events, announcements, donation links — is managed through the admin
 panel at runtime.
 
@@ -230,7 +235,9 @@ Then update your Supabase redirect URLs to include your production domain.
 │   ├── events/                   # EventCard, RsvpButton
 │   └── announcements/            # AnnouncementCard
 ├── lib/
-│   ├── config.ts                 # ← Customize your group here
+│   ├── branding.ts               # ← Reads organizations.branding (the real source of truth)
+│   ├── config.ts                 # Last-resort env fallbacks only
+│   ├── email/identity.ts         # Per-org From: display name and Reply-To
 │   ├── types.ts
 │   └── supabase/                 # Auth clients
 ├── supabase/

@@ -136,13 +136,14 @@ export async function sendFeedbackEmail(
   const kind = type === "problem" ? "Something's broken" : "An idea";
   const safeSenderName = escapeHtml(senderName);
   const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
+  // The member's own address must win over the org reply_to — admins answer
+  // the sender directly by replying to this email.
+  const replyTo = senderEmail ?? b.replyTo;
 
   const { error } = await getResend().emails.send({
     from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to,
-    // The member's own address must win over the org reply_to — admins
-    // answer the sender directly by replying to this email.
-    ...(senderEmail ?? b.replyTo ? { replyTo: senderEmail ?? b.replyTo ?? undefined } : {}),
+    ...(replyTo ? { replyTo } : {}),
     subject: `${b.fromName} feedback from ${senderName}: ${kind}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">

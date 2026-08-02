@@ -63,7 +63,17 @@ forgets its org predicate. `WITH CHECK` also blocks re-tagging a row's
 `org_id`. `organizations` (the tenant root, no `org_id`) carries the same
 restrictive floor with row visibility restricted by
 `id = (select public.app_request_org_id())` — its own row *is* the org, so
-the primary key stands in for `org_id`.
+the primary key stands in for `org_id`. Since Phase 3
+(`20260801000002_org_branding_backfill.sql`) it also carries a permissive
+SELECT policy, `"Org readable within request org"`, granted to `anon` and
+`authenticated` and repeating the same predicate rather than a bare `true`.
+Postgres RLS grants nothing without a permissive policy, so before that
+migration the table was readable by no PostgREST caller in the seeded org at
+all and the app silently served env-var branding. The older `"org members can
+view their orgs"` policy is gated on `organization_members`, which
+`handle_new_user()` has populated only since `20260731000014` and which was
+never backfilled — it grants nothing to profiles predating that migration and
+is retained as the hook for the Phase 4 membership model.
 
 The permissive policies are additionally rewritten as
 `ORG AND (role arms)` — org predicate factored out front exactly once — for
@@ -107,7 +117,9 @@ disambiguate within the matched set, never widen it; client-supplied
 `raw_user_meta_data` is never consulted for org selection.
 
 `provision_organization(name, slug, owner_email)` builds a complete org in
-one transaction: the org row, the prayer calendar plus its
+one transaction: the org row — its `branding` jsonb seeded with the full
+tenant-overridable contract (`display_name`, `logo_url`, `accent`,
+`reply_to`; see [`DESIGN.md`](../design/DESIGN.md)) — the prayer calendar plus its
 `prayer_calendar_id` setting, the settings defaults, an empty about page,
 and an **approved access request for the owner** — so self-serve
 onboarding is org-first: provision, then create the auth user, and the
@@ -134,7 +146,11 @@ primitive itself is closed here.
 
 EXECUTE is revoked from `public`/`anon`/`authenticated`; `SECURITY DEFINER`
 + `search_path = ''` + that REVOKE is the entire authorization story — do
-not add a GRANT without a caller check.
+not add a GRANT to any client-reachable role without a caller check. The one
+explicit GRANT is to `service_role` (`20260801000002`), which restates a
+Supabase default so the Phase 4 server-side caller does not depend on it;
+`service_role` is never reachable from a client, so it does not re-open
+PostgREST RPC.
 
 ## Enforcement in CI
 
@@ -166,3 +182,10 @@ platform seam).
 - Storage-bucket policies, signed tokens, and the service-role call sites:
   Phase 3 (#212). Group-level scoping of member-facing surfaces: split out
   ahead of Phase 4.
+- The permissive `organizations` SELECT policy exposes the **whole**
+  tenant-root row — `name`, `slug`, `status`, `created_at`, `branding` — to an
+  anonymous caller who resolves that org via `x-two42-org`, not just the
+  branding keys the read path needs. Accepted: the slug is already public by
+  construction (it *is* the header value), and column-level narrowing
+  (`grant select (id, slug, branding)`) is deferred to its own migration, per
+  the one-in-flight-migration rule.

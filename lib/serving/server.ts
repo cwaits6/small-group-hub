@@ -88,7 +88,8 @@ export async function sendSignupConfirmation(
     opts.familyId
   );
 
-  // Fail-soft by contract, so it stays outside any control-flow try/catch.
+  // resolveEmailBranding never throws — it degrades to platform defaults —
+  // so this needs no guard of its own.
   const branding = await resolveEmailBranding(opts.orgId);
 
   const linkMode = await getServingLinkMode(supabase, opts.orgId);
@@ -127,8 +128,15 @@ export async function notifyLeadersOfCancel(
     serviceDate: string;
     memberLabel: string;
     excludeProfileId?: string;
-    // Optional: existing app/api callers don't pass it yet, and
-    // resolveEmailBranding self-resolves from the request org when omitted.
+    // Optional so existing app/api callers stay zero-diff. Omitting it is
+    // NOT equivalent: resolveEmailBranding then self-resolves from the
+    // REQUEST org, which is the deployment's configured org — resolveOrgSlug()
+    // in lib/org.ts ignores the host and returns NEXT_PUBLIC_ORG_SLUG. That
+    // happens to be the right org today only because the deployment is
+    // single-tenant. Any caller holding an already-authorized org_id must
+    // pass it; app/api/serving/link-action (the anonymous signed-link cancel)
+    // has group.org_id in scope and does not yet — tracked as a follow-up,
+    // and it MUST be closed before Phase 5 host→org resolution lands.
     orgId?: string;
   }
 ) {

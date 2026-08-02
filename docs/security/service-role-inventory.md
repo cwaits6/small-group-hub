@@ -53,9 +53,14 @@ Phase 3 checklist.
 
 ## Lib helpers (1 site)
 
-| File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
-|------|--------------------------|--------------------------------|------------|
-| `lib/email/identity.ts` | `resolveEmailBranding(orgId)` reads `organizations.branding` for callers that hold an explicit org id but no request-scoped session (e.g. `lib/serving/server.ts`, invoked from HMAC-signed link flows) | A missing filter would read another org's branding into its email | The `.eq("id", orgId)` filter is the only tenant boundary and is mandatory; the `orgId` is always derived from an already-authorized row (e.g. the validated group). Without an `orgId` the function uses the request-scoped client instead, so RLS applies. |
+Unlike the rows above — inherited from Phase 2 with their mitigations still
+outstanding — this site was introduced *during* Phase 3 with its mitigation
+already shipped. The "once org_id lands" framing does not apply; the risk
+column below describes what a regression would cost, not a pending work item.
+
+| File | Why service-role is used | Tenancy risk | Mitigation |
+|------|--------------------------|--------------|------------|
+| `lib/email/identity.ts` | `resolveEmailBranding(orgId)` reads `organizations.branding` for callers that hold an explicit org id but no request-scoped session (e.g. `lib/serving/server.ts`, invoked from HMAC-signed link flows) | A missing filter would read another org's branding into its email | The `.eq("id", orgId)` filter is the only tenant boundary and is mandatory; the `orgId` is always derived from an already-authorized row (e.g. the validated group). Without an `orgId` the function uses the request-scoped client instead, so RLS applies — but note that resolves to the *request* org, which is host-independent until Phase 5, so any caller holding an authorized `org_id` must pass it. |
 
 ## Edge Functions (2 sites)
 

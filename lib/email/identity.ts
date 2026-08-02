@@ -15,8 +15,12 @@ export type EmailBranding = {
   accentLight: string;
 };
 
-// Display names of only these characters need no quoting (RFC 5322 atext
-// subset plus space).
+// Names of only these characters are emitted unquoted. Deliberately narrower
+// than RFC 5322 permits — and note `.` is NOT atext (RFC 5322 §3.2.3 lists it
+// under specials; an unquoted "Dr. Smith" is legal only via the obsolete
+// obs-phrase production, which every mainstream MTA still accepts).
+// Everything outside this set takes the quoted-string branch below, which is
+// always safe. Widening this set is never necessary; do not.
 const PLAIN_NAME = /^[A-Za-z0-9 ._-]+$/;
 
 /**
@@ -63,6 +67,13 @@ function toEmailBranding(b: OrgBranding): EmailBranding {
 export async function resolveEmailBranding(orgId?: string): Promise<EmailBranding> {
   try {
     if (!orgId) {
+      // The self-resolving path: branding comes from whatever org the request
+      // resolves to, NOT from the row the caller is acting on. Correct only
+      // while resolveOrgSlug() is host-independent (lib/org.ts) — Phase 5
+      // custom domains make this the wrong org for any caller that had an
+      // org_id in scope and did not pass it. This is the diagnostic to grep
+      // for when that lands.
+      console.debug("resolveEmailBranding: no orgId, resolving branding from the request org");
       return toEmailBranding(await getOrgBranding());
     }
     const service = await createServiceClient();
@@ -75,7 +86,15 @@ export async function resolveEmailBranding(orgId?: string): Promise<EmailBrandin
       console.error("Failed to load email branding for org %s, using defaults:", orgId, error);
       return toEmailBranding(BRANDING_DEFAULTS);
     }
-    return toEmailBranding(resolveBranding(data?.branding));
+    if (!data) {
+      // Zero rows comes back as { data: null, error: null }, so it never
+      // reaches the branch above. A service-role read that finds no row means
+      // the orgId itself is stale or wrong-tenant — worth a signal, since the
+      // defaults are indistinguishable from org #1's real branding.
+      console.warn("No organizations row for org %s; using email branding defaults", orgId);
+      return toEmailBranding(BRANDING_DEFAULTS);
+    }
+    return toEmailBranding(resolveBranding(data.branding));
   } catch (err) {
     console.error("Failed to load email branding, using defaults:", err);
     return toEmailBranding(BRANDING_DEFAULTS);
