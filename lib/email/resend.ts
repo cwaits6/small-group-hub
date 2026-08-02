@@ -1,5 +1,11 @@
 import { Resend } from "resend";
 import { siteConfig } from "@/lib/config";
+import {
+  formatFromHeader,
+  PLATFORM_ADDRESS,
+  resolveEmailBranding,
+  type EmailBranding,
+} from "@/lib/email/identity";
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -8,31 +14,35 @@ function getResend() {
 export async function sendInviteEmail(
   email: string,
   name: string,
-  magicLink: string
+  magicLink: string,
+  branding?: EmailBranding
 ) {
+  const b = branding ?? (await resolveEmailBranding());
+  const orgName = escapeHtml(b.fromName);
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
-    subject: `You're invited to ${siteConfig.name}!`,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
+    subject: `You're invited to ${b.fromName}!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">Welcome, ${name}!</h1>
+        <h1 style="color: ${b.accent}; font-size: 28px;">Welcome, ${name}!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-          Your request to join <strong>${siteConfig.name}</strong> has been approved!
+          Your request to join <strong>${orgName}</strong> has been approved!
         </p>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Click the button below to set up your password and get started.
         </p>
         <a href="${magicLink}"
-           style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+           style="display: inline-block; background-color: ${b.accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
           Set Up My Account
         </a>
         <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
           If the button doesn't work, copy and paste this link into your browser:<br />
-          <a href="${magicLink}" style="color: ${siteConfig.colors.primaryLight};">${magicLink}</a>
+          <a href="${magicLink}" style="color: ${b.accentLight};">${magicLink}</a>
         </p>
         <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
-          &mdash; The ${siteConfig.name} Team
+          &mdash; The ${orgName} Team
         </p>
       </div>
     `,
@@ -69,36 +79,40 @@ export async function sendFamilyInviteEmail(
   email: string,
   inviterName: string,
   familyMemberName: string,
-  joinLink: string
+  joinLink: string,
+  branding?: EmailBranding
 ) {
+  const b = branding ?? (await resolveEmailBranding());
+  const orgName = escapeHtml(b.fromName);
   const safeInviterName = escapeHtml(inviterName);
   const safeFamilyMemberName = escapeHtml(familyMemberName);
   const safeJoinLink = sanitizeLink(joinLink);
 
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
-    subject: `${safeInviterName} added you to their household on ${siteConfig.name}`,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
+    subject: `${safeInviterName} added you to their household on ${b.fromName}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">You've been invited!</h1>
+        <h1 style="color: ${b.accent}; font-size: 28px;">You've been invited!</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           <strong>${safeInviterName}</strong> has added <strong>${safeFamilyMemberName}</strong> to their household
-          on <strong>${siteConfig.name}</strong> and would like to invite you to create your own account.
+          on <strong>${orgName}</strong> and would like to invite you to create your own account.
         </p>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Click the button below to sign up and join your household.
         </p>
         <a href="${safeJoinLink}"
-           style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+           style="display: inline-block; background-color: ${b.accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
           Create My Account
         </a>
         <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
           If the button doesn't work, copy and paste this link into your browser:<br />
-          <a href="${safeJoinLink}" style="color: ${siteConfig.colors.primaryLight};">${safeJoinLink}</a>
+          <a href="${safeJoinLink}" style="color: ${b.accentLight};">${safeJoinLink}</a>
         </p>
         <p style="font-size: 14px; color: #78716c; margin-top: 20px;">
-          &mdash; The ${siteConfig.name} Team
+          &mdash; The ${orgName} Team
         </p>
       </div>
     `,
@@ -115,20 +129,24 @@ export async function sendFeedbackEmail(
   senderName: string,
   senderEmail: string | null,
   type: "idea" | "problem",
-  message: string
+  message: string,
+  branding?: EmailBranding
 ) {
+  const b = branding ?? (await resolveEmailBranding());
   const kind = type === "problem" ? "Something's broken" : "An idea";
   const safeSenderName = escapeHtml(senderName);
   const safeMessage = escapeHtml(message).replace(/\n/g, "<br />");
 
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to,
-    ...(senderEmail ? { replyTo: senderEmail } : {}),
-    subject: `${siteConfig.name} feedback from ${senderName}: ${kind}`,
+    // The member's own address must win over the org reply_to — admins
+    // answer the sender directly by replying to this email.
+    ...(senderEmail ?? b.replyTo ? { replyTo: senderEmail ?? b.replyTo ?? undefined } : {}),
+    subject: `${b.fromName} feedback from ${senderName}: ${kind}`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">Member feedback</h1>
+        <h1 style="color: ${b.accent}; font-size: 28px;">Member feedback</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           <strong>${safeSenderName}</strong>${senderEmail ? ` (${escapeHtml(senderEmail)})` : ""}
           sent feedback from the Settings page.
@@ -161,15 +179,18 @@ export async function sendEventReminderEmail(
   name: string,
   eventTitle: string,
   eventDate: string,
-  eventLocation: string | null
+  eventLocation: string | null,
+  branding?: EmailBranding
 ) {
+  const b = branding ?? (await resolveEmailBranding());
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: email,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `Reminder: ${eventTitle} is coming up!`,
     html: `
       <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
-        <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">Event Reminder</h1>
+        <h1 style="color: ${b.accent}; font-size: 28px;">Event Reminder</h1>
         <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
           Hi ${name}, just a reminder that <strong>${eventTitle}</strong> is coming up!
         </p>
@@ -180,11 +201,11 @@ export async function sendEventReminderEmail(
           ${eventLocation ? `<p style="font-size: 18px; margin: 8px 0 0; color: #44403c;"><strong>Where:</strong> ${eventLocation}</p>` : ""}
         </div>
         <a href="${siteConfig.url}/events"
-           style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
+           style="display: inline-block; background-color: ${b.accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;">
           View Event
         </a>
         <p style="font-size: 14px; color: #78716c; margin-top: 40px;">
-          &mdash; The ${siteConfig.name} Team
+          &mdash; The ${escapeHtml(b.fromName)} Team
         </p>
       </div>
     `,

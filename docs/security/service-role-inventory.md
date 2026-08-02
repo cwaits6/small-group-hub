@@ -51,6 +51,12 @@ Phase 3 checklist.
 | `app/api/events/[id]/ics/route.ts` | Bearer-token calendar subscription; no session | Event lookup by id could serve another org's event | Validate the token's `org_id` matches the event's |
 | `app/api/family-invites/claim/route.ts` | New user claiming an invite while their role is still `pending` | Claim could attach the user to another org's family | Bind invites to `org_id`; stamp the claimer's membership accordingly |
 
+## Lib helpers (1 site)
+
+| File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
+|------|--------------------------|--------------------------------|------------|
+| `lib/email/identity.ts` | `resolveEmailBranding(orgId)` reads `organizations.branding` for callers that hold an explicit org id but no request-scoped session (e.g. `lib/serving/server.ts`, invoked from HMAC-signed link flows) | A missing filter would read another org's branding into its email | The `.eq("id", orgId)` filter is the only tenant boundary and is mandatory; the `orgId` is always derived from an already-authorized row (e.g. the validated group). Without an `orgId` the function uses the request-scoped client instead, so RLS applies. |
+
 ## Edge Functions (2 sites)
 
 Both are cron-triggered with no session context and resolve the service key

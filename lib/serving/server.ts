@@ -14,6 +14,7 @@ import {
   sendServingCancelNoticeEmail,
   sendServingConfirmationEmail,
 } from "@/lib/email/serving";
+import { resolveEmailBranding } from "@/lib/email/identity";
 
 export interface NamedProfile {
   id: string;
@@ -87,6 +88,9 @@ export async function sendSignupConfirmation(
     opts.familyId
   );
 
+  // Fail-soft by contract, so it stays outside any control-flow try/catch.
+  const branding = await resolveEmailBranding(opts.orgId);
+
   const linkMode = await getServingLinkMode(supabase, opts.orgId);
   const cancelUrl =
     linkMode === "signed"
@@ -110,6 +114,7 @@ export async function sendSignupConfirmation(
       serviceDate: opts.serviceDate,
       teamName: opts.groupName,
     }),
+    branding,
   });
 }
 
@@ -122,8 +127,12 @@ export async function notifyLeadersOfCancel(
     serviceDate: string;
     memberLabel: string;
     excludeProfileId?: string;
+    // Optional: existing app/api callers don't pass it yet, and
+    // resolveEmailBranding self-resolves from the request org when omitted.
+    orgId?: string;
   }
 ) {
+  const branding = await resolveEmailBranding(opts.orgId);
   const { data: leaders } = await service
     .from("profile_groups")
     .select("profiles(id, first_name, last_name, preferred_name, email)")
@@ -143,6 +152,7 @@ export async function notifyLeadersOfCancel(
         teamName: opts.groupName,
         serviceDate: opts.serviceDate,
         servingUrl: `${siteConfig.url}/serving/${opts.groupId}`,
+        branding,
       });
     } catch (err) {
       console.error("Failed to send serving cancel notice to leader:", leader.id, err);

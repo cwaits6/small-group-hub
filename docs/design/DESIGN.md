@@ -71,15 +71,16 @@ Tokens come in two layers.
 
 **1. Product tokens — fixed.** Defined as CSS custom properties in `app/globals.css` (`@theme`): the Fraunces wordmark, shell chrome, structural neutrals, spacing, radii, and semantic colors. Not overridable by a tenant.
 
-**2. Tenant tokens — per-org (planned).** The **`organizations.branding`** (jsonb) column exists in the schema (Phase 1, #210) but nothing reads or applies it yet — the API and runtime below describe the intended design, not current behavior:
+**2. Tenant tokens — per-org.** The **`organizations.branding`** (jsonb) column (Phase 1, #210) is read at runtime since Phase 3 (#212) by `lib/branding.ts`, which validates each key and falls back per-key to the platform defaults:
 
 | Key | Meaning |
 |---|---|
-| `display_name` | the church/group name shown within their space |
-| `logo_url` | their logo (falls back to their name set in Fraunces) |
-| `accent` | a single accent color, validated for contrast |
+| `display_name` | the church/group name shown within their space (tab title, email sender name) |
+| `logo_url` | their logo (falls back to their name set in Fraunces; not rendered yet — a later phase) |
+| `accent` | a single accent color (strict 6-digit hex); drives `--color-brand-primary` **and** the shadcn `--primary` / `--ring` / `--sidebar-primary` / `--sidebar-ring` |
+| `reply_to` | the org's Reply-To address on outbound email (the platform From: domain never varies) |
 
-Once built, tenant tokens will be resolved for the active org and applied to the app root at runtime; there will be no per-tenant CSS bundle.
+Tenant tokens are resolved for the active org per request and applied to the app root as CSS custom properties in `app/layout.tsx`; there is no per-tenant CSS bundle. Outbound email in `lib/email/*` carries the same identity: the org's `display_name` as the From: display name and `reply_to` as Reply-To.
 
 A tenant may not change layout, typography, structural or semantic colors, or the two42 wordmark on platform-level surfaces (sign-in, "powered by").
 

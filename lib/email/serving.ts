@@ -5,6 +5,12 @@
 import { Resend } from "resend";
 import { siteConfig } from "@/lib/config";
 import { escapeHtml } from "@/lib/email/resend";
+import {
+  formatFromHeader,
+  PLATFORM_ADDRESS,
+  resolveEmailBranding,
+  type EmailBranding,
+} from "@/lib/email/identity";
 import { formatServiceDateWithYear } from "@/lib/serving/sundays";
 
 function getResend() {
@@ -12,14 +18,17 @@ function getResend() {
 }
 
 const bodyText = `font-size: 18px; line-height: 1.6; color: #44403c;`;
-const bigButton = `display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;`;
 const footer = `font-size: 14px; color: #78716c; margin-top: 40px;`;
 
-function wrap(inner: string): string {
+function bigButton(accent: string): string {
+  return `display: inline-block; background-color: ${accent}; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-size: 18px; margin-top: 20px;`;
+}
+
+function wrap(inner: string, fromName: string): string {
   return `
     <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
       ${inner}
-      <p style="${footer}">&mdash; The ${siteConfig.name} Team</p>
+      <p style="${footer}">&mdash; The ${escapeHtml(fromName)} Team</p>
     </div>
   `;
 }
@@ -32,14 +41,17 @@ export async function sendServingConfirmationEmail(opts: {
   attendeesLabel: string;
   cancelUrl: string;
   icsContent: string;
+  branding?: EmailBranding;
 }) {
+  const b = opts.branding ?? (await resolveEmailBranding());
   const dateLabel = formatServiceDateWithYear(opts.serviceDate);
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: opts.to,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `You're signed up: ${opts.teamName}, ${dateLabel}`,
     html: wrap(`
-      <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">You're all set!</h1>
+      <h1 style="color: ${b.accent}; font-size: 28px;">You're all set!</h1>
       <p style="${bodyText}">
         Hi ${escapeHtml(opts.name)}, thank you for serving with the
         <strong>${escapeHtml(opts.teamName)}</strong>.
@@ -57,10 +69,10 @@ export async function sendServingConfirmationEmail(opts: {
       </p>
       <p style="${footer}">
         Can&rsquo;t make it after all? No problem &mdash;
-        <a href="${opts.cancelUrl}" style="color: ${siteConfig.colors.primaryLight};">click here to cancel</a>
+        <a href="${opts.cancelUrl}" style="color: ${b.accentLight};">click here to cancel</a>
         and the Sunday will open back up for someone else.
       </p>
-    `),
+    `, b.fromName),
     attachments: [
       {
         filename: `serving-${opts.serviceDate}.ics`,
@@ -83,22 +95,25 @@ export async function sendServingCancelNoticeEmail(opts: {
   teamName: string;
   serviceDate: string;
   servingUrl: string;
+  branding?: EmailBranding;
 }) {
+  const b = opts.branding ?? (await resolveEmailBranding());
   const dateLabel = formatServiceDateWithYear(opts.serviceDate);
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: opts.to,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `${opts.teamName}: ${dateLabel} is open again`,
     html: wrap(`
-      <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">A Sunday opened up</h1>
+      <h1 style="color: ${b.accent}; font-size: 28px;">A Sunday opened up</h1>
       <p style="${bodyText}">
         Hi ${escapeHtml(opts.leaderName)},
         <strong>${escapeHtml(opts.memberLabel)}</strong> can no longer serve with the
         <strong>${escapeHtml(opts.teamName)}</strong> on <strong>${dateLabel}</strong>,
         so that Sunday is open again.
       </p>
-      <a href="${opts.servingUrl}" style="${bigButton}">View the Schedule</a>
-    `),
+      <a href="${opts.servingUrl}" style="${bigButton(b.accent)}">View the Schedule</a>
+    `, b.fromName),
   });
 
   if (error) {
@@ -115,7 +130,9 @@ export async function sendServingBroadcastEmail(opts: {
   fromName: string;
   message?: string;
   openDates: { date: string; url: string }[];
+  branding?: EmailBranding;
 }) {
+  const b = opts.branding ?? (await resolveEmailBranding());
   const rows = opts.openDates
     .map(
       ({ date, url }) => `
@@ -126,7 +143,7 @@ export async function sendServingBroadcastEmail(opts: {
             </td>
             <td align="right" style="padding: 14px 0;">
               <a href="${url}"
-                 style="display: inline-block; background-color: ${siteConfig.colors.primary}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-size: 16px; white-space: nowrap;">
+                 style="display: inline-block; background-color: ${b.accent}; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-size: 16px; white-space: nowrap;">
                 I&rsquo;ll do it
               </a>
             </td>
@@ -136,11 +153,12 @@ export async function sendServingBroadcastEmail(opts: {
     .join("");
 
   const { error } = await getResend().emails.send({
-    from: siteConfig.email.from,
+    from: formatFromHeader(b.fromName, PLATFORM_ADDRESS),
     to: opts.to,
+    ...(b.replyTo ? { replyTo: b.replyTo } : {}),
     subject: `${opts.teamName}: Sundays that still need someone`,
     html: wrap(`
-      <h1 style="color: ${siteConfig.colors.primary}; font-size: 28px;">Can you take a Sunday?</h1>
+      <h1 style="color: ${b.accent}; font-size: 28px;">Can you take a Sunday?</h1>
       <p style="${bodyText}">
         Hi ${escapeHtml(opts.name)}, ${escapeHtml(opts.fromName)} is looking for
         volunteers from the <strong>${escapeHtml(opts.teamName)}</strong> for the
@@ -150,9 +168,9 @@ export async function sendServingBroadcastEmail(opts: {
       ${rows}
       <p style="${footer}">
         Already spoken for? You can always see who&rsquo;s covering each week at
-        <a href="${siteConfig.url}/serving" style="color: ${siteConfig.colors.primaryLight};">${siteConfig.url}/serving</a>.
+        <a href="${siteConfig.url}/serving" style="color: ${b.accentLight};">${siteConfig.url}/serving</a>.
       </p>
-    `),
+    `, b.fromName),
   });
 
   if (error) {

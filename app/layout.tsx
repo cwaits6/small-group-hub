@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { siteConfig } from "@/lib/config";
+import { getOrgBranding, resolveBranding, type OrgBranding } from "@/lib/branding";
 import "./globals.css";
 
 const cormorant = Cormorant_Garamond({
@@ -33,10 +34,15 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: siteConfig.name,
-  description: siteConfig.description,
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await getOrgBranding();
+  return {
+    // No title.template: 25 pages already hardcode "| siteConfig.name" in
+    // their static titles, and a template would double the suffix.
+    title: b.display_name,
+    description: siteConfig.description,
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -52,15 +58,20 @@ export default async function RootLayout({
 
   let profile = null;
   let hasServingAccess = false;
+  let branding: OrgBranding | null = null;
   if (hasAuthCookie) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      // Branding rides the existing profiles select as a PostgREST embed
+      // (profiles_org_id_fkey) — zero added round trips on this path.
       const [{ data }, { data: groupData }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("profiles").select("*, organizations(branding)").eq("id", user.id).single(),
         supabase.from("profile_groups").select("group_id").eq("profile_id", user.id),
       ]);
-      profile = data;
+      const { organizations: org, ...profileRow } = data ?? {};
+      profile = data ? profileRow : null;
+      branding = resolveBranding(org?.branding);
 
       if (profile?.role === "admin") {
         hasServingAccess = true;
@@ -74,6 +85,10 @@ export default async function RootLayout({
       }
     }
   }
+
+  // Anon path: no existing fetch to ride, so this is one cache()-memoized
+  // indexed PK lookup shared with generateMetadata.
+  const b = branding ?? (await getOrgBranding());
 
   return (
     // suppressHydrationWarning: the head script sets data-textsize on <html>
@@ -93,12 +108,16 @@ export default async function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               :root {
-                --color-brand-primary: ${siteConfig.colors.primary};
+                --color-brand-primary: ${b.accent};
                 --color-brand-primary-light: ${siteConfig.colors.primaryLight};
                 --color-brand-accent: ${siteConfig.colors.accent};
                 --color-brand-warm: ${siteConfig.colors.warm};
                 --color-brand-bg-light: ${siteConfig.colors.backgroundLight};
                 --color-brand-bg-muted: ${siteConfig.colors.backgroundMuted};
+                --primary: ${b.accent};
+                --ring: ${b.accent};
+                --sidebar-primary: ${b.accent};
+                --sidebar-ring: ${b.accent};
               }
             `,
           }}

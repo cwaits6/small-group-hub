@@ -174,21 +174,16 @@ invite yourself, then promote yourself.
 
 ## Customizing for Your Group
 
-All group-specific branding lives in one file — `lib/config.ts`:
+Branding lives in the database, in the `organizations.branding` jsonb column
+(`display_name`, `logo_url`, `accent`, `reply_to`). The app shell theme, the tab
+title, and outbound email all read it per-org at runtime — onboarding a second
+organization is a database insert, not a redeploy.
 
-```typescript
-export const siteConfig = {
-  name: "Your Group Name",
-  description: "A welcoming community of faith, growing together in God's Word.",
-  tagline: "Encouraging one another daily",
-  url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-  email: {
-    from: "Your Group <noreply@yourgroup.org>",
-  },
-} as const;
-```
-
-Change `name` and you're done. Colors can be adjusted in `app/globals.css`. Everything else — events, announcements, donation links — is managed through the admin panel at runtime.
+The `NEXT_PUBLIC_APP_NAME` / `NEXT_PUBLIC_COLOR_*` / `NEXT_PUBLIC_EMAIL_FROM`
+environment variables (see `.env.example`) survive only as last-resort fallback
+defaults, used when an org's branding row is empty or unreadable. Everything
+else — events, announcements, donation links — is managed through the admin
+panel at runtime.
 
 ---
 
