@@ -9,10 +9,11 @@ export default async function PlatformOrganizationsPage() {
   const user = await getPlatformAdmin();
   if (!user) redirect("/dashboard");
 
-  // Cross-org read: organizations is the tenant root (no org_id), and this
-  // list existing is the whole point of the platform surface. See
-  // docs/security/service-role-inventory.md.
   const service = await createServiceClient();
+  // org-anchor: organizations is the tenant root and carries no org_id column,
+  // and listing every tenant is the whole point of this surface.
+  // getPlatformAdmin() above is the authority boundary standing in for an org
+  // predicate here. See docs/security/service-role-inventory.md.
   const { data: orgs, error } = await service
     .from("organizations")
     .select("id, name, slug, status, created_at")

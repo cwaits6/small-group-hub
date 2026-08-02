@@ -10,10 +10,11 @@ export default async function PlatformOverviewPage() {
   const user = await getPlatformAdmin();
   if (!user) redirect("/dashboard");
 
-  // Cross-org read: organizations is the tenant root (no org_id), and
-  // platform-admin authority is cross-org by design. See
-  // docs/security/service-role-inventory.md.
   const service = await createServiceClient();
+  // org-anchor: organizations is the tenant root and carries no org_id column,
+  // and counting every tenant is the whole point of the platform overview.
+  // getPlatformAdmin() above is the authority boundary standing in for an org
+  // predicate here. See docs/security/service-role-inventory.md.
   const { data: orgs, error } = await service.from("organizations").select("id, status");
 
   // A failed read would otherwise render a confident "0 active, 0 suspended"
