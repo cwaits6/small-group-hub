@@ -10,7 +10,12 @@ tables it touches.
 **Adding a new `createServiceClient()` call site? Add a row here in the same
 PR, with the justification and the tenancy risk.**
 
-## Phase 3 status (CWA-10 / #212) — app code
+## Phase 3 status (CWA-10 / #212)
+
+`org_id` is now the database-enforced boundary for anon/authenticated roles
+(see [`tenancy-model.md`](tenancy-model.md)) — but service-role clients
+carry `BYPASSRLS`, so every site below needed its own per-site mitigation.
+With this pass both tables are closed; storage is still open.
 
 Every app-code site below now derives `org_id` from a row or token it has
 already validated — the calendar subscription-token row, the HMAC-signed
@@ -30,10 +35,23 @@ Two deliberate behaviour changes shipped with this pass:
   is now a real `500 Failed to link profile to family` instead of a silent
   success.
 
-The **Edge Functions rows below remain open** and are owned by the parallel
-edge-function stream, including the duplicate default-org constant and the
-key-only `resolveCanSign` read in
-`supabase/functions/send-serving-reminders/index.ts`.
+The two Edge Function sites were closed by the parallel edge-function
+stream (Phase 3, #212 — see the table below).
+
+What earlier phases already closed on this surface:
+
+- `getServingLinkMode()` (`lib/serving/config.ts`) requires an `orgId` and
+  filters `site_settings` on it (Phase 2) — the key-only read errored
+  outright at two orgs. All four call sites derive the org from the
+  validated group row. The last copy of the bug class, `resolveCanSign` in
+  `supabase/functions/send-serving-reminders/index.ts`, was closed in
+  Phase 3 (#212): it now takes an `orgId`, filters `site_settings` on it,
+  and throws on query error instead of silently degrading links to unsigned.
+- `app/api/serving/link-action/route.ts` derives `org_id` for its inserts
+  from the HMAC-validated group row instead of the hardcoded default-org
+  constant; the composite `(group_id, org_id)` FK enforces the pairing.
+- The DB-layer analogue, `giving_stewards_can_manage()`, is org-scoped in
+  the schema itself.
 
 ## App routes and pages (13 sites)
 
@@ -59,10 +77,11 @@ Both are cron-triggered with no session context and resolve the service key
 from configured environment variables: a manual `SUPABASE_SECRET_KEY` override
 (local/self-host only — the hosted platform reserves the prefix), then the
 platform-injected `SUPABASE_SECRET_KEYS` map, then the legacy
-`SUPABASE_SERVICE_ROLE_KEY` (see `resolveServiceKey()` in each function), not
+`SUPABASE_SERVICE_ROLE_KEY` (see `resolveServiceKey()` in
+`supabase/functions/_shared/service-key.ts`, shared by both), not
 `createServiceClient()`.
 
 | File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
 |------|--------------------------|--------------------------------|------------|
-| `supabase/functions/send-event-reminders/index.ts` | Cron job; reads events/RSVPs and emails attendees with no user session | Reminder fan-out iterates all rows across orgs | Iterate per-org (group reminder queries by `org_id`) so content never crosses orgs |
-| `supabase/functions/send-serving-reminders/index.ts` | Cron job; reads serving signups and emails assignees with no user session | Same as `send-event-reminders` | Same as `send-event-reminders` |
+| `supabase/functions/send-event-reminders/index.ts` | Cron job; reads events/RSVPs and emails attendees with no user session | Reminder fan-out iterates all rows across orgs | **Implemented (Phase 3, #212):** iterates active orgs via `_shared/orgs.ts`, every query filtered on `org_id`, per-org failures isolated so one org cannot suppress another's send |
+| `supabase/functions/send-serving-reminders/index.ts` | Cron job; reads serving signups and emails assignees with no user session | Same as `send-event-reminders` | **Implemented (Phase 3, #212):** same per-org iteration and `org_id` filters; `resolveCanSign` org-scoped; `serving_broadcasts` audit rows stamped with the processed row's org, not a constant |
