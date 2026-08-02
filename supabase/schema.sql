@@ -445,12 +445,67 @@ begin
       using errcode = 'TN004';
   end if;
 
+  -- 7. Nor may the owner email hold an approved access request or unclaimed
+  -- family invite in another org (a profile-less owner: invited or approved
+  -- elsewhere but not yet signed up). The step-5 insert would then be a
+  -- SECOND match for handle_new_user(), which rejects the owner's eventual
+  -- signup as ambiguous (TN002) — a broken state this transaction would
+  -- otherwise commit. The org_id filter excludes the request created in
+  -- step 5; checked after step 6 so an email that also has a profile keeps
+  -- raising TN004.
+  if exists (
+    select 1 from public.access_requests
+    where lower(email) = lower(_owner_email)
+      and status = 'approved'
+      and org_id <> _org_id
+  ) or exists (
+    select 1 from public.family_invites
+    where lower(invite_email) = lower(_owner_email)
+      and accepted_at is null
+      and org_id <> _org_id
+  ) then
+    raise exception 'owner email % already has an approved access request or unclaimed invite in another organization', _owner_email
+      using errcode = 'TN005';
+  end if;
+
   return _org_id;
 end;
 $_$;
 
 
 ALTER FUNCTION "public"."provision_organization"("_name" "text", "_slug" "text", "_owner_email" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rls_auto_enable"() RETURNS "event_trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'pg_catalog'
+    AS $$
+DECLARE
+  cmd record;
+BEGIN
+  FOR cmd IN
+    SELECT *
+    FROM pg_event_trigger_ddl_commands()
+    WHERE command_tag IN ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO')
+      AND object_type IN ('table','partitioned table')
+  LOOP
+     IF cmd.schema_name IS NOT NULL AND cmd.schema_name IN ('public') AND cmd.schema_name NOT IN ('pg_catalog','information_schema') AND cmd.schema_name NOT LIKE 'pg_toast%' AND cmd.schema_name NOT LIKE 'pg_temp%' THEN
+      BEGIN
+        EXECUTE format('alter table if exists %s enable row level security', cmd.object_identity);
+        RAISE LOG 'rls_auto_enable: enabled RLS on %', cmd.object_identity;
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE LOG 'rls_auto_enable: failed to enable RLS on %', cmd.object_identity;
+      END;
+     ELSE
+        RAISE LOG 'rls_auto_enable: skip % (either system schema or not in enforced list: %.)', cmd.object_identity, cmd.schema_name;
+     END IF;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."rls_auto_enable"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."touch_updated_at"() RETURNS "trigger"
@@ -865,8 +920,8 @@ CREATE TABLE IF NOT EXISTS "public"."lecture_series" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
     "teacher" "text",
-    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "is_archived" boolean DEFAULT false NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL
 );
 
@@ -989,10 +1044,10 @@ CREATE TABLE IF NOT EXISTS "public"."prayer_requests" (
     "body" "text" NOT NULL,
     "category" "text" NOT NULL,
     "is_anonymous" boolean DEFAULT false NOT NULL,
+    "visible_to_warriors" boolean DEFAULT false NOT NULL,
     "is_answered" boolean DEFAULT false NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "visible_to_warriors" boolean DEFAULT false NOT NULL,
     "org_id" "uuid" DEFAULT "public"."app_current_org_id"() NOT NULL,
     CONSTRAINT "prayer_requests_body_check" CHECK ((("char_length"("body") >= 1) AND ("char_length"("body") <= 2000))),
     CONSTRAINT "prayer_requests_category_check" CHECK (("category" = ANY (ARRAY['health'::"text", 'family'::"text", 'thanksgiving'::"text", 'prodigal'::"text", 'guidance'::"text", 'grief'::"text"])))
@@ -1349,8 +1404,6 @@ ALTER TABLE ONLY "public"."page_content"
 
 
 
-
-
 ALTER TABLE ONLY "public"."platform_admins"
     ADD CONSTRAINT "platform_admins_pkey" PRIMARY KEY ("profile_id");
 
@@ -1521,9 +1574,6 @@ CREATE INDEX "lectures_org_id_idx" ON "public"."lectures" USING "btree" ("org_id
 
 
 CREATE INDEX "lectures_series_id_idx" ON "public"."lectures" USING "btree" ("series_id");
-
-
-
 
 
 
@@ -1924,8 +1974,6 @@ ALTER TABLE ONLY "public"."page_content"
 
 ALTER TABLE ONLY "public"."page_content"
     ADD CONSTRAINT "page_content_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "auth"."users"("id") ON DELETE SET NULL;
-
-
 
 
 
@@ -2454,8 +2502,6 @@ CREATE POLICY "Members can view own subscription token" ON "public"."calendar_su
 
 
 
-
-
 CREATE POLICY "Members can view prayer call sessions" ON "public"."prayer_call_sessions" FOR SELECT TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND ( SELECT "public"."is_member"() AS "is_member")));
 
 
@@ -2519,12 +2565,6 @@ CREATE POLICY "Signup owners can add attendees" ON "public"."serving_signup_atte
 CREATE POLICY "Signup owners can remove attendees" ON "public"."serving_signup_attendees" FOR DELETE TO "authenticated" USING ((("org_id" = ( SELECT "public"."app_request_org_id"() AS "app_request_org_id")) AND (EXISTS ( SELECT 1
    FROM "public"."serving_signups" "s"
   WHERE (("s"."id" = "serving_signup_attendees"."signup_id") AND (("s"."created_by" = ( SELECT "auth"."uid"() AS "uid")) OR ( SELECT "public"."is_admin"() AS "is_admin") OR "public"."is_group_leader"("s"."group_id")))))));
-
-
-
-
-
-
 
 
 
@@ -2873,6 +2913,12 @@ GRANT ALL ON FUNCTION "public"."provision_organization"("_name" "text", "_slug" 
 
 
 
+GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "anon";
+GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."rls_auto_enable"() TO "service_role";
+
+
+
 GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."touch_updated_at"() TO "service_role";
@@ -3008,8 +3054,6 @@ GRANT ALL ON TABLE "public"."organizations" TO "service_role";
 GRANT ALL ON TABLE "public"."page_content" TO "anon";
 GRANT ALL ON TABLE "public"."page_content" TO "authenticated";
 GRANT ALL ON TABLE "public"."page_content" TO "service_role";
-
-
 
 
 
