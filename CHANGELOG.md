@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/cwaits6/two42/compare/v1.3.1...v1.4.0) (2026-08-02)
+
+
+### Features
+
+* **platform:** /platform operator area + org lifecycle (CWA-11 Phase 4a, stream 1/2) ([#325](https://github.com/cwaits6/two42/issues/325)) ([7fae19f](https://github.com/cwaits6/two42/commit/7fae19fa070c806ca338aa84b922fe062a5aa78f)), closes [#317](https://github.com/cwaits6/two42/issues/317) [#317](https://github.com/cwaits6/two42/issues/317) [#318](https://github.com/cwaits6/two42/issues/318) [#318](https://github.com/cwaits6/two42/issues/318) [#FFFF00](https://github.com/cwaits6/two42/issues/FFFF00) [#FFFFFF](https://github.com/cwaits6/two42/issues/FFFFFF) [#FFFFFF](https://github.com/cwaits6/two42/issues/FFFFFF) [#B85C38](https://github.com/cwaits6/two42/issues/B85C38) [#319](https://github.com/cwaits6/two42/issues/319) [#213](https://github.com/cwaits6/two42/issues/213) [#B85C38](https://github.com/cwaits6/two42/issues/B85C38) [#BF6C4C](https://github.com/cwaits6/two42/issues/BF6C4C) [#BE6B49](https://github.com/cwaits6/two42/issues/BE6B49) [#A65332](https://github.com/cwaits6/two42/issues/A65332) [#326](https://github.com/cwaits6/two42/issues/326)
+
 ## [1.3.1](https://github.com/cwaits6/two42/compare/v1.3.0...v1.3.1) (2026-08-02)
 
 
