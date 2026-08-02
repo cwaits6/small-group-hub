@@ -22,6 +22,13 @@ export const HEX = /^#[0-9a-fA-F]{6}$/;
  * scores 3.93:1 there, which is why DESIGN.md reserves deep clay (#8A4227)
  * for body text on light grounds. Do not "fix" this by changing the
  * reference.
+ *
+ * Scope: the SOLID fill only. Buttons darken on hover by compositing the
+ * accent at 90% alpha (`hover:bg-brand-primary/90`, and the shadcn Button
+ * default variant), and that composite is NOT validated here — Clay's is
+ * ~3.84:1 over a white card. Validating it would reject Clay itself; the fix
+ * is a solid darkened hover token, tracked as an accepted limit in
+ * docs/design/DESIGN.md. Do not raise ACCENT_CONTRAST_MIN to cover it.
  */
 export const ACCENT_CONTRAST_REFERENCE = "#FFFFFF";
 export const ACCENT_CONTRAST_MIN = 4.5;
