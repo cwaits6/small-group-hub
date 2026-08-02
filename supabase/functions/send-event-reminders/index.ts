@@ -1,49 +1,71 @@
 // Supabase Edge Function: send-event-reminders
 // Triggered by pg_cron daily at 8am — schedule defined in
 // supabase/migrations/20260729000000_reminder_cron_schedules.sql
-// Sends email reminders to users RSVPed to events starting in the next 24 hours
+// Sends email reminders to users RSVPed to events starting in the next 24 hours.
+//
+// Runs with the service key (BYPASSRLS), so tenant isolation lives in the
+// query text: iterates every active organization and filters each query on
+// org_id explicitly (CWA-10 Phase 3, #212).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveServiceKey } from "../_shared/service-key.ts";
+import {
+  forEachOrg,
+  listActiveOrgs,
+  summarize,
+  type Org,
+  type OrgListClient,
+} from "../_shared/orgs.ts";
+
+// What createClient(url, key) actually returns; ReturnType<typeof createClient>
+// resolves the unbound generics to a different, incompatible instantiation.
+type ServiceClient = SupabaseClient<any, "public", any>;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-// Service key resolution. The platform reserves the SUPABASE_ prefix for
-// its own injected vars, so SUPABASE_SECRET_KEY can never be set manually
-// via `supabase secrets set`: on hosted projects with new-style API keys it
-// arrives as the JSON map SUPABASE_SECRET_KEYS (keyed by key name, "default"
-// unless renamed); legacy projects and the local CLI stack inject
-// SUPABASE_SERVICE_ROLE_KEY instead.
-function resolveServiceKey(): string {
-  const direct = Deno.env.get("SUPABASE_SECRET_KEY");
-  if (direct) return direct;
-  const map = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (map) {
-    try {
-      const parsed: unknown = JSON.parse(map);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const keys = parsed as Record<string, unknown>;
-        const key = keys["default"] ?? Object.values(keys)[0];
-        if (typeof key === "string" && key) return key;
-      }
-      console.error("SUPABASE_SECRET_KEYS has no usable key; falling back");
-    } catch {
-      console.error("SUPABASE_SECRET_KEYS is not valid JSON; falling back");
-    }
-  }
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (typeof legacy === "string" && legacy) return legacy;
-  throw new Error(
-    "No service key found: expected SUPABASE_SECRET_KEY, SUPABASE_SECRET_KEYS, or SUPABASE_SERVICE_ROLE_KEY"
-  );
-}
 const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 
-Deno.serve(async () => {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+// ── Email ─────────────────────────────────────────────────────────────────────
 
+async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<boolean> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from: EMAIL_FROM, to: opts.to, subject: opts.subject, html: opts.html }),
+    });
+    if (!res.ok) {
+      console.error("Resend error for", opts.to, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Resend request failed for", opts.to, err);
+    return false;
+  }
+}
+
+// ── Per-org run ───────────────────────────────────────────────────────────────
+
+// PostgREST `.in()` filters serialize into the query string; chunk large id
+// lists to stay under URL-length limits.
+const IN_CHUNK_SIZE = 200;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+async function runForOrg(supabase: ServiceClient, org: Org): Promise<number> {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
@@ -51,39 +73,53 @@ Deno.serve(async () => {
   const { data: events, error: eventsError } = await supabase
     .from("events")
     .select("id, title, start_time, location")
+    .eq("org_id", org.id)
     .gte("start_time", now.toISOString())
     .lte("start_time", tomorrow.toISOString());
 
-  if (eventsError || !events?.length) {
-    return new Response(JSON.stringify({ message: "No events to remind about" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  if (eventsError) throw new Error(`events query failed: ${eventsError.message}`);
+  if (!events?.length) return 0;
 
-  let emailsSent = 0;
+  let sent = 0;
 
   for (const event of events) {
     // Get RSVPs with "yes" or "maybe"
-    const { data: rsvps } = await supabase
+    const { data: rsvps, error: rsvpsError } = await supabase
       .from("rsvps")
       .select("user_id")
+      .eq("org_id", org.id)
       .eq("event_id", event.id)
       .in("status", ["yes", "maybe"]);
 
+    if (rsvpsError) throw new Error(`rsvps query failed: ${rsvpsError.message}`);
     if (!rsvps?.length) continue;
 
     const userIds = rsvps.map((r) => r.user_id);
 
-    // Get user emails
-    for (const userId of userIds) {
-      const { data: userData } = await supabase.auth.admin.getUserById(userId);
-      const { data: profile } = await supabase
+    // One batched read of the trigger-synced profiles.email column replaces
+    // the old per-user admin identity lookups (two round trips per attendee).
+    // A profile can be missing for an RSVP user_id; iterating the returned
+    // rows skips it.
+    const profiles: Array<{
+      id: string;
+      first_name: string | null;
+      preferred_name: string | null;
+      email: string | null;
+    }> = [];
+    for (const ids of chunk(userIds, IN_CHUNK_SIZE)) {
+      const { data: batch, error: profilesError } = await supabase
         .from("profiles")
-        .select("first_name, preferred_name")
-        .eq("id", userId)
-        .single();
+        .select("id, first_name, preferred_name, email")
+        .eq("org_id", org.id)
+        .in("id", ids);
+      if (profilesError) throw new Error(`profiles query failed: ${profilesError.message}`);
+      profiles.push(...((batch ?? []) as typeof profiles));
+    }
 
-      if (!userData?.user?.email) continue;
+    for (const profile of profiles) {
+      // Pending profiles (e.g. spouses who have never logged in) can have no
+      // email — skip, don't throw.
+      if (!profile.email) continue;
 
       const eventDate = new Date(event.start_time).toLocaleDateString("en-US", {
         weekday: "long",
@@ -93,22 +129,14 @@ Deno.serve(async () => {
         minute: "2-digit",
       });
 
-      // Send via Resend
-      await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: EMAIL_FROM,
-          to: userData.user.email,
-          subject: `Reminder: ${event.title} is tomorrow!`,
-          html: `
+      if (await sendEmail({
+        to: profile.email,
+        subject: `Reminder: ${event.title} is tomorrow!`,
+        html: `
             <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
               <h1 style="color: ${BRAND_COLOR}; font-size: 28px;">Event Reminder</h1>
               <p style="font-size: 18px; line-height: 1.6; color: #44403c;">
-                Hi ${profile?.preferred_name || profile?.first_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
+                Hi ${profile.preferred_name || profile.first_name || "Friend"}, just a reminder that <strong>${event.title}</strong> is coming up!
               </p>
               <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <p style="font-size: 18px; margin: 0; color: #44403c;">
@@ -122,15 +150,23 @@ Deno.serve(async () => {
               </a>
             </div>
           `,
-        }),
-      });
-
-      emailsSent++;
+      })) sent++;
     }
   }
 
+  return sent;
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+
+Deno.serve(async () => {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
+  // Cast: structurally checking the full SupabaseClient against OrgListClient
+  // trips TS2589 (excessively deep instantiation) on current supabase-js.
+  const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
+  const summary = summarize(await forEachOrg(orgs, (org) => runForOrg(supabase, org)));
   return new Response(
-    JSON.stringify({ message: `Sent ${emailsSent} reminder emails` }),
-    { headers: { "Content-Type": "application/json" } }
+    JSON.stringify({ message: `Sent ${summary.emailsSent} reminder emails`, ...summary }),
+    { headers: { "Content-Type": "application/json" } },
   );
 });

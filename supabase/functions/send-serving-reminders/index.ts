@@ -7,40 +7,26 @@
 //   - "send-serving-reminders-daily": remind attendees of covered Sundays
 //     (per-team reminder_days — see serving_team_settings)
 //   - "send-serving-monthly-broadcast": broadcast open Sundays on the 1st
+//
+// Runs with the service key (BYPASSRLS), so tenant isolation lives in the
+// query text: iterates every active organization and filters each query on
+// org_id explicitly (CWA-10 Phase 3, #212).
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveServiceKey } from "../_shared/service-key.ts";
+import {
+  forEachOrg,
+  listActiveOrgs,
+  summarize,
+  type OrgListClient,
+} from "../_shared/orgs.ts";
+
+// What createClient(url, key) actually returns; ReturnType<typeof createClient>
+// resolves the unbound generics to a different, incompatible instantiation.
+type ServiceClient = SupabaseClient<any, "public", any>;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-// Service key resolution. The platform reserves the SUPABASE_ prefix for
-// its own injected vars, so SUPABASE_SECRET_KEY can never be set manually
-// via `supabase secrets set`: on hosted projects with new-style API keys it
-// arrives as the JSON map SUPABASE_SECRET_KEYS (keyed by key name, "default"
-// unless renamed); legacy projects and the local CLI stack inject
-// SUPABASE_SERVICE_ROLE_KEY instead.
-function resolveServiceKey(): string {
-  const direct = Deno.env.get("SUPABASE_SECRET_KEY");
-  if (direct) return direct;
-  const map = Deno.env.get("SUPABASE_SECRET_KEYS");
-  if (map) {
-    try {
-      const parsed: unknown = JSON.parse(map);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        const keys = parsed as Record<string, unknown>;
-        const key = keys["default"] ?? Object.values(keys)[0];
-        if (typeof key === "string" && key) return key;
-      }
-      console.error("SUPABASE_SECRET_KEYS has no usable key; falling back");
-    } catch {
-      console.error("SUPABASE_SECRET_KEYS is not valid JSON; falling back");
-    }
-  }
-  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (typeof legacy === "string" && legacy) return legacy;
-  throw new Error(
-    "No service key found: expected SUPABASE_SECRET_KEY, SUPABASE_SECRET_KEYS, or SUPABASE_SERVICE_ROLE_KEY"
-  );
-}
 const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
 const EMAIL_FROM = Deno.env.get("EMAIL_FROM") || "two42 <noreply@incouragers.org>";
@@ -48,10 +34,6 @@ const APP_NAME = Deno.env.get("APP_NAME") || "two42";
 const BRAND_COLOR = Deno.env.get("BRAND_COLOR") || "#B85C38";
 const SERVING_LINK_SECRET = Deno.env.get("SERVING_LINK_SECRET");
 const SERVING_LINK_MODE = Deno.env.get("SERVING_LINK_MODE") || "signed";
-// Phase 1 interim (org spine, #210): service-role inserts get NULL from the
-// fail-closed org_id DEFAULT, so the default org is passed explicitly.
-// Mirrors lib/org.ts; Phase 3 makes this function org-iterating.
-const DEFAULT_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 // ── HMAC token (same format as lib/serving/links.ts) ─────────────────────────
 
@@ -178,12 +160,19 @@ function wrap(inner: string): string {
 
 // ── Shared: resolve link mode ─────────────────────────────────────────────────
 
-async function resolveCanSign(supabase: ReturnType<typeof createClient>): Promise<boolean> {
-  const { data } = await supabase
+// Org-scoped: the key-only read errored outright at two orgs (the bug class
+// closed for the app layer in lib/serving/config.ts and recorded for this
+// function in docs/security/service-role-inventory.md). An unresolvable link
+// mode is an org-level failure — throw so the per-org boundary catches it
+// instead of silently degrading every link to unsigned.
+async function resolveCanSign(supabase: ServiceClient, orgId: string): Promise<boolean> {
+  const { data, error } = await supabase
     .from("site_settings")
     .select("value")
+    .eq("org_id", orgId)
     .eq("key", "serving_link_mode")
     .maybeSingle();
+  if (error) throw new Error(`site_settings query failed: ${error.message}`);
   const mode = (data?.value ?? SERVING_LINK_MODE) === "login" ? "login" : "signed";
   return mode === "signed" && !!SERVING_LINK_SECRET;
 }
@@ -191,43 +180,52 @@ async function resolveCanSign(supabase: ReturnType<typeof createClient>): Promis
 // ── Daily mode: remind attendees of the next covered Sunday ──────────────────
 
 async function runDaily(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceClient,
+  orgId: string,
   canSign: boolean
 ): Promise<number> {
   const todayDow = new Date().getDay();
 
   // Only process teams whose reminder_days include today
-  const { data: teamSettings } = await supabase
+  const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
     .select("group_id")
+    .eq("org_id", orgId)
     .eq("enabled", true)
     .contains("reminder_days", [todayDow]);
 
+  if (teamSettingsError) {
+    throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
+  }
   if (!teamSettings?.length) return 0;
 
   let sent = 0;
 
   for (const { group_id } of teamSettings) {
-    const { data: group } = await supabase
+    const { data: group, error: groupError } = await supabase
       .from("member_groups")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", group_id)
-      .single();
+      .maybeSingle();
+    if (groupError) throw new Error(`member_groups query failed: ${groupError.message}`);
     if (!group) continue;
     const teamName = group.name as string;
 
     const sunday = nextSunday();
 
-    const { data: signup } = await supabase
+    const { data: signup, error: signupError } = await supabase
       .from("serving_signups")
       .select("id, serving_signup_attendees(profiles(id, first_name, preferred_name, email))")
+      .eq("org_id", orgId)
       .eq("group_id", group_id)
       .eq("service_date", sunday)
       .maybeSingle();
+    if (signupError) throw new Error(`serving_signups query failed: ${signupError.message}`);
 
     if (!signup) continue; // open Sunday — no reminder to send
 
-    const attendees = (signup.serving_signup_attendees ?? []) as Array<{
+    const attendees = (signup.serving_signup_attendees ?? []) as unknown as Array<{
       profiles: { id: string; first_name: string | null; preferred_name: string | null; email: string | null } | null;
     }>;
 
@@ -275,36 +273,45 @@ async function runDaily(
 // ── Monthly mode: broadcast open Sundays to the whole team ───────────────────
 
 async function runMonthly(
-  supabase: ReturnType<typeof createClient>,
+  supabase: ServiceClient,
+  orgId: string,
   canSign: boolean
 ): Promise<number> {
-  const { data: teamSettings } = await supabase
+  const { data: teamSettings, error: teamSettingsError } = await supabase
     .from("serving_team_settings")
     .select("group_id, window_weeks")
+    .eq("org_id", orgId)
     .eq("enabled", true);
 
+  if (teamSettingsError) {
+    throw new Error(`serving_team_settings query failed: ${teamSettingsError.message}`);
+  }
   if (!teamSettings?.length) return 0;
 
   let sent = 0;
 
   for (const { group_id, window_weeks } of teamSettings) {
     let teamSent = 0;
-    const { data: group } = await supabase
+    const { data: group, error: groupError } = await supabase
       .from("member_groups")
       .select("name")
+      .eq("org_id", orgId)
       .eq("id", group_id)
-      .single();
+      .maybeSingle();
+    if (groupError) throw new Error(`member_groups query failed: ${groupError.message}`);
     if (!group) continue;
     const teamName = group.name as string;
 
     const sundays = upcomingSundays(window_weeks ?? 8);
 
     // Find which Sundays are already covered
-    const { data: signups } = await supabase
+    const { data: signups, error: signupsError } = await supabase
       .from("serving_signups")
       .select("service_date")
+      .eq("org_id", orgId)
       .eq("group_id", group_id)
       .in("service_date", sundays);
+    if (signupsError) throw new Error(`serving_signups query failed: ${signupsError.message}`);
 
     const covered = new Set((signups ?? []).map((s) => s.service_date as string));
     const openDates = sundays.filter((d) => !covered.has(d));
@@ -312,13 +319,15 @@ async function runMonthly(
     if (!openDates.length) continue; // all covered — nothing to broadcast
 
     // Get all team members
-    const { data: members } = await supabase
+    const { data: members, error: membersError } = await supabase
       .from("profile_groups")
       .select("profiles(id, first_name, preferred_name, email, email_announcements)")
+      .eq("org_id", orgId)
       .eq("group_id", group_id);
+    if (membersError) throw new Error(`profile_groups query failed: ${membersError.message}`);
 
     for (const row of members ?? []) {
-      const m = row.profiles as {
+      const m = row.profiles as unknown as {
         id: string;
         first_name: string | null;
         preferred_name: string | null;
@@ -372,15 +381,21 @@ async function runMonthly(
       })) { sent++; teamSent++; }
     }
 
-    // Log broadcast (service key bypasses RLS; sent_by = null marks automated)
-    await supabase.from("serving_broadcasts").insert({
+    // Log broadcast (service key bypasses RLS; sent_by = null marks automated;
+    // org_id comes from the row context being processed, not a constant).
+    // Do not throw on failure — the emails have already gone out, and an
+    // audit-log problem must not abort the remaining teams.
+    const { error: broadcastError } = await supabase.from("serving_broadcasts").insert({
       group_id,
       sent_by: null,
-      org_id: DEFAULT_ORG_ID,
+      org_id: orgId,
       subject: `${teamName}: monthly open-Sunday broadcast`,
       open_dates: openDates,
       recipient_count: teamSent,
     });
+    if (broadcastError) {
+      console.error(`[org ${orgId}] serving_broadcasts insert failed for group ${group_id}:`, broadcastError.message);
+    }
   }
 
   return sent;
@@ -398,15 +413,22 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
-  const canSign = await resolveCanSign(supabase);
-
-  const sent =
-    mode === "monthly"
-      ? await runMonthly(supabase, canSign)
-      : await runDaily(supabase, canSign);
+  // Cast: structurally checking the full SupabaseClient against OrgListClient
+  // trips TS2589 (excessively deep instantiation) on current supabase-js.
+  const orgs = await listActiveOrgs(supabase as unknown as OrgListClient);
+  const summary = summarize(
+    await forEachOrg(orgs, async (org) => {
+      // Resolved inside the per-org callback so a failure here is caught by
+      // this org's boundary instead of aborting the whole run.
+      const canSign = await resolveCanSign(supabase, org.id);
+      return mode === "monthly"
+        ? await runMonthly(supabase, org.id, canSign)
+        : await runDaily(supabase, org.id, canSign);
+    }),
+  );
 
   return new Response(
-    JSON.stringify({ mode, message: `Sent ${sent} emails` }),
+    JSON.stringify({ mode, message: `Sent ${summary.emailsSent} emails`, ...summary }),
     { headers: { "Content-Type": "application/json" } }
   );
 });

@@ -81,6 +81,32 @@ jobs:
           npm run db:types
           git diff --exit-code lib/supabase/database.types.ts
 
+  # Edge function unit tests (CWA-10 / #212). Pure units against the
+  # _shared/ modules — no network, no database. `deno check` on the two
+  # index.ts files is deliberately not run here: it fetches esm.sh at build
+  # time and would make the job flaky on a third-party CDN; the
+  # `supabase functions deploy` step below is the bundling gate for those.
+  deno-test:
+    name: Edge function unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+
+      - name: Type-check shared edge function modules
+        run: deno check supabase/functions/_shared/*.ts
+
+      - name: Run edge function unit tests
+        run: deno test --allow-env supabase/functions/tests/
+
   migrate:
     name: Push migrations & dump schema
     if: github.event_name == 'push'
