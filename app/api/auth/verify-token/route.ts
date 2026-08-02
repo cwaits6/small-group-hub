@@ -10,6 +10,8 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceClient();
 
+  // org-anchor: signup_token resolves the org; org_id is unknown until this
+  // row returns it (docs/security/service-role-inventory.md).
   // The service client bypasses RLS, so the token row is the org anchor for
   // this pre-login flow. handle_new_user() does not simply re-read this row:
   // it matches lower(email) across access_requests ∪ family_invites and

@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "guard:tenancy": "node scripts/check-service-role-org-scope.mjs",
     "db:types": "supabase gen types typescript --local --schema public > lib/supabase/database.types.ts.tmp && mv lib/supabase/database.types.ts.tmp lib/supabase/database.types.ts"
   },
   "dependencies": {

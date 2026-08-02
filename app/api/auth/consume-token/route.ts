@@ -10,6 +10,8 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceClient();
 
+  // org-anchor: signup_token resolves the org; org_id is unknown until this
+  // row returns it (docs/security/service-role-inventory.md).
   // This lookup genuinely cannot be org-scoped: org_id isn't known until this
   // row resolves it. signup_token is currently globally UNIQUE, so
   // .maybeSingle() is safe today; if that constraint ever became per-org,
