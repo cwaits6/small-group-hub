@@ -17,14 +17,29 @@ PR, with the justification and the tenancy risk.**
 carry `BYPASSRLS`, so every site below needed its own per-site mitigation.
 With this pass both tables are closed; storage is still open.
 
-Every app-code site below now derives `org_id` from a row or token it has
-already validated — the calendar subscription-token row, the HMAC-signed
-link's group row, the family-invite row, or the caller's own RLS-scoped
-profile — and filters every subsequent service-role query on that value.
-The interim default-org UUID constant is deleted from `lib/org.ts`; the
-anon join form resolves its org server-side through the same
-`app_request_org_id()` the `access_requests` RLS `WITH CHECK` evaluates,
-so the two values can no longer drift.
+Every app-code site below now derives `org_id` from an anchor it has already
+validated — the calendar subscription-token row, the HMAC-signed link's
+group row, the family-invite row, the caller's own RLS-scoped profile, or
+`app_request_org_id()` resolved through the cookie-bound request client —
+and filters every subsequent service-role query on that value. The interim
+default-org UUID constant is deleted from `lib/org.ts`.
+
+`app_request_org_id()` is the anchor for the two anonymous entry points, the
+join form and `app/join/family/[token]/page.tsx`. It returns a signed-in
+caller's own org and ignores `x-two42-org`; only a genuinely anonymous
+request resolves the header's slug, and only to a real `organizations` row.
+It is the same value the `access_requests` RLS `WITH CHECK` evaluates, so
+the two cannot drift. Both sites fail closed on both failure modes — an RPC
+error and a NULL result (a slug matching no organization row) are each
+logged, then the family-invite page redirects to `/join` and the join form
+renders a "Join requests unavailable" notice instead of a form whose every
+submission would die on a bare `42501`. Neither falls back to an org.
+
+One lookup is deliberately unscoped: the initial `signup_token` read in
+`app/api/auth/consume-token/route.ts` and `app/api/auth/verify-token/route.ts`,
+where the token row is what resolves the org. Both fail closed if it yields
+no row or a NULL `org_id`, and every subsequent operation is scoped to the
+resolved row's `org_id`.
 
 Two deliberate behaviour changes shipped with this pass:
 
@@ -81,7 +96,7 @@ platform-injected `SUPABASE_SECRET_KEYS` map, then the legacy
 `supabase/functions/_shared/service-key.ts`, shared by both), not
 `createServiceClient()`.
 
-| File | Why service-role is used | Tenancy risk once org_id lands | Mitigation |
-|------|--------------------------|--------------------------------|------------|
+| File | Why service-role is used | Historical tenancy risk | Mitigation |
+|------|--------------------------|-------------------------|------------|
 | `supabase/functions/send-event-reminders/index.ts` | Cron job; reads events/RSVPs and emails attendees with no user session | Reminder fan-out iterates all rows across orgs | **Implemented (Phase 3, #212):** iterates active orgs via `_shared/orgs.ts`, every query filtered on `org_id`, per-org failures isolated so one org cannot suppress another's send |
 | `supabase/functions/send-serving-reminders/index.ts` | Cron job; reads serving signups and emails assignees with no user session | Same as `send-event-reminders` | **Implemented (Phase 3, #212):** same per-org iteration and `org_id` filters; `resolveCanSign` org-scoped; `serving_broadcasts` audit rows stamped with the processed row's org, not a constant |
