@@ -18,11 +18,23 @@ function resolveServiceKey(): string {
   if (direct) return direct;
   const map = Deno.env.get("SUPABASE_SECRET_KEYS");
   if (map) {
-    const keys = JSON.parse(map) as Record<string, string>;
-    const key = keys["default"] ?? Object.values(keys)[0];
-    if (key) return key;
+    try {
+      const parsed: unknown = JSON.parse(map);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const keys = parsed as Record<string, unknown>;
+        const key = keys["default"] ?? Object.values(keys)[0];
+        if (typeof key === "string" && key) return key;
+      }
+      console.error("SUPABASE_SECRET_KEYS has no usable key; falling back");
+    } catch {
+      console.error("SUPABASE_SECRET_KEYS is not valid JSON; falling back");
+    }
   }
-  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (typeof legacy === "string" && legacy) return legacy;
+  throw new Error(
+    "No service key found: expected SUPABASE_SECRET_KEY, SUPABASE_SECRET_KEYS, or SUPABASE_SERVICE_ROLE_KEY"
+  );
 }
 const SUPABASE_SECRET_KEY = resolveServiceKey();
 const SITE_URL = Deno.env.get("SITE_URL") || "https://incouragers.org";
