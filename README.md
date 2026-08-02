@@ -134,10 +134,10 @@ two42 was built to solve exactly that. It has since been open-sourced so other g
    `NEXT_PUBLIC_ORG_SLUG` is optional and defaults to `default`, which matches the
    organization the migrations seed. It is sent as the `x-two42-org` header so
    anonymous visitors resolve the right tenant — if you set it, it must be the slug
-   of the **seeded default organization** (`DEFAULT_ORG_ID` in `lib/org.ts`), not
-   merely any existing `organizations.slug`: the anonymous `/join` form inserts
-   that fixed org id, so a slug pointing at a different organization rejects every
-   join submission. See
+   of a real row in `organizations`. Anonymous flows (the `/join` form, public
+   content) resolve their org from this slug via `app_request_org_id()`, so a slug
+   that matches no organization makes those flows fail closed rather than fall back
+   to another tenant. See
    [`docs/security/tenancy-model.md`](docs/security/tenancy-model.md).
 
 6. **Start the dev server**
@@ -199,9 +199,9 @@ Change `name` and you're done. Colors can be adjusted in `app/globals.css`. Ever
 1. Push your code to GitHub
 2. Connect the repo at [vercel.com/new](https://vercel.com/new)
 3. Add all 5 environment variables (same as `.env.local`, with your production domain for `NEXT_PUBLIC_SITE_URL`)
-4. Only set `NEXT_PUBLIC_ORG_SLUG` if you renamed the seeded organization — it must
-   be the slug of that same seeded organization (`DEFAULT_ORG_ID` in `lib/org.ts`);
-   pointing it at any other organization makes anonymous join requests fail
+4. Only set `NEXT_PUBLIC_ORG_SLUG` if you renamed the seeded organization or run a
+   different one — it must be the slug of a real `organizations` row, or the
+   anonymous `/join` page reports that join requests are unavailable
 5. Click **Deploy**
 
 Then update your Supabase redirect URLs to include your production domain.

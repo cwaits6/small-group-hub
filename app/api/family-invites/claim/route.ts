@@ -9,9 +9,11 @@ import { NextResponse } from "next/server";
  *
  * Actions:
  * 1. Validate the invite token is still open (not accepted)
- * 2. Link profiles.family_id to the invite's family
- * 3. Set family_members.claimed_profile_id to the new user's profile id
- * 4. Mark family_invites.accepted_at = now()
+ * 2. Verify the caller's own org matches the invite's org (403 on mismatch)
+ * 3. Link profiles.family_id to the invite's family (500 if the scoped
+ *    update matches zero rows)
+ * 4. Set family_members.claimed_profile_id to the new user's profile id
+ * 5. Mark family_invites.accepted_at = now()
  *
  * The caller must be authenticated (newly signed-in user).
  * Service client is used for the update so RLS doesn't block the new user.
@@ -40,12 +42,16 @@ export async function POST(request: Request) {
   // Use service client so we can bypass RLS (new user may not yet have member role)
   const service = await createServiceClient();
 
-  // Load the invite
+  // Load the invite — its row is the org anchor for every write below
   const { data: invite, error: inviteError } = await service
     .from("family_invites")
-    .select("id, family_id, family_member_id, invite_email, accepted_at")
+    .select("id, org_id, family_id, family_member_id, invite_email, accepted_at")
     .eq("token", invite_token)
     .maybeSingle();
+
+  if (inviteError) {
+    console.error("family-invites/claim: invite lookup error:", inviteError);
+  }
 
   if (inviteError || !invite) {
     return NextResponse.json({ error: "Invite not found" }, { status: 404 });
@@ -66,41 +72,93 @@ export async function POST(request: Request) {
     );
   }
 
-  const now = new Date().toISOString();
-
-  // 1. Link the new profile to the family
-  const { error: profileError } = await service
+  // The caller is authenticated but their role may still be `pending`, so RLS
+  // is not doing this check for us — and handle_new_user() should already
+  // have placed them in the invite's org, so a mismatch is a real anomaly.
+  const { data: callerProfile, error: callerError } = await service
     .from("profiles")
-    .update({ family_id: invite.family_id })
-    .eq("id", user.id);
+    .select("org_id")
+    .eq("id", user.id)
+    .single();
 
-  if (profileError) {
-    console.error("family-invites/claim: profile update error:", profileError);
+  if (callerError) {
+    console.error("family-invites/claim: caller profile lookup error:", callerError);
     return NextResponse.json(
       { error: "Failed to link profile to family" },
       { status: 500 },
     );
   }
 
+  if (callerProfile.org_id !== invite.org_id) {
+    console.error(
+      "family-invites/claim: caller org %s does not match invite org %s (user=%s, invite=%s)",
+      callerProfile.org_id,
+      invite.org_id,
+      user.id,
+      invite.id,
+    );
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const now = new Date().toISOString();
+
+  // 1. Link the new profile to the family. The scoped update returning zero
+  // rows is a real failure — without .select() an update matching nothing
+  // reported success while linking nothing.
+  const { data: linked, error: profileError } = await service
+    .from("profiles")
+    .update({ family_id: invite.family_id })
+    .eq("id", user.id)
+    .eq("org_id", invite.org_id)
+    .select("id");
+
+  if (profileError) {
+    console.error(
+      "family-invites/claim: profile update error (user=%s, invite=%s, org=%s):",
+      user.id, invite.id, invite.org_id, profileError,
+    );
+    return NextResponse.json({ error: "Failed to link profile to family" }, { status: 500 });
+  }
+
+  // Zero rows after the org check above passed means the profile row moved or
+  // vanished mid-request — a tenancy anomaly, not an ordinary failure.
+  if (!linked || linked.length === 0) {
+    console.error(
+      "family-invites/claim: scoped profile update matched 0 rows (user=%s, invite=%s, org=%s)",
+      user.id, invite.id, invite.org_id,
+    );
+    return NextResponse.json({ error: "Failed to link profile to family" }, { status: 500 });
+  }
+
   // 2. Mark the family_members record as claimed
-  const { error: fmError } = await service
+  const { data: fmUpdated, error: fmError } = await service
     .from("family_members")
     .update({ claimed_profile_id: user.id })
-    .eq("id", invite.family_member_id);
+    .eq("id", invite.family_member_id)
+    .eq("org_id", invite.org_id)
+    .select("id");
 
-  if (fmError) {
-    console.error("family-invites/claim: family_members update error:", fmError);
+  if (fmError || !fmUpdated || fmUpdated.length === 0) {
+    console.error(
+      "family-invites/claim: family_members update matched 0 rows or failed (user=%s, invite=%s, org=%s):",
+      user.id, invite.id, invite.org_id, fmError,
+    );
     // Non-fatal — profile is already linked; log and continue
   }
 
   // 3. Mark the invite as accepted
-  const { error: acceptError } = await service
+  const { data: accepted, error: acceptError } = await service
     .from("family_invites")
     .update({ accepted_at: now })
-    .eq("id", invite.id);
+    .eq("id", invite.id)
+    .eq("org_id", invite.org_id)
+    .select("id");
 
-  if (acceptError) {
-    console.warn("family-invites/claim: failed to mark invite accepted (id=%s):", invite.id, acceptError);
+  if (acceptError || !accepted || accepted.length === 0) {
+    console.warn(
+      "family-invites/claim: failed to mark invite accepted (id=%s, org=%s):",
+      invite.id, invite.org_id, acceptError,
+    );
     // Profile is already linked; return partial success so admin can remediate
     return NextResponse.json({ success: true, warning: "Profile linked but invite record was not updated." });
   }

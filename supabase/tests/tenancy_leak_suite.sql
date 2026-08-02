@@ -574,19 +574,26 @@ insert into tenancy_leak_results
   select is(current_setting('leak_suite.anon_approved'), '42501',
     'anon INSERT arriving pre-approved is rejected — no self-approved signup trust anchor (RLS 42501)');
 
--- Cross-layer coupling: JoinForm.tsx inserts org_id = DEFAULT_ORG_ID
--- ("00000000-…-0001", lib/org.ts) while the policy above resolves the org
--- from resolveOrgSlug()'s slug, which defaults to 'default'. Nothing in the
--- app keeps the two in sync, so pin the one fact that makes them agree: the
--- seeded default org must carry both that id AND that slug. If a migration
--- ever renames it, this fails here instead of silently rejecting every join
--- submission in production with a bare 42501 and no log line.
+-- The join flow (Phase 3, CWA-10) resolves its org through the same
+-- app_request_org_id() the policy above evaluates — but the slug
+-- resolveOrgSlug() defaults to ('default', lib/org.ts) must still be
+-- reachable. If a migration renames the seeded org's slug,
+-- app_request_org_id() returns NULL for anon and the join page fails closed
+-- to "Join requests unavailable" (with an operator log line as of CWA-10's
+-- review pass) rather than ever reaching a 42501 — pin it here so that
+-- drift shows up as a test failure instead of only at that page.
+--
+-- This assertion is a seed-integrity check, not proof that no UUID↔slug
+-- coupling exists: it keys on the hardcoded seed UUID below, which still has
+-- to agree with whatever resolveOrgSlug() resolves to. A differently-idded
+-- org seeded with slug 'default' would pass this assertion while breaking
+-- the join flow it is meant to guard.
 insert into tenancy_leak_results
   select is(
     (select slug from public.organizations
       where id = '00000000-0000-0000-0000-000000000001'::uuid),
     'default',
-    'the seeded DEFAULT_ORG_ID org has slug ''default'' (lib/org.ts coupling holds)');
+    'the seeded org (00000000-0000-0000-0000-000000000001) still carries the slug resolveOrgSlug() defaults to (''default'')');
 
 -- ── platform_admins (org-orthogonal, unchanged by the org floor) ────────────
 do $$
